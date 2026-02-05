@@ -221,8 +221,9 @@ public class ClientGenerationTests
             var content = File.ReadAllText(clientPath);
 
             // Check for query parameter handling in ListPets method
-            content.Should().Contain("var queryParams = new List<string>();");
-            content.Should().Contain("if (limit != null) queryParams.Add($\"limit={limit}\");");
+            content.Should().Contain("var queryString = new List<string>();");
+            content.Should().Contain("if (limit != null)");
+            content.Should().Contain("Uri.EscapeDataString");
         }
         finally
         {

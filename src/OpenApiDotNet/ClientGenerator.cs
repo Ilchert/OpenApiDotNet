@@ -152,8 +152,8 @@ public class ClientGenerator
         sb.AppendLine("    /// </summary>");
 
         var parameters = new List<string>();
-        var pathParams = new List<(string name, string paramName)>();
-        var queryParams = new List<(string name, string paramName, bool required)>();
+        var pathParams = new List<(string name, string paramName, string paramType)>();
+        var queryParams = new List<(string name, string paramName, string paramType, bool required)>();
         string? requestBodyType = null;
 
         if (operation.Parameters != null)
@@ -168,11 +168,11 @@ public class ClientGenerator
 
                 if (parameter.In == ParameterLocation.Path)
                 {
-                    pathParams.Add((parameter.Name, paramName));
+                    pathParams.Add((parameter.Name, paramName, paramType));
                 }
                 else if (parameter.In == ParameterLocation.Query)
                 {
-                    queryParams.Add((parameter.Name, paramName, isRequired));
+                    queryParams.Add((parameter.Name, paramName, paramType, isRequired));
                 }
             }
         }
@@ -194,32 +194,8 @@ public class ClientGenerator
         sb.AppendLine($"    public async Task<{responseType}> {methodName}Async({string.Join(", ", parameters)})");
         sb.AppendLine("    {");
 
-        var processedPath = path;
-        foreach (var param in pathParams)
-        {
-            processedPath = processedPath.Replace($"{{{param.name}}}", $"{{{param.paramName}}}");
-        }
-
-        if (queryParams.Any())
-        {
-            sb.AppendLine("        var queryParams = new List<string>();");
-            foreach (var param in queryParams)
-            {
-                if (param.required)
-                {
-                    sb.AppendLine($"        queryParams.Add($\"{param.name}={{{param.paramName}}}\");");
-                }
-                else
-                {
-                    sb.AppendLine($"        if ({param.paramName} != null) queryParams.Add($\"{param.name}={{{param.paramName}}}\");");
-                }
-            }
-            sb.AppendLine($"        var url = $\"{processedPath}\" + (queryParams.Any() ? \"?\" + string.Join(\"&\", queryParams) : \"\");");
-        }
-        else
-        {
-            sb.AppendLine($"        var url = $\"{processedPath}\";");
-        }
+        // Generate URL building code with proper encoding
+        GenerateUrlBuilding(sb, path, pathParams, queryParams);
 
         sb.AppendLine();
 
@@ -227,6 +203,61 @@ public class ClientGenerator
 
         sb.AppendLine("    }");
         sb.AppendLine();
+    }
+
+    private void GenerateUrlBuilding(StringBuilder sb, string path, 
+        List<(string name, string paramName, string paramType)> pathParams, 
+        List<(string name, string paramName, string paramType, bool required)> queryParams)
+    {
+        if (pathParams.Any() || queryParams.Any())
+        {
+            // Build path with proper encoding
+            if (pathParams.Any())
+            {
+                sb.AppendLine("        // Build path with URL-encoded parameters");
+                sb.Append("        var url = $\"");
+                var urlPath = path;
+                foreach (var param in pathParams)
+                {
+                    // Replace {paramName} with {Uri.EscapeDataString(paramName.ToString())}
+                    urlPath = urlPath.Replace($"{{{param.name}}}", $"{{Uri.EscapeDataString({param.paramName}.ToString())}}");
+                }
+                sb.Append(urlPath);
+                sb.AppendLine("\";");
+            }
+            else
+            {
+                sb.AppendLine($"        var url = \"{path}\";");
+            }
+
+            // Add query parameters with proper encoding
+            if (queryParams.Any())
+            {
+                sb.AppendLine();
+                sb.AppendLine("        // Build query string with URL-encoded parameters");
+                sb.AppendLine("        var queryString = new List<string>();");
+                
+                foreach (var param in queryParams)
+                {
+                    if (param.required)
+                    {
+                        sb.AppendLine($"        queryString.Add($\"{param.name}={{Uri.EscapeDataString({param.paramName}.ToString())}}\");");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"        if ({param.paramName} != null)");
+                        sb.AppendLine($"            queryString.Add($\"{param.name}={{Uri.EscapeDataString({param.paramName}.ToString())}}\");");
+                    }
+                }
+                
+                sb.AppendLine("        if (queryString.Any())");
+                sb.AppendLine("            url += \"?\" + string.Join(\"&\", queryString);");
+            }
+        }
+        else
+        {
+            sb.AppendLine($"        var url = \"{path}\";");
+        }
     }
 
     private void GenerateHttpCall(StringBuilder sb, OperationType operationType, string responseType, bool hasRequestBody)

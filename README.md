@@ -147,16 +147,53 @@ public class PetStoreAPIClient
     /// </summary>
     public async Task<List<Pet>> ListPetsAsync(int? limit, CancellationToken cancellationToken = default)
     {
-        var queryParams = new List<string>();
-        if (limit != null) queryParams.Add($"limit={limit}");
-        var url = $"/pets" + (queryParams.Any() ? "?" + string.Join("&", queryParams) : "");
+        var url = "/pets";
+
+        // Build query string with URL-encoded parameters
+        var queryString = new List<string>();
+        if (limit != null)
+            queryString.Add($"limit={Uri.EscapeDataString(limit.ToString())}");
+        if (queryString.Any())
+            url += "?" + string.Join("&", queryString);
 
         var response = await _httpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<List<Pet>>(_jsonOptions, cancellationToken) 
             ?? throw new InvalidOperationException("Response was null");
     }
+
+    /// <summary>
+    /// Get a pet by ID
+    /// </summary>
+    public async Task<Pet> GetPetByIdAsync(long petId, CancellationToken cancellationToken = default)
+    {
+        // Build path with URL-encoded parameters
+        var url = $"/pets/{Uri.EscapeDataString(petId.ToString())}";
+
+        var response = await _httpClient.GetAsync(url, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<Pet>(_jsonOptions, cancellationToken) 
+            ?? throw new InvalidOperationException("Response was null");
+    }
 }
+```
+
+## URL Encoding & Path Parameters
+
+The generator automatically handles URL encoding for:
+- **Path Parameters**: All path parameters are properly URL-encoded to handle special characters
+- **Query Parameters**: Query string values are URL-encoded for safe transmission
+- **Special Characters**: Spaces, ampersands, and other special characters are properly escaped
+
+Example with special characters:
+```csharp
+// Path parameter encoding
+await client.GetOwnerPetAsync("john doe", 123);
+// Generates: /owners/john%20doe/pets/123
+
+// Query parameter encoding
+await client.ListPetsAsync(limit: 10, status: "available & active");
+// Generates: /pets?limit=10&status=available%20%26%20active
 ```
 
 ## Using Generated Code
@@ -273,8 +310,9 @@ Reference ? Custom Type
 
 - ? OpenAPI 3.0 specifications
 - ? JSON and YAML input formats
-- ? Path parameters
-- ? Query parameters
+- ? Path parameters with URL encoding
+- ? Query parameters with URL encoding
+- ? Multiple path parameters (e.g., `/owners/{ownerId}/pets/{petId}`)
 - ? Request bodies
 - ? Response models
 - ? Schema references (`$ref`)
@@ -283,6 +321,7 @@ Reference ? Custom Type
 - ? HTTP methods: GET, POST, PUT, PATCH, DELETE
 - ? Operation IDs for method naming
 - ? Descriptions and summaries
+- ? Special character encoding in URLs
 
 ## Naming Conventions
 
