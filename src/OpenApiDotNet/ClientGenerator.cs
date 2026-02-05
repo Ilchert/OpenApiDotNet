@@ -1,0 +1,406 @@
+using Microsoft.OpenApi.Models;
+using System.Text;
+
+namespace OpenApiDotNet;
+
+/// <summary>
+/// Generates C# client code from OpenAPI specifications
+/// </summary>
+public class ClientGenerator
+{
+    private readonly OpenApiDocument _document;
+    private readonly string _namespace;
+    private readonly string _outputDirectory;
+    private readonly HashSet<string> _generatedModels = new();
+
+    public ClientGenerator(OpenApiDocument document, string namespaceName, string outputDirectory)
+    {
+        _document = document ?? throw new ArgumentNullException(nameof(document));
+        _namespace = namespaceName ?? throw new ArgumentNullException(nameof(namespaceName));
+        _outputDirectory = outputDirectory ?? throw new ArgumentNullException(nameof(outputDirectory));
+    }
+
+    /// <summary>
+    /// Generates all client code including models, client class, and JSON configuration
+    /// </summary>
+    public void Generate()
+    {
+        GenerateModels();
+        GenerateClient();
+        GenerateJsonConfiguration();
+    }
+
+    private void GenerateModels()
+    {
+        var modelsDirectory = Path.Combine(_outputDirectory, "Models");
+        Directory.CreateDirectory(modelsDirectory);
+
+        if (_document.Components?.Schemas == null)
+            return;
+
+        foreach (var schema in _document.Components.Schemas)
+        {
+            GenerateModel(schema.Key, schema.Value, modelsDirectory);
+        }
+    }
+
+    private void GenerateModel(string name, OpenApiSchema schema, string directory)
+    {
+        if (_generatedModels.Contains(name))
+            return;
+
+        _generatedModels.Add(name);
+
+        var sb = new StringBuilder();
+        sb.AppendLine("using System.Text.Json.Serialization;");
+        sb.AppendLine("using NodaTime;");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {_namespace}.Models;");
+        sb.AppendLine();
+
+        if (!string.IsNullOrEmpty(schema.Description))
+        {
+            sb.AppendLine("/// <summary>");
+            sb.AppendLine($"/// {EscapeXmlComment(schema.Description)}");
+            sb.AppendLine("/// </summary>");
+        }
+
+        sb.AppendLine($"public class {name}");
+        sb.AppendLine("{");
+
+        if (schema.Properties != null)
+        {
+            foreach (var property in schema.Properties)
+            {
+                var propertyName = ToPascalCase(property.Key);
+                var propertyType = GetCSharpType(property.Value);
+                var isRequired = schema.Required?.Contains(property.Key) ?? false;
+
+                if (!string.IsNullOrEmpty(property.Value.Description))
+                {
+                    sb.AppendLine("    /// <summary>");
+                    sb.AppendLine($"    /// {EscapeXmlComment(property.Value.Description)}");
+                    sb.AppendLine("    /// </summary>");
+                }
+
+                sb.AppendLine($"    [JsonPropertyName(\"{property.Key}\")]");
+                sb.AppendLine($"    public {propertyType}{(isRequired ? "" : "?")} {propertyName} {{ get; set; }}");
+                sb.AppendLine();
+            }
+        }
+
+        sb.AppendLine("}");
+
+        var filePath = Path.Combine(directory, $"{name}.cs");
+        File.WriteAllText(filePath, sb.ToString());
+        Console.WriteLine($"  Generated model: {name}");
+    }
+
+    private void GenerateClient()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("using System.Net.Http.Json;");
+        sb.AppendLine("using System.Text.Json;");
+        sb.AppendLine("using NodaTime;");
+        sb.AppendLine($"using {_namespace}.Models;");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {_namespace};");
+        sb.AppendLine();
+
+        var clientName = GetClientName();
+        
+        sb.AppendLine("/// <summary>");
+        sb.AppendLine($"/// {EscapeXmlComment(_document.Info.Description ?? _document.Info.Title ?? "API Client")}");
+        sb.AppendLine("/// </summary>");
+        sb.AppendLine($"public class {clientName}");
+        sb.AppendLine("{");
+        sb.AppendLine("    private readonly HttpClient _httpClient;");
+        sb.AppendLine("    private readonly JsonSerializerOptions _jsonOptions;");
+        sb.AppendLine();
+        sb.AppendLine($"    public {clientName}(HttpClient httpClient)");
+        sb.AppendLine("    {");
+        sb.AppendLine("        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));");
+        sb.AppendLine("        _jsonOptions = JsonConfiguration.CreateOptions();");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+
+        if (_document.Paths != null)
+        {
+            foreach (var path in _document.Paths)
+            {
+                foreach (var operation in path.Value.Operations)
+                {
+                    GenerateOperation(sb, path.Key, operation.Key, operation.Value);
+                }
+            }
+        }
+
+        sb.AppendLine("}");
+
+        var filePath = Path.Combine(_outputDirectory, $"{clientName}.cs");
+        File.WriteAllText(filePath, sb.ToString());
+        Console.WriteLine($"  Generated client: {clientName}");
+    }
+
+    private void GenerateOperation(StringBuilder sb, string path, OperationType operationType, OpenApiOperation operation)
+    {
+        var methodName = operation.OperationId ?? $"{operationType}{path.Replace("/", "").Replace("{", "").Replace("}", "")}";
+        methodName = ToPascalCase(methodName);
+
+        sb.AppendLine("    /// <summary>");
+        sb.AppendLine($"    /// {EscapeXmlComment(operation.Summary ?? operation.Description ?? methodName)}");
+        sb.AppendLine("    /// </summary>");
+
+        var parameters = new List<string>();
+        var pathParams = new List<(string name, string paramName)>();
+        var queryParams = new List<(string name, string paramName, bool required)>();
+        string? requestBodyType = null;
+
+        if (operation.Parameters != null)
+        {
+            foreach (var parameter in operation.Parameters)
+            {
+                var paramName = ToCamelCase(parameter.Name);
+                var paramType = GetCSharpType(parameter.Schema);
+                var isRequired = parameter.Required;
+
+                parameters.Add($"{paramType}{(isRequired ? "" : "?")} {paramName}");
+
+                if (parameter.In == ParameterLocation.Path)
+                {
+                    pathParams.Add((parameter.Name, paramName));
+                }
+                else if (parameter.In == ParameterLocation.Query)
+                {
+                    queryParams.Add((parameter.Name, paramName, isRequired));
+                }
+            }
+        }
+
+        if (operation.RequestBody != null)
+        {
+            var content = operation.RequestBody.Content.FirstOrDefault();
+            if (content.Value?.Schema?.Reference != null)
+            {
+                requestBodyType = content.Value.Schema.Reference.Id;
+                parameters.Add($"{requestBodyType} request");
+            }
+        }
+
+        var responseType = GetResponseType(operation);
+
+        parameters.Add("CancellationToken cancellationToken = default");
+
+        sb.AppendLine($"    public async Task<{responseType}> {methodName}Async({string.Join(", ", parameters)})");
+        sb.AppendLine("    {");
+
+        var processedPath = path;
+        foreach (var param in pathParams)
+        {
+            processedPath = processedPath.Replace($"{{{param.name}}}", $"{{{param.paramName}}}");
+        }
+
+        if (queryParams.Any())
+        {
+            sb.AppendLine("        var queryParams = new List<string>();");
+            foreach (var param in queryParams)
+            {
+                if (param.required)
+                {
+                    sb.AppendLine($"        queryParams.Add($\"{param.name}={{{param.paramName}}}\");");
+                }
+                else
+                {
+                    sb.AppendLine($"        if ({param.paramName} != null) queryParams.Add($\"{param.name}={{{param.paramName}}}\");");
+                }
+            }
+            sb.AppendLine($"        var url = $\"{processedPath}\" + (queryParams.Any() ? \"?\" + string.Join(\"&\", queryParams) : \"\");");
+        }
+        else
+        {
+            sb.AppendLine($"        var url = $\"{processedPath}\";");
+        }
+
+        sb.AppendLine();
+
+        GenerateHttpCall(sb, operationType, responseType, requestBodyType != null);
+
+        sb.AppendLine("    }");
+        sb.AppendLine();
+    }
+
+    private void GenerateHttpCall(StringBuilder sb, OperationType operationType, string responseType, bool hasRequestBody)
+    {
+        switch (operationType)
+        {
+            case OperationType.Get:
+                sb.AppendLine("        var response = await _httpClient.GetAsync(url, cancellationToken);");
+                sb.AppendLine("        response.EnsureSuccessStatusCode();");
+                if (responseType != "void")
+                {
+                    sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+                }
+                break;
+            case OperationType.Post:
+                if (hasRequestBody)
+                {
+                    sb.AppendLine("        var response = await _httpClient.PostAsJsonAsync(url, request, _jsonOptions, cancellationToken);");
+                }
+                else
+                {
+                    sb.AppendLine("        var response = await _httpClient.PostAsync(url, null, cancellationToken);");
+                }
+                sb.AppendLine("        response.EnsureSuccessStatusCode();");
+                if (responseType != "void")
+                {
+                    sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+                }
+                break;
+            case OperationType.Put:
+                if (hasRequestBody)
+                {
+                    sb.AppendLine("        var response = await _httpClient.PutAsJsonAsync(url, request, _jsonOptions, cancellationToken);");
+                }
+                else
+                {
+                    sb.AppendLine("        var response = await _httpClient.PutAsync(url, null, cancellationToken);");
+                }
+                sb.AppendLine("        response.EnsureSuccessStatusCode();");
+                if (responseType != "void")
+                {
+                    sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+                }
+                break;
+            case OperationType.Delete:
+                sb.AppendLine("        var response = await _httpClient.DeleteAsync(url, cancellationToken);");
+                sb.AppendLine("        response.EnsureSuccessStatusCode();");
+                break;
+            case OperationType.Patch:
+                if (hasRequestBody)
+                {
+                    sb.AppendLine("        var content = JsonContent.Create(request, options: _jsonOptions);");
+                    sb.AppendLine("        var response = await _httpClient.PatchAsync(url, content, cancellationToken);");
+                }
+                else
+                {
+                    sb.AppendLine("        var response = await _httpClient.PatchAsync(url, null, cancellationToken);");
+                }
+                sb.AppendLine("        response.EnsureSuccessStatusCode();");
+                if (responseType != "void")
+                {
+                    sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+                }
+                break;
+        }
+    }
+
+    private void GenerateJsonConfiguration()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("using System.Text.Json;");
+        sb.AppendLine("using System.Text.Json.Serialization;");
+        sb.AppendLine("using NodaTime;");
+        sb.AppendLine("using NodaTime.Serialization.SystemTextJson;");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {_namespace};");
+        sb.AppendLine();
+        sb.AppendLine("/// <summary>");
+        sb.AppendLine("/// JSON serialization configuration with NodaTime support");
+        sb.AppendLine("/// </summary>");
+        sb.AppendLine("public static class JsonConfiguration");
+        sb.AppendLine("{");
+        sb.AppendLine("    public static JsonSerializerOptions CreateOptions()");
+        sb.AppendLine("    {");
+        sb.AppendLine("        var options = new JsonSerializerOptions");
+        sb.AppendLine("        {");
+        sb.AppendLine("            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,");
+        sb.AppendLine("            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,");
+        sb.AppendLine("            PropertyNameCaseInsensitive = true");
+        sb.AppendLine("        };");
+        sb.AppendLine();
+        sb.AppendLine("        // Configure NodaTime converters for date/time types");
+        sb.AppendLine("        options.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);");
+        sb.AppendLine();
+        sb.AppendLine("        return options;");
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+
+        var filePath = Path.Combine(_outputDirectory, "JsonConfiguration.cs");
+        File.WriteAllText(filePath, sb.ToString());
+        Console.WriteLine("  Generated JSON configuration");
+    }
+
+    private string GetResponseType(OpenApiOperation operation)
+    {
+        var successResponse = operation.Responses.FirstOrDefault(r => r.Key.StartsWith("2"));
+        if (successResponse.Value?.Content?.Any() == true)
+        {
+            var content = successResponse.Value.Content.FirstOrDefault();
+            if (content.Value?.Schema?.Reference != null)
+            {
+                return content.Value.Schema.Reference.Id;
+            }
+            if (content.Value?.Schema != null)
+            {
+                return GetCSharpType(content.Value.Schema);
+            }
+        }
+        return "void";
+    }
+
+    private string GetClientName()
+    {
+        var title = _document.Info?.Title?.Replace(" ", "").Replace("-", "").Replace("_", "") ?? "Api";
+        return $"{title}Client";
+    }
+
+    public string GetCSharpType(OpenApiSchema schema)
+    {
+        if (schema.Reference != null)
+        {
+            return schema.Reference.Id;
+        }
+
+        return schema.Type switch
+        {
+            "string" when schema.Format == "date-time" => "Instant",
+            "string" when schema.Format == "date" => "LocalDate",
+            "string" when schema.Format == "time" => "LocalTime",
+            "string" when schema.Format == "uuid" => "Guid",
+            "string" => "string",
+            "integer" when schema.Format == "int64" => "long",
+            "integer" => "int",
+            "number" when schema.Format == "float" => "float",
+            "number" when schema.Format == "double" => "double",
+            "number" => "double",
+            "boolean" => "bool",
+            "array" when schema.Items != null => $"List<{GetCSharpType(schema.Items)}>",
+            "array" => "List<object>",
+            _ => "object"
+        };
+    }
+
+    public static string ToPascalCase(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return input;
+        
+        var words = input.Split(new[] { '-', '_', ' ', '.' }, StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(words.Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
+    }
+
+    public static string ToCamelCase(string input)
+    {
+        var pascal = ToPascalCase(input);
+        if (string.IsNullOrEmpty(pascal)) return pascal;
+        return char.ToLowerInvariant(pascal[0]) + pascal[1..];
+    }
+
+    private static string EscapeXmlComment(string text)
+    {
+        return text
+            .Replace("&", "&amp;")
+            .Replace("<", "&lt;")
+            .Replace(">", "&gt;")
+            .Replace("\"", "&quot;");
+    }
+}
