@@ -375,7 +375,7 @@ public class ClientGenerationTests
             content.Should().Contain("Medium,");
             content.Should().Contain("Large,");
             content.Should().Contain("ExtraLarge,");
-            content.Should().Contain("[JsonPropertyName(\"extra-large\")]");
+            content.Should().Contain("[JsonStringEnumMemberName(\"extra-large\")]");
         }
         finally
         {

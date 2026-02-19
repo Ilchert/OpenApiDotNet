@@ -132,7 +132,7 @@ public class ClientGenerator
 
             if (memberName != stringValue)
             {
-                sb.AppendLine($"    [JsonPropertyName(\"{stringValue}\")]");
+                sb.AppendLine($"    [JsonStringEnumMemberName(\"{stringValue}\")]");
             }
             sb.AppendLine($"    {memberName},");
             sb.AppendLine();
