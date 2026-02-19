@@ -30,7 +30,7 @@ paths:
           description: Status filter
           required: false
           schema:
-            type: string
+            $ref: '#/components/schemas/PetStatus'
       responses:
         '200':
           description: A paged array of pets
@@ -181,6 +181,27 @@ components:
           type: number
           format: double
           description: Weight in kg
+        status:
+          $ref: '#/components/schemas/PetStatus'
+        size:
+          $ref: '#/components/schemas/PetSize'
+
+    PetStatus:
+      type: string
+      description: The status of a pet in the store
+      enum:
+        - available
+        - pending
+        - sold
+
+    PetSize:
+      type: string
+      description: The size category of a pet
+      enum:
+        - small
+        - medium
+        - large
+        - extra-large
 
     NewPet:
       type: object

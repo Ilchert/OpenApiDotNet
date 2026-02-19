@@ -448,6 +448,44 @@ public class TypeMappingTests
         result.Should().Be("long");
     }
 
+    [Fact]
+    public void GetCSharpType_EnumWithReference_ReturnsEnumName()
+    {
+        var schema = new OpenApiSchema
+        {
+            Reference = new OpenApiReference
+            {
+                Id = "PetStatus",
+                Type = ReferenceType.Schema
+            }
+        };
+        var generator = CreateGenerator();
+
+        var result = generator.GetCSharpType(schema);
+
+        result.Should().Be("PetStatus");
+    }
+
+    [Fact]
+    public void GetCSharpType_InlineStringEnum_ReturnsString()
+    {
+        var schema = new OpenApiSchema
+        {
+            Type = "string",
+            Enum = new List<Microsoft.OpenApi.Any.IOpenApiAny>
+            {
+                new Microsoft.OpenApi.Any.OpenApiString("available"),
+                new Microsoft.OpenApi.Any.OpenApiString("pending"),
+                new Microsoft.OpenApi.Any.OpenApiString("sold")
+            }
+        };
+        var generator = CreateGenerator();
+
+        var result = generator.GetCSharpType(schema);
+
+        result.Should().Be("string");
+    }
+
     private static ClientGenerator CreateGenerator()
     {
         var document = new OpenApiDocument

@@ -12,6 +12,7 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 - ?? **Well Documented**: Preserves OpenAPI descriptions as XML documentation comments
 - ?? **Format Registry**: Comprehensive [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) support — integers, URIs, binary, decimals, and more
 - ?? **Nullable Aware**: Respects required/optional properties with nullable reference types
+- ?? **Enum Support**: Generates C# enums from OpenAPI string enums with `JsonStringEnumConverter`
 - ?? **Modern CLI**: Uses `System.CommandLine` with built-in help, validation, and shell tab-completion
 
 ## Type Mapping
@@ -64,13 +65,22 @@ The generator maps OpenAPI types and formats to idiomatic C# types following the
 | `double-int` | `long` |
 | *(none)* | `double` |
 
+### Enum Types
+
+| OpenAPI Schema | C# Type | Notes |
+|---|---|---|
+| `type: string` + `enum: [...]` | `enum` | Generated with `[JsonStringEnumConverter]` |
+| `$ref` to enum schema | Enum type name | Strongly-typed enum reference |
+
+Enum values are converted to PascalCase members (e.g., `extra-large` → `ExtraLarge`) with `[JsonPropertyName]` attributes preserving the original value.
+
 ### Other Types
 
 | OpenAPI Type | C# Type |
 |---|---|
 | `boolean` | `bool` |
 | `array` | `List<T>` |
-| `$ref` | Referenced class |
+| `$ref` | Referenced class / enum |
 
 ## Installation
 
@@ -194,6 +204,30 @@ public class Pet
     /// </summary>
     [JsonPropertyName("createdAt")]
     public Instant? CreatedAt { get; set; }
+}
+```
+
+### Example Generated Enum
+
+```csharp
+using System.Text.Json.Serialization;
+
+namespace PetStoreClient.Models;
+
+/// <summary>
+/// The status of a pet in the store
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum PetStatus
+{
+    [JsonPropertyName("available")]
+    Available,
+
+    [JsonPropertyName("pending")]
+    Pending,
+
+    [JsonPropertyName("sold")]
+    Sold,
 }
 ```
 
@@ -399,10 +433,14 @@ Number formats
   "number" (format: "decimal128")      → decimal
   "number" (format: "double-int")      → long
 
+Enum types
+  "string" + enum: [...]               → C# enum    (with JsonStringEnumConverter)
+  $ref to enum schema                  → Enum type
+
 Other types
   "boolean"                            → bool
   "array"                              → List<T>
-  Reference ($ref)                     → Custom Type
+  Reference ($ref)                     → Custom Type / Enum
 ```
 
 ## Supported OpenAPI Features
@@ -417,6 +455,7 @@ Other types
 - ? Schema references (`$ref`)
 - ? Required/optional properties
 - ? Arrays and nested objects
+- ? Enum types with `JsonStringEnumConverter`
 - ? HTTP methods: GET, POST, PUT, PATCH, DELETE
 - ? Operation IDs for method naming
 - ? Descriptions and summaries
@@ -471,6 +510,7 @@ This project is open source. Please check the license file for details.
 
 Future enhancements being considered:
 
+- [x] Enum types with `JsonStringEnumConverter` support
 - [ ] Support for authentication schemes (Bearer, API Key, OAuth2)
 - [ ] Polymorphic types with discriminators
 - [ ] `allOf`, `oneOf`, `anyOf` schema composition

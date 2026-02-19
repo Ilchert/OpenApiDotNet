@@ -278,4 +278,178 @@ public class ClientGenerationTests
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("outputDirectory");
     }
+
+    [Fact]
+    public void Generate_WithEnumSchema_CreatesEnumFile()
+    {
+        // Arrange
+        var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            using var stream = File.OpenRead(specPath);
+            var reader = new OpenApiStreamReader();
+            var document = reader.Read(stream, out _);
+
+            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
+
+            // Act
+            generator.Generate();
+
+            // Assert
+            File.Exists(Path.Combine(outputDirectory, "Models", "PetStatus.cs")).Should().BeTrue();
+            File.Exists(Path.Combine(outputDirectory, "Models", "PetSize.cs")).Should().BeTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Generate_EnumModel_ContainsExpectedMembers()
+    {
+        // Arrange
+        var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            using var stream = File.OpenRead(specPath);
+            var reader = new OpenApiStreamReader();
+            var document = reader.Read(stream, out _);
+
+            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
+
+            // Act
+            generator.Generate();
+
+            // Assert
+            var enumPath = Path.Combine(outputDirectory, "Models", "PetStatus.cs");
+            var content = File.ReadAllText(enumPath);
+
+            content.Should().Contain("public enum PetStatus");
+            content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
+            content.Should().Contain("Available,");
+            content.Should().Contain("Pending,");
+            content.Should().Contain("Sold,");
+            content.Should().Contain("using System.Text.Json.Serialization;");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Generate_EnumWithHyphenatedValues_GeneratesPascalCaseMembers()
+    {
+        // Arrange
+        var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            using var stream = File.OpenRead(specPath);
+            var reader = new OpenApiStreamReader();
+            var document = reader.Read(stream, out _);
+
+            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
+
+            // Act
+            generator.Generate();
+
+            // Assert
+            var enumPath = Path.Combine(outputDirectory, "Models", "PetSize.cs");
+            var content = File.ReadAllText(enumPath);
+
+            content.Should().Contain("public enum PetSize");
+            content.Should().Contain("Small,");
+            content.Should().Contain("Medium,");
+            content.Should().Contain("Large,");
+            content.Should().Contain("ExtraLarge,");
+            content.Should().Contain("[JsonPropertyName(\"extra-large\")]");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Generate_PetModel_ContainsEnumProperty()
+    {
+        // Arrange
+        var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            using var stream = File.OpenRead(specPath);
+            var reader = new OpenApiStreamReader();
+            var document = reader.Read(stream, out _);
+
+            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
+
+            // Act
+            generator.Generate();
+
+            // Assert
+            var petPath = Path.Combine(outputDirectory, "Models", "Pet.cs");
+            var content = File.ReadAllText(petPath);
+
+            content.Should().Contain("public PetStatus? Status");
+            content.Should().Contain("public PetSize? Size");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Generate_JsonConfiguration_ContainsStringEnumConverter()
+    {
+        // Arrange
+        var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            using var stream = File.OpenRead(specPath);
+            var reader = new OpenApiStreamReader();
+            var document = reader.Read(stream, out _);
+
+            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
+
+            // Act
+            generator.Generate();
+
+            // Assert
+            var configPath = Path.Combine(outputDirectory, "JsonConfiguration.cs");
+            var content = File.ReadAllText(configPath);
+
+            content.Should().Contain("JsonStringEnumConverter");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+    }
 }

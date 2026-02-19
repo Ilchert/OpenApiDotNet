@@ -51,6 +51,13 @@ public class ClientGenerator
 
         _generatedModels.Add(name);
 
+        // Detect enum schemas and generate enum instead of class
+        if (schema.Enum != null && schema.Enum.Count > 0)
+        {
+            GenerateEnum(name, schema, directory);
+            return;
+        }
+
         var sb = new StringBuilder();
         sb.AppendLine("using System.Text.Json.Serialization;");
         sb.AppendLine("using NodaTime;");
@@ -94,6 +101,45 @@ public class ClientGenerator
         var filePath = Path.Combine(directory, $"{name}.cs");
         File.WriteAllText(filePath, sb.ToString());
         Console.WriteLine($"  Generated model: {name}");
+    }
+
+    private void GenerateEnum(string name, OpenApiSchema schema, string directory)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("using System.Text.Json.Serialization;");
+        sb.AppendLine();
+        sb.AppendLine($"namespace {_namespace}.Models;");
+        sb.AppendLine();
+
+        if (!string.IsNullOrEmpty(schema.Description))
+        {
+            sb.AppendLine("/// <summary>");
+            sb.AppendLine($"/// {EscapeXmlComment(schema.Description)}");
+            sb.AppendLine("/// </summary>");
+        }
+
+        sb.AppendLine("[JsonConverter(typeof(JsonStringEnumConverter))]");
+        sb.AppendLine($"public enum {name}");
+        sb.AppendLine("{");
+
+        foreach (var enumValue in schema.Enum)
+        {
+            var stringValue = enumValue is Microsoft.OpenApi.Any.OpenApiString openApiString
+                ? openApiString.Value
+                : enumValue.ToString() ?? string.Empty;
+
+            var memberName = ToPascalCase(stringValue);
+
+            sb.AppendLine($"    [JsonStringEnumMemberName(\"{stringValue}\")]");
+            sb.AppendLine($"    {memberName},");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("}");
+
+        var filePath = Path.Combine(directory, $"{name}.cs");
+        File.WriteAllText(filePath, sb.ToString());
+        Console.WriteLine($"  Generated enum: {name}");
     }
 
     private void GenerateClient()
@@ -348,6 +394,9 @@ public class ClientGenerator
         sb.AppendLine("            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,");
         sb.AppendLine("            PropertyNameCaseInsensitive = true");
         sb.AppendLine("        };");
+        sb.AppendLine();
+        sb.AppendLine("        // Add string enum converter for enum serialization");
+        sb.AppendLine("        options.Converters.Add(new JsonStringEnumConverter());");
         sb.AppendLine();
         sb.AppendLine("        // Configure NodaTime converters for date/time types");
         sb.AppendLine("        options.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);");

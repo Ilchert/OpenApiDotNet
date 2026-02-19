@@ -211,29 +211,69 @@ The implementation is production-ready with:
 
 ---
 
-## Quick Start Example
+## Enum Support
 
-```bash
-# Generate client with enhanced path parameter support
-dotnet run --project src/OpenApiDotNet petstore.yaml ./Generated PetStore.Client
+### Overview
 
-# Use the generated client
-var client = new PetStoreAPIClient(httpClient);
+Added support for generating C# enums from OpenAPI string enum schemas. Enum schemas defined in `components/schemas` with `type: string` and `enum` values are now generated as C# `enum` types with `JsonStringEnumConverter` for proper serialization.
 
-// Simple path parameter
-var pet = await client.GetPetByIdAsync(123);
+### Features Added
 
-// Multiple path parameters
-var photo = await client.GetPetPhotoAsync(123, photoGuid);
+#### 1. **Enum Schema Detection**
+The `GenerateModel` method now detects schemas with `enum` values and delegates to `GenerateEnum` instead of generating a class.
 
-// Path parameters with special characters (automatically encoded)
-var ownerPet = await client.GetOwnerPetAsync("John Doe", 456);
-// Generates: /owners/John%20Doe/pets/456
+#### 2. **C# Enum Generation**
+Generates proper C# enums with:
+- `[JsonConverter(typeof(JsonStringEnumConverter))]` attribute
+- `[JsonPropertyName]` attributes preserving original enum values
+- PascalCase member names (e.g., `extra-large` → `ExtraLarge`)
+- XML documentation from schema descriptions
 
-// Query parameters (also encoded)
-var pets = await client.ListPetsAsync(limit: 10, status: "available & active");
-// Generates: /pets?limit=10&status=available%20%26%20active
+**Example:**
+```csharp
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum PetStatus
+{
+    [JsonPropertyName("available")]
+    Available,
+
+    [JsonPropertyName("pending")]
+    Pending,
+
+    [JsonPropertyName("sold")]
+    Sold,
+}
 ```
+
+#### 3. **Enum Property References**
+Properties referencing enum schemas via `$ref` generate strongly-typed enum properties:
+```csharp
+[JsonPropertyName("status")]
+public PetStatus? Status { get; set; }
+```
+
+#### 4. **JsonStringEnumConverter in Configuration**
+The generated `JsonConfiguration` class now includes `JsonStringEnumConverter` in the serializer options for proper enum serialization/deserialization.
+
+### Test Coverage
+
+Added **7 new tests** for enum support:
+- ✅ Enum schema with reference returns enum name (type mapping)
+- ✅ Inline string enum returns string (type mapping)
+- ✅ Enum schema creates enum file (integration)
+- ✅ Enum model contains expected members (integration)
+- ✅ Hyphenated enum values generate PascalCase members (integration)
+- ✅ Pet model contains enum properties (integration)
+- ✅ JsonConfiguration contains JsonStringEnumConverter (integration)
+
+### Files Modified
+
+- `src/OpenApiDotNet/ClientGenerator.cs` — Added `GenerateEnum` method, enum detection in `GenerateModel`, `JsonStringEnumConverter` in `GenerateJsonConfiguration`
+- `tests/OpenApiDotNet.Tests/Fixtures/petstore.yaml` — Added `PetStatus` and `PetSize` enum schemas, referenced from `Pet` model
+- `tests/OpenApiDotNet.Tests/TypeMappingTests.cs` — Added 2 enum type mapping tests
+- `tests/OpenApiDotNet.Tests/ClientGenerationTests.cs` — Added 5 enum integration tests
+- `README.md` — Added enum documentation, type mapping table, generated example
+- `IMPLEMENTATION_SUMMARY.md` — Added enum feature summary
 
 ---
 
