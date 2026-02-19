@@ -5,24 +5,72 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 ## Features
 
 - ? **Modern .NET**: Built for .NET 10 with C# 14.0
-- ?? **NodaTime Integration**: Automatic mapping of date/time formats to NodaTime types
+- ?? **NodaTime Integration**: Automatic mapping of date/time formats to NodaTime types (`Instant`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Duration`)
 - ?? **System.Text.Json**: Native JSON serialization with optimal performance
 - ?? **Type-Safe**: Generates strongly-typed models and client methods
 - ? **Async First**: All HTTP operations are async with proper cancellation support
 - ?? **Well Documented**: Preserves OpenAPI descriptions as XML documentation comments
+- ?? **Format Registry**: Comprehensive [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) support — integers, URIs, binary, decimals, and more
 - ?? **Nullable Aware**: Respects required/optional properties with nullable reference types
 - ?? **Modern CLI**: Uses `System.CommandLine` with built-in help, validation, and shell tab-completion
 
-## NodaTime Type Mapping
+## Type Mapping
 
-The generator automatically maps OpenAPI date/time formats to appropriate NodaTime types:
+The generator maps OpenAPI types and formats to idiomatic C# types following the [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html).
+
+### String Formats
+
+| OpenAPI Format | C# Type | Notes |
+|---|---|---|
+| `date-time` | `Instant` | NodaTime — RFC 3339 date-time |
+| `date` | `LocalDate` | NodaTime — RFC 3339 full-date |
+| `time` | `LocalTime` | NodaTime — RFC 3339 full-time |
+| `time-local` | `LocalTime` | NodaTime — time without timezone |
+| `date-time-local` | `LocalDateTime` | NodaTime — date-time without timezone |
+| `duration` | `Duration` | NodaTime — RFC 3339 duration |
+| `uuid` | `Guid` | RFC 4122 UUID |
+| `uri` | `Uri` | RFC 3986 URI |
+| `uri-reference` | `Uri` | RFC 3986 URI reference |
+| `iri` | `Uri` | RFC 3987 Internationalized URI |
+| `iri-reference` | `Uri` | RFC 3987 IRI reference |
+| `byte` | `byte[]` | Base64-encoded binary (RFC 4648 §4) |
+| `binary` | `byte[]` | Raw binary octets |
+| `base64url` | `byte[]` | URL-safe base64 (RFC 4648 §5) |
+| `char` | `char` | Single character |
+| *(other / none)* | `string` | Default for unrecognised string formats |
+
+### Integer Formats
 
 | OpenAPI Format | C# Type |
-|----------------|---------|
-| `date-time` | `Instant` |
-| `date` | `LocalDate` |
-| `time` | `LocalTime` |
-| `uuid` | `Guid` |
+|---|---|
+| `int8` | `sbyte` |
+| `int16` | `short` |
+| `int32` | `int` |
+| `int64` | `long` |
+| `uint8` | `byte` |
+| `uint16` | `ushort` |
+| `uint32` | `uint` |
+| `uint64` | `ulong` |
+| *(none)* | `int` |
+
+### Number Formats
+
+| OpenAPI Format | C# Type |
+|---|---|
+| `float` | `float` |
+| `double` | `double` |
+| `decimal` | `decimal` |
+| `decimal128` | `decimal` |
+| `double-int` | `long` |
+| *(none)* | `double` |
+
+### Other Types
+
+| OpenAPI Type | C# Type |
+|---|---|
+| `boolean` | `bool` |
+| `array` | `List<T>` |
+| `$ref` | Referenced class |
 
 ## Installation
 
@@ -316,21 +364,45 @@ The project includes comprehensive test coverage:
 
 ### Type Mapping Logic
 
-The generator intelligently maps OpenAPI types:
+The generator maps OpenAPI types and [format registry](https://spec.openapis.org/registry/format/index.html) values to C# types:
 
-```csharp
-"string" ? string
-"string" (format: "date-time") ? Instant
-"string" (format: "date") ? LocalDate
-"string" (format: "time") ? LocalTime
-"string" (format: "uuid") ? Guid
-"integer" ? int
-"integer" (format: "int64") ? long
-"number" ? double
-"number" (format: "float") ? float
-"boolean" ? bool
-"array" ? List<T>
-Reference ? Custom Type
+```
+String formats
+  "string"                             → string
+  "string" (format: "date-time")       → Instant        (NodaTime)
+  "string" (format: "date")            → LocalDate      (NodaTime)
+  "string" (format: "time")            → LocalTime      (NodaTime)
+  "string" (format: "time-local")      → LocalTime      (NodaTime)
+  "string" (format: "date-time-local") → LocalDateTime   (NodaTime)
+  "string" (format: "duration")        → Duration       (NodaTime)
+  "string" (format: "uuid")            → Guid
+  "string" (format: "uri/iri")         → Uri
+  "string" (format: "byte/binary")     → byte[]
+  "string" (format: "char")            → char
+
+Integer formats
+  "integer"                            → int
+  "integer" (format: "int8")           → sbyte
+  "integer" (format: "int16")          → short
+  "integer" (format: "int32")          → int
+  "integer" (format: "int64")          → long
+  "integer" (format: "uint8")          → byte
+  "integer" (format: "uint16")         → ushort
+  "integer" (format: "uint32")         → uint
+  "integer" (format: "uint64")         → ulong
+
+Number formats
+  "number"                             → double
+  "number" (format: "float")           → float
+  "number" (format: "double")          → double
+  "number" (format: "decimal")         → decimal
+  "number" (format: "decimal128")      → decimal
+  "number" (format: "double-int")      → long
+
+Other types
+  "boolean"                            → bool
+  "array"                              → List<T>
+  Reference ($ref)                     → Custom Type
 ```
 
 ## Supported OpenAPI Features
@@ -349,6 +421,7 @@ Reference ? Custom Type
 - ? Operation IDs for method naming
 - ? Descriptions and summaries
 - ? Special character encoding in URLs
+- ? [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) type mappings
 
 ## Naming Conventions
 
