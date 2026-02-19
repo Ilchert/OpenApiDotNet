@@ -4,8 +4,6 @@
     <File Path="LICENSE" />
     <File Path="README.md" />
   </Folder>
-  <Project Path="src/OpenApiDotNet/OpenApiDotNet.csproj">
-    <Build Solution="Debug|*" Project="false" />
-  </Project>
+  <Project Path="src/OpenApiDotNet/OpenApiDotNet.csproj" />
   <Project Path="tests/OpenApiDotNet.Tests/OpenApiDotNet.Tests.csproj" Id="6d7859f1-7362-4f9b-8d1c-3666a3a9a352" />
 </Solution>

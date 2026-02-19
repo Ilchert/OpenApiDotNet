@@ -130,7 +130,10 @@ public class ClientGenerator
 
             var memberName = ToPascalCase(stringValue);
 
-            sb.AppendLine($"    [JsonStringEnumMemberName(\"{stringValue}\")]");
+            if (memberName != stringValue)
+            {
+                sb.AppendLine($"    [JsonPropertyName(\"{stringValue}\")]");
+            }
             sb.AppendLine($"    {memberName},");
             sb.AppendLine();
         }

@@ -3,10 +3,11 @@ using System.CommandLine.Completions;
 using Microsoft.OpenApi.Readers;
 using OpenApiDotNet;
 
-var openApiFileArgument = new Argument<FileInfo>(
-    "openapi-file",
-    description: "Path to the OpenAPI specification file (JSON or YAML)");
-openApiFileArgument.AddCompletions(ctx =>
+var openApiFileArgument = new Argument<FileInfo>("openapi-file")
+{
+    Description = "Path to the OpenAPI specification file (JSON or YAML)"
+};
+openApiFileArgument.CompletionSources.Add(ctx =>
 {
     var pattern = ctx.WordToComplete;
     var directory = Path.GetDirectoryName(pattern);
@@ -23,15 +24,19 @@ openApiFileArgument.AddCompletions(ctx =>
         .Select(f => new CompletionItem(f));
 });
 
-var outputOption = new Option<DirectoryInfo>(
-    ["--output", "-o"],
-    () => new DirectoryInfo("./Generated"),
-    "Directory where generated code will be placed");
+var outputOption = new Option<DirectoryInfo>("--output")
+{
+    Description = "Directory where generated code will be placed",
+    DefaultValueFactory = _ => new DirectoryInfo("./Generated")
+};
+outputOption.Aliases.Add("-o");
 
-var namespaceOption = new Option<string>(
-    ["--namespace", "-n"],
-    () => "GeneratedClient",
-    "Namespace for generated code");
+var namespaceOption = new Option<string>("--namespace")
+{
+    Description = "Namespace for generated code",
+    DefaultValueFactory = _ => "GeneratedClient"
+};
+namespaceOption.Aliases.Add("-n");
 
 var rootCommand = new RootCommand("OpenAPI Client Generator — generates strongly-typed C# HTTP clients from OpenAPI specifications")
 {
@@ -40,9 +45,15 @@ var rootCommand = new RootCommand("OpenAPI Client Generator — generates strong
     namespaceOption,
 };
 
-rootCommand.SetHandler(Generate, openApiFileArgument, outputOption, namespaceOption);
+rootCommand.SetAction(parseResult =>
+{
+    var openApiFile = parseResult.GetValue(openApiFileArgument)!;
+    var outputDirectory = parseResult.GetValue(outputOption)!;
+    var namespaceName = parseResult.GetValue(namespaceOption)!;
+    Generate(openApiFile, outputDirectory, namespaceName);
+});
 
-return await rootCommand.InvokeAsync(args);
+return rootCommand.Parse(args).Invoke();
 
 static void Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName)
 {
