@@ -11,6 +11,7 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 - ? **Async First**: All HTTP operations are async with proper cancellation support
 - ?? **Well Documented**: Preserves OpenAPI descriptions as XML documentation comments
 - ?? **Nullable Aware**: Respects required/optional properties with nullable reference types
+- ?? **Modern CLI**: Uses `System.CommandLine` with built-in help, validation, and shell tab-completion
 
 ## NodaTime Type Mapping
 
@@ -43,30 +44,56 @@ dotnet build
 ### Command Line
 
 ```bash
-dotnet run --project src/OpenApiDotNet <openapi-file> [output-directory] [namespace]
+dotnet run --project src/OpenApiDotNet -- <openapi-file> [options]
 ```
 
-### Parameters
+### Arguments & Options
 
-- `openapi-file` - Path to your OpenAPI specification file (YAML or JSON)
-- `output-directory` - Directory where generated code will be placed (default: `./Generated`)
-- `namespace` - Namespace for generated code (default: `GeneratedClient`)
+| Argument / Option | Description | Default |
+|---|---|---|
+| `<openapi-file>` | Path to the OpenAPI specification file (JSON or YAML) | *required* |
+| `-o`, `--output <dir>` | Directory where generated code will be placed | `./Generated` |
+| `-n`, `--namespace <ns>` | Namespace for generated code | `GeneratedClient` |
+
+Built-in flags provided by `System.CommandLine`:
+
+| Flag | Description |
+|---|---|
+| `--help`, `-h`, `-?` | Show help and usage information |
+| `--version` | Show version information |
+
+### Shell Tab-Completion
+
+The CLI supports shell tab-completion via the [`dotnet-suggest`](https://github.com/dotnet/command-line-api/blob/main/docs/dotnet-suggest.md) global tool.
+Once configured, pressing <kbd>Tab</kbd> will auto-complete the `<openapi-file>` argument with `.json`, `.yaml`, and `.yml` files from the current directory.
+
+```bash
+# Install the global tool (one-time)
+dotnet tool install -g dotnet-suggest
+
+# Follow the shell-specific setup instructions from dotnet-suggest
+```
 
 ### Examples
 
 **Basic Usage:**
 ```bash
-dotnet run --project src/OpenApiDotNet petstore.yaml
+dotnet run --project src/OpenApiDotNet -- petstore.yaml
 ```
 
 **With Custom Output Directory:**
 ```bash
-dotnet run --project src/OpenApiDotNet api.yaml ./src/Client
+dotnet run --project src/OpenApiDotNet -- api.yaml -o ./src/Client
 ```
 
 **With Custom Namespace:**
 ```bash
-dotnet run --project src/OpenApiDotNet swagger.json ./Generated MyCompany.ApiClient
+dotnet run --project src/OpenApiDotNet -- swagger.json -o ./Generated -n MyCompany.ApiClient
+```
+
+**Show Help:**
+```bash
+dotnet run --project src/OpenApiDotNet -- --help
 ```
 
 ## Generated Code Structure
@@ -344,6 +371,7 @@ The generator automatically converts:
 - Microsoft.OpenApi.Readers (1.6.22)
 - NodaTime (3.3.0)
 - NodaTime.Serialization.SystemTextJson (1.3.0)
+- System.CommandLine (2.0.2)
 
 ### Generated Code Dependencies
 Projects using the generated code need:

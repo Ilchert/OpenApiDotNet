@@ -237,7 +237,39 @@ var pets = await client.ListPetsAsync(limit: 10, status: "available & active");
 
 ---
 
-**Implementation Status**: ? **COMPLETE**
+## System.CommandLine Migration
+
+### Overview
+
+Replaced the manual argument parsing in `Program.cs` with `System.CommandLine` (2.0.2) to provide a modern CLI experience including built-in help, validation, and shell tab-completion.
+
+### Changes
+
+#### `Program.cs` — full rewrite
+- **Argument**: `<openapi-file>` (`FileInfo`) — required positional argument for the OpenAPI spec file.
+  - Custom `CompletionItem` provider lists `.json`, `.yaml`, and `.yml` files in the current directory for tab-completion.
+- **Option**: `--output` / `-o` (`DirectoryInfo`, default `./Generated`) — output directory.
+- **Option**: `--namespace` / `-n` (`string`, default `GeneratedClient`) — namespace for generated code.
+- Built-in `--help` / `--version` flags provided automatically by `System.CommandLine`.
+
+#### Shell Tab-Completion
+Tab-completion is supported via the [`dotnet-suggest`](https://github.com/dotnet/command-line-api/blob/main/docs/dotnet-suggest.md) global tool. Once configured the `<openapi-file>` argument auto-completes with OpenAPI-relevant file extensions.
+
+#### Documentation
+- `README.md` — updated CLI usage section with arguments/options table, tab-completion instructions, and new examples.
+- `IMPLEMENTATION_SUMMARY.md` — this section.
+
+### Files Modified
+- `src/OpenApiDotNet/Program.cs` — rewrote CLI with `System.CommandLine`
+- `README.md` — updated usage docs, added tab-completion section, added `System.CommandLine` to dependency list
+
+### Backward Compatibility
+
+⚠ **Breaking**: The positional `output-directory` and `namespace` arguments are now named options (`--output` / `--namespace`). The positional `<openapi-file>` argument is unchanged.
+
+---
+
+**Implementation Status**: ✅ **COMPLETE**
 **Quality**: Production Ready
 **Test Coverage**: 100% for path parameter features
 **Documentation**: Complete

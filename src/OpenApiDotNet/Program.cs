@@ -1,81 +1,105 @@
-﻿using Microsoft.OpenApi.Readers;
+﻿using System.CommandLine;
+using System.CommandLine.Completions;
+using Microsoft.OpenApi.Readers;
 using OpenApiDotNet;
 
-if (args.Length == 0)
+var openApiFileArgument = new Argument<FileInfo>(
+    "openapi-file",
+    description: "Path to the OpenAPI specification file (JSON or YAML)");
+openApiFileArgument.AddCompletions(ctx =>
 {
-    Console.WriteLine("OpenAPI Client Generator");
-    Console.WriteLine("========================");
-    Console.WriteLine();
-    Console.WriteLine("Usage: OpenApiDotNet <openapi-file-path> [output-directory] [namespace]");
-    Console.WriteLine();
-    Console.WriteLine("Arguments:");
-    Console.WriteLine("  openapi-file-path   Path to the OpenAPI specification file (JSON or YAML)");
-    Console.WriteLine("  output-directory    Directory where generated code will be placed (default: ./Generated)");
-    Console.WriteLine("  namespace           Namespace for generated code (default: GeneratedClient)");
-    Console.WriteLine();
-    Console.WriteLine("Examples:");
-    Console.WriteLine("  OpenApiDotNet api.yaml");
-    Console.WriteLine("  OpenApiDotNet swagger.json ./src/Client MyApi.Client");
-    return;
-}
+    var pattern = ctx.WordToComplete;
+    var directory = Path.GetDirectoryName(pattern);
+    if (string.IsNullOrEmpty(directory))
+        directory = ".";
 
-var openApiFilePath = args[0];
-var outputDirectory = args.Length > 1 ? args[1] : "./Generated";
-var namespaceName = args.Length > 2 ? args[2] : "GeneratedClient";
+    if (!Directory.Exists(directory))
+        return [];
 
-if (!File.Exists(openApiFilePath))
+    return Directory.EnumerateFiles(directory, "*.*", SearchOption.TopDirectoryOnly)
+        .Where(f => f.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                  || f.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase)
+                  || f.EndsWith(".yml", StringComparison.OrdinalIgnoreCase))
+        .Select(f => new CompletionItem(f));
+});
+
+var outputOption = new Option<DirectoryInfo>(
+    ["--output", "-o"],
+    () => new DirectoryInfo("./Generated"),
+    "Directory where generated code will be placed");
+
+var namespaceOption = new Option<string>(
+    ["--namespace", "-n"],
+    () => "GeneratedClient",
+    "Namespace for generated code");
+
+var rootCommand = new RootCommand("OpenAPI Client Generator — generates strongly-typed C# HTTP clients from OpenAPI specifications")
 {
-    Console.Error.WriteLine($"Error: File '{openApiFilePath}' not found.");
-    return;
-}
+    openApiFileArgument,
+    outputOption,
+    namespaceOption,
+};
 
-try
+rootCommand.SetHandler(Generate, openApiFileArgument, outputOption, namespaceOption);
+
+return await rootCommand.InvokeAsync(args);
+
+static void Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName)
 {
-    Console.WriteLine($"Reading OpenAPI specification from: {openApiFilePath}");
-    Console.WriteLine();
-
-    using var stream = File.OpenRead(openApiFilePath);
-    var reader = new OpenApiStreamReader();
-    var openApiDocument = reader.Read(stream, out var diagnostic);
-
-    if (diagnostic.Errors.Count > 0)
+    if (!openApiFile.Exists)
     {
-        Console.Error.WriteLine("Errors found in OpenAPI document:");
-        foreach (var error in diagnostic.Errors)
-        {
-            Console.Error.WriteLine($"  - {error.Message}");
-        }
+        Console.Error.WriteLine($"Error: File '{openApiFile.FullName}' not found.");
         return;
     }
 
-    if (diagnostic.Warnings.Count > 0)
+    try
     {
-        Console.WriteLine("Warnings:");
-        foreach (var warning in diagnostic.Warnings)
-        {
-            Console.WriteLine($"  - {warning.Message}");
-        }
+        Console.WriteLine($"Reading OpenAPI specification from: {openApiFile.FullName}");
         Console.WriteLine();
+
+        using var stream = openApiFile.OpenRead();
+        var reader = new OpenApiStreamReader();
+        var openApiDocument = reader.Read(stream, out var diagnostic);
+
+        if (diagnostic.Errors.Count > 0)
+        {
+            Console.Error.WriteLine("Errors found in OpenAPI document:");
+            foreach (var error in diagnostic.Errors)
+            {
+                Console.Error.WriteLine($"  - {error.Message}");
+            }
+            return;
+        }
+
+        if (diagnostic.Warnings.Count > 0)
+        {
+            Console.WriteLine("Warnings:");
+            foreach (var warning in diagnostic.Warnings)
+            {
+                Console.WriteLine($"  - {warning.Message}");
+            }
+            Console.WriteLine();
+        }
+
+        Console.WriteLine($"Title: {openApiDocument.Info.Title}");
+        Console.WriteLine($"Version: {openApiDocument.Info.Version}");
+        Console.WriteLine($"Output: {outputDirectory.FullName}");
+        Console.WriteLine($"Namespace: {namespaceName}");
+        Console.WriteLine();
+
+        Console.WriteLine("Generating client code...");
+        Console.WriteLine();
+
+        var generator = new ClientGenerator(openApiDocument, namespaceName, outputDirectory.FullName);
+        generator.Generate();
+
+        Console.WriteLine();
+        Console.WriteLine("✓ Client generation complete!");
     }
-
-    Console.WriteLine($"Title: {openApiDocument.Info.Title}");
-    Console.WriteLine($"Version: {openApiDocument.Info.Version}");
-    Console.WriteLine($"Output: {Path.GetFullPath(outputDirectory)}");
-    Console.WriteLine($"Namespace: {namespaceName}");
-    Console.WriteLine();
-
-    Console.WriteLine("Generating client code...");
-    Console.WriteLine();
-
-    var generator = new ClientGenerator(openApiDocument, namespaceName, outputDirectory);
-    generator.Generate();
-
-    Console.WriteLine();
-    Console.WriteLine("✓ Client generation complete!");
-}
-catch (Exception ex)
-{
-    Console.Error.WriteLine($"Error: {ex.Message}");
-    Console.Error.WriteLine(ex.StackTrace);
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Error: {ex.Message}");
+        Console.Error.WriteLine(ex.StackTrace);
+    }
 }
 
