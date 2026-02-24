@@ -1,5 +1,6 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Completions;
+using System.Text.Json;
 using Microsoft.OpenApi.Readers;
 using OpenApiDotNet;
 
@@ -53,6 +54,25 @@ rootCommand.SetAction(parseResult =>
     Generate(openApiFile, outputDirectory, namespaceName);
 });
 
+var updateConfigArgument = new Argument<FileInfo>("config-file")
+{
+    Description = $"Path to the {GenerationConfig.FileName} configuration file"
+};
+updateConfigArgument.DefaultValueFactory = _ => new FileInfo(GenerationConfig.FileName);
+
+var updateCommand = new Command("update", "Re-generate client code using a previously saved configuration file")
+{
+    updateConfigArgument
+};
+
+updateCommand.SetAction(parseResult =>
+{
+    var configFile = parseResult.GetValue(updateConfigArgument)!;
+    Update(configFile);
+});
+
+rootCommand.Subcommands.Add(updateCommand);
+
 return rootCommand.Parse(args).Invoke();
 
 static void Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName)
@@ -104,6 +124,8 @@ static void Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string
         var generator = new ClientGenerator(openApiDocument, namespaceName, outputDirectory.FullName);
         generator.Generate();
 
+        SaveConfig(openApiFile, outputDirectory, namespaceName);
+
         Console.WriteLine();
         Console.WriteLine("✓ Client generation complete!");
     }
@@ -112,5 +134,58 @@ static void Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string
         Console.Error.WriteLine($"Error: {ex.Message}");
         Console.Error.WriteLine(ex.StackTrace);
     }
+}
+
+static void Update(FileInfo configFile)
+{
+    if (!configFile.Exists)
+    {
+        Console.Error.WriteLine($"Error: Configuration file '{configFile.FullName}' not found.");
+        Console.Error.WriteLine($"Run the generate command first to create a {GenerationConfig.FileName} file.");
+        return;
+    }
+
+    try
+    {
+        var json = File.ReadAllText(configFile.FullName);
+        var config = JsonSerializer.Deserialize<GenerationConfig>(json);
+
+        if (config is null)
+        {
+            Console.Error.WriteLine("Error: Failed to read configuration file.");
+            return;
+        }
+
+        var baseDirectory = Path.GetDirectoryName(configFile.FullName) ?? ".";
+        var openApiFilePath = Path.IsPathRooted(config.OpenApiFile)
+            ? config.OpenApiFile
+            : Path.GetFullPath(Path.Combine(baseDirectory, config.OpenApiFile));
+        var outputDirectoryPath = Path.IsPathRooted(config.OutputDirectory)
+            ? config.OutputDirectory
+            : Path.GetFullPath(Path.Combine(baseDirectory, config.OutputDirectory));
+
+        Console.WriteLine($"Updating from configuration: {configFile.FullName}");
+        Generate(new FileInfo(openApiFilePath), new DirectoryInfo(outputDirectoryPath), config.Namespace);
+    }
+    catch (JsonException ex)
+    {
+        Console.Error.WriteLine($"Error: Invalid configuration file — {ex.Message}");
+    }
+}
+
+static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName)
+{
+    var config = new GenerationConfig
+    {
+        OpenApiFile = Path.GetRelativePath(outputDirectory.FullName, openApiFile.FullName),
+        OutputDirectory = ".",
+        Namespace = namespaceName
+    };
+
+    var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
+    var json = JsonSerializer.Serialize(config, jsonOptions);
+    var configPath = Path.Combine(outputDirectory.FullName, GenerationConfig.FileName);
+    File.WriteAllText(configPath, json);
+    Console.WriteLine($"  Saved configuration: {GenerationConfig.FileName}");
 }
 

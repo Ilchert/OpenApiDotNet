@@ -309,6 +309,64 @@ Tab-completion is supported via the [`dotnet-suggest`](https://github.com/dotnet
 
 ---
 
+## Configuration Persistence & Update Command
+
+### Overview
+
+Added the ability to persist generation parameters to a `.openapidotnet.json` configuration file, saved automatically in the output directory after each generation. A new `update` subcommand reads this file and re-runs generation with the saved parameters — no need to remember or re-type the original arguments.
+
+### Features Added
+
+#### 1. **GenerationConfig Model**
+New `GenerationConfig` class (`src/OpenApiDotNet/GenerationConfig.cs`) for serializing/deserializing the configuration:
+- `OpenApiFile` — relative path from the config file to the OpenAPI spec
+- `OutputDirectory` — output directory (defaults to `.` since the config lives inside it)
+- `Namespace` — namespace for generated code
+- `FileName` constant (`.openapidotnet.json`)
+
+#### 2. **Automatic Config Saving**
+After successful generation, a `.openapidotnet.json` file is written to the output directory with relative paths:
+
+```json
+{
+  "openApiFile": "../petstore.yaml",
+  "outputDirectory": ".",
+  "namespace": "GeneratedClient"
+}
+```
+
+Paths are stored relative to the config file location so the project can be moved without breaking re-generation.
+
+#### 3. **`update` Subcommand**
+New CLI subcommand that reads the saved config and re-runs generation:
+
+```bash
+# Default: looks for .openapidotnet.json in the current directory
+dotnet run --project src/OpenApiDotNet -- update
+
+# Or specify a path to the config file
+dotnet run --project src/OpenApiDotNet -- update ./Generated/.openapidotnet.json
+```
+
+Path resolution is relative to the config file's directory, so the command works from any working directory.
+
+### Files Created
+- `src/OpenApiDotNet/GenerationConfig.cs` — configuration model
+
+### Files Modified
+- `src/OpenApiDotNet/Program.cs` — added `update` command, `SaveConfig` helper, `Update` handler
+- `README.md` — documented config file, update command, updated generated structure
+- `IMPLEMENTATION_SUMMARY.md` — this section
+
+### Backward Compatibility
+
+✅ Fully backward compatible:
+- The root generate command is unchanged
+- The `update` subcommand is additive
+- Existing generated output continues to work (the new `.openapidotnet.json` file is simply an extra artifact)
+
+---
+
 **Implementation Status**: ✅ **COMPLETE**
 **Quality**: Production Ready
 **Test Coverage**: 100% for path parameter features

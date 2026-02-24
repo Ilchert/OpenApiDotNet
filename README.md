@@ -14,6 +14,7 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 - ?? **Nullable Aware**: Respects required/optional properties with nullable reference types
 - ?? **Enum Support**: Generates C# enums from OpenAPI string enums with `JsonStringEnumConverter`
 - ?? **Modern CLI**: Uses `System.CommandLine` with built-in help, validation, and shell tab-completion
+- ?? **Configuration Persistence**: Saves generation parameters to a JSON config file for easy re-generation via `update` command
 
 ## Type Mapping
 
@@ -120,6 +121,22 @@ Built-in flags provided by `System.CommandLine`:
 | `--help`, `-h`, `-?` | Show help and usage information |
 | `--version` | Show version information |
 
+### Update Command
+
+After the initial generation, a `.openapidotnet.json` configuration file is saved in the output directory. Use the `update` command to re-generate the client using the saved parameters:
+
+```bash
+# Re-generate from config in the current directory
+dotnet run --project src/OpenApiDotNet -- update
+
+# Re-generate from a specific config file
+dotnet run --project src/OpenApiDotNet -- update ./Generated/.openapidotnet.json
+```
+
+| Argument | Description | Default |
+|---|---|---|
+| `[config-file]` | Path to the `.openapidotnet.json` configuration file | `.openapidotnet.json` |
+
 ### Shell Tab-Completion
 
 The CLI supports shell tab-completion via the [`dotnet-suggest`](https://github.com/dotnet/command-line-api/blob/main/docs/dotnet-suggest.md) global tool.
@@ -154,18 +171,35 @@ dotnet run --project src/OpenApiDotNet -- swagger.json -o ./Generated -n MyCompa
 dotnet run --project src/OpenApiDotNet -- --help
 ```
 
+**Re-generate from Saved Configuration:**
+```bash
+# After initial generation, update from the saved config
+dotnet run --project src/OpenApiDotNet -- update ./Generated/.openapidotnet.json
+```
+
 ## Generated Code Structure
 
 The generator creates the following structure:
 
 ```
 Generated/
-??? Models/
-?   ??? Pet.cs
-?   ??? User.cs
-?   ??? Order.cs
-??? [ApiName]Client.cs
-??? JsonConfiguration.cs
+├── Models/
+│   ├── Pet.cs
+│   ├── User.cs
+│   └── Order.cs
+├── [ApiName]Client.cs
+├── JsonConfiguration.cs
+└── .openapidotnet.json
+```
+
+The `.openapidotnet.json` file stores the generation parameters so the client can be re-generated with the `update` command:
+
+```json
+{
+  "openApiFile": "../petstore.yaml",
+  "outputDirectory": ".",
+  "namespace": "GeneratedClient"
+}
 ```
 
 ### Example Generated Model
