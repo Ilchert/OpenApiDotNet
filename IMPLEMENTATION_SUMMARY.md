@@ -98,6 +98,29 @@ All tests passing including:
 - 11 integration tests
 - 6 validation tests
 
+### OpenAPI Overlay Support
+
+Added the ability to apply [OpenAPI Overlay](https://spec.openapis.org/overlay/latest.html) documents to patch specifications before code generation, using [BinkyLabs.OpenApi.Overlays](https://www.nuget.org/packages/BinkyLabs.OpenApi.Overlays).
+
+#### Features
+- `--overlay` CLI option accepting one or more overlay files
+- Multiple overlays are combined in order via `CombineWith` and applied with `ApplyToDocumentAndLoadAsync`
+- Overlay file paths are persisted in `.openapidotnet.json` and resolved during `update`
+- Shell tab-completion for overlay file paths (`.json`, `.yaml`, `.yml`)
+- Errors and warnings from overlay application are reported to the console
+
+#### Usage
+```bash
+# Single overlay
+dotnet run --project src/OpenApiDotNet -- petstore.yaml --overlay remove-deprecated.yaml
+
+# Multiple overlays (order matters)
+dotnet run --project src/OpenApiDotNet -- petstore.yaml --overlay base.yaml --overlay team.yaml
+
+# Re-generate preserves overlay config
+dotnet run --project src/OpenApiDotNet -- update
+```
+
 ### Code Generation Examples
 
 #### Simple Path Parameter:

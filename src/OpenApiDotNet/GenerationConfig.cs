@@ -14,4 +14,7 @@ public class GenerationConfig
 
     [JsonPropertyName("namespace")]
     public string Namespace { get; set; } = string.Empty;
+
+    [JsonPropertyName("overlayFiles")]
+    public List<string> OverlayFiles { get; set; } = [];
 }

@@ -1,6 +1,7 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Completions;
 using System.Text.Json;
+using BinkyLabs.OpenApi.Overlays;
 using Microsoft.OpenApi;
 using Microsoft.OpenApi.Reader;
 using OpenApiDotNet;
@@ -40,11 +41,34 @@ var namespaceOption = new Option<string>("--namespace")
 };
 namespaceOption.Aliases.Add("-n");
 
-var rootCommand = new RootCommand("OpenAPI Client Generator — generates strongly-typed C# HTTP clients from OpenAPI specifications")
+var overlayOption = new Option<FileInfo[]>("--overlay")
+{
+    Description = "Path to overlay file(s) to apply before generation. Can be specified multiple times.",
+    Arity = ArgumentArity.ZeroOrMore
+};
+overlayOption.CompletionSources.Add(ctx =>
+{
+    var pattern = ctx.WordToComplete;
+    var directory = Path.GetDirectoryName(pattern);
+    if (string.IsNullOrEmpty(directory))
+        directory = ".";
+
+    if (!Directory.Exists(directory))
+        return [];
+
+    return Directory.EnumerateFiles(directory, "*.*", SearchOption.TopDirectoryOnly)
+        .Where(f => f.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                  || f.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase)
+                  || f.EndsWith(".yml", StringComparison.OrdinalIgnoreCase))
+        .Select(f => new CompletionItem(f));
+});
+
+var rootCommand = new RootCommand
 {
     openApiFileArgument,
     outputOption,
     namespaceOption,
+    overlayOption,
 };
 
 rootCommand.SetAction(async parseResult =>
@@ -52,7 +76,8 @@ rootCommand.SetAction(async parseResult =>
     var openApiFile = parseResult.GetValue(openApiFileArgument)!;
     var outputDirectory = parseResult.GetValue(outputOption)!;
     var namespaceName = parseResult.GetValue(namespaceOption)!;
-    await Generate(openApiFile, outputDirectory, namespaceName);
+    var overlayFiles = parseResult.GetValue(overlayOption) ?? [];
+    await Generate(openApiFile, outputDirectory, namespaceName, overlayFiles);
 });
 
 var updateConfigArgument = new Argument<FileInfo>("config-file")
@@ -116,7 +141,7 @@ rootCommand.Subcommands.Add(convertCommand);
 
 return rootCommand.Parse(args).Invoke();
 
-static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName)
+static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, FileInfo[] overlayFiles)
 {
     if (!openApiFile.Exists)
     {
@@ -129,30 +154,76 @@ static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, 
         Console.WriteLine($"Reading OpenAPI specification from: {openApiFile.FullName}");
         Console.WriteLine();
 
-        using var stream = openApiFile.OpenRead();
-
-        var settings = new OpenApiReaderSettings
-        {
-        };
+        OpenApiDocument openApiDocument;
+        var settings = new OpenApiReaderSettings();
         settings.AddYamlReader();
-        var (openApiDocument, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: settings);
-        if (diagnostic?.Errors.Count > 0)
+
+        if (overlayFiles.Length > 0)
         {
-            Console.Error.WriteLine("Errors found in OpenAPI document:");
-            foreach (var error in diagnostic.Errors)
+            foreach (var overlayFile in overlayFiles)
             {
-                Console.Error.WriteLine($"  - {error.Message}");
+                if (!overlayFile.Exists)
+                {
+                    Console.Error.WriteLine($"Error: Overlay file '{overlayFile.FullName}' not found.");
+                    return;
+                }
+                Console.WriteLine($"Applying overlay: {overlayFile.FullName}");
+            }
+
+            var (firstOverlay, _) = await OverlayDocument.LoadFromUrlAsync(overlayFiles[0].FullName);
+            for (int i = 1; i < overlayFiles.Length; i++)
+            {
+                var (nextOverlay, _) = await OverlayDocument.LoadFromUrlAsync(overlayFiles[i].FullName);
+                firstOverlay = firstOverlay.CombineWith(nextOverlay);
+            }
+
+            var (result, overlayDiagnostic) = await firstOverlay.ApplyToDocumentAndLoadAsync(openApiFile.FullName, readerSettings: new OverlayReaderSettings() { OpenApiSettings = settings });
+            openApiDocument = result;
+
+            if (overlayDiagnostic?.Errors.Count > 0)
+            {
+                Console.Error.WriteLine("Errors found after applying overlays:");
+                foreach (var error in overlayDiagnostic.Errors)
+                {
+                    Console.Error.WriteLine($"  - {error.Message}");
+                }
+            }
+
+            if (overlayDiagnostic?.Warnings.Count > 0)
+            {
+                Console.WriteLine("Warnings:");
+                foreach (var warning in overlayDiagnostic.Warnings)
+                {
+                    Console.WriteLine($"  - {warning.Message}");
+                }
+                Console.WriteLine();
             }
         }
-
-        if (diagnostic?.Warnings.Count > 0)
+        else
         {
-            Console.WriteLine("Warnings:");
-            foreach (var warning in diagnostic.Warnings)
+            using var stream = openApiFile.OpenRead();
+
+            var (result, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: settings);
+            openApiDocument = result;
+
+            if (diagnostic?.Errors.Count > 0)
             {
-                Console.WriteLine($"  - {warning.Message}");
+                Console.Error.WriteLine("Errors found in OpenAPI document:");
+                foreach (var error in diagnostic.Errors)
+                {
+                    Console.Error.WriteLine($"  - {error.Message}");
+                }
             }
-            Console.WriteLine();
+
+            if (diagnostic?.Warnings.Count > 0)
+            {
+                Console.WriteLine("Warnings:");
+                foreach (var warning in diagnostic.Warnings)
+                {
+                    Console.WriteLine($"  - {warning.Message}");
+                }
+                Console.WriteLine();
+            }
         }
 
         Console.WriteLine($"Title: {openApiDocument.Info.Title}");
@@ -167,7 +238,7 @@ static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, 
         var generator = new ClientGenerator(openApiDocument, namespaceName, outputDirectory.FullName);
         generator.Generate();
 
-        SaveConfig(openApiFile, outputDirectory, namespaceName);
+        SaveConfig(openApiFile, outputDirectory, namespaceName, overlayFiles);
 
         Console.WriteLine();
         Console.WriteLine("✓ Client generation complete!");
@@ -207,8 +278,13 @@ static void Update(FileInfo configFile)
             ? config.OutputDirectory
             : Path.GetFullPath(Path.Combine(baseDirectory, config.OutputDirectory));
 
+        var overlayFiles = config.OverlayFiles
+            .Select(o => Path.IsPathRooted(o) ? o : Path.GetFullPath(Path.Combine(baseDirectory, o)))
+            .Select(o => new FileInfo(o))
+            .ToArray();
+
         Console.WriteLine($"Updating from configuration: {configFile.FullName}");
-        Generate(new FileInfo(openApiFilePath), new DirectoryInfo(outputDirectoryPath), config.Namespace);
+        Generate(new FileInfo(openApiFilePath), new DirectoryInfo(outputDirectoryPath), config.Namespace, overlayFiles);
     }
     catch (JsonException ex)
     {
@@ -216,13 +292,14 @@ static void Update(FileInfo configFile)
     }
 }
 
-static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName)
+static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, FileInfo[] overlayFiles)
 {
     var config = new GenerationConfig
     {
         OpenApiFile = Path.GetRelativePath(outputDirectory.FullName, openApiFile.FullName),
         OutputDirectory = ".",
-        Namespace = namespaceName
+        Namespace = namespaceName,
+        OverlayFiles = overlayFiles.Select(f => Path.GetRelativePath(outputDirectory.FullName, f.FullName)).ToList()
     };
 
     var jsonOptions = new JsonSerializerOptions { WriteIndented = true };

@@ -16,6 +16,7 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 - ?? **Modern CLI**: Uses `System.CommandLine` with built-in help, validation, and shell tab-completion
 - ?? **Configuration Persistence**: Saves generation parameters to a JSON config file for easy re-generation via `update` command
 - ?? **Spec Conversion**: Convert OpenAPI specifications between versions (2.0, 3.0, 3.1, 3.2) and formats (JSON, YAML)
+- ?? **OpenAPI Overlays**: Apply [OpenAPI Overlay](https://spec.openapis.org/overlay/latest.html) documents to patch specifications before generation — powered by [BinkyLabs.OpenApi.Overlays](https://www.nuget.org/packages/BinkyLabs.OpenApi.Overlays)
 
 ## Type Mapping
 
@@ -114,6 +115,7 @@ dotnet run --project src/OpenApiDotNet -- <openapi-file> [options]
 | `<openapi-file>` | Path to the OpenAPI specification file (JSON or YAML) | *required* |
 | `-o`, `--output <dir>` | Directory where generated code will be placed | `./Generated` |
 | `-n`, `--namespace <ns>` | Namespace for generated code | `GeneratedClient` |
+| `--overlay <file>` | Path to overlay file(s) to apply before generation (repeatable) | *none* |
 
 Built-in flags provided by `System.CommandLine`:
 
@@ -197,9 +199,18 @@ dotnet run --project src/OpenApiDotNet -- swagger.json -o ./Generated -n MyCompa
 dotnet run --project src/OpenApiDotNet -- --help
 ```
 
+**With Overlays:**
+```bash
+# Apply a single overlay before generation
+dotnet run --project src/OpenApiDotNet -- petstore.yaml --overlay remove-deprecated.yaml
+
+# Apply multiple overlays (applied in order)
+dotnet run --project src/OpenApiDotNet -- petstore.yaml --overlay base-overlay.yaml --overlay team-overlay.yaml
+```
+
 **Re-generate from Saved Configuration:**
 ```bash
-# After initial generation, update from the saved config
+# After initial generation, update from the saved config (overlay paths are preserved)
 dotnet run --project src/OpenApiDotNet -- update ./Generated/.openapidotnet.json
 ```
 
@@ -230,7 +241,10 @@ The `.openapidotnet.json` file stores the generation parameters so the client ca
 {
   "openApiFile": "../petstore.yaml",
   "outputDirectory": ".",
-  "namespace": "GeneratedClient"
+  "namespace": "GeneratedClient",
+  "overlayFiles": [
+    "../remove-deprecated.yaml"
+  ]
 }
 ```
 
@@ -528,6 +542,7 @@ Other types
 - ? Special character encoding in URLs
 - ? [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) type mappings
 - ? Specification conversion between OpenAPI versions and formats
+- ? [OpenAPI Overlay Specification](https://spec.openapis.org/overlay/latest.html) support (single or multiple overlays)
 
 ## Naming Conventions
 
@@ -546,6 +561,7 @@ The generator automatically converts:
 ## Dependencies
 
 ### Runtime Dependencies
+- BinkyLabs.OpenApi.Overlays (2.4.0)
 - Microsoft.OpenApi (3.3.1)
 - Microsoft.OpenApi.YamlReader (3.3.1)
 - NodaTime (3.3.0)
