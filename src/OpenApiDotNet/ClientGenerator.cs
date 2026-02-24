@@ -272,7 +272,7 @@ public class ClientGenerator
         if (operation.RequestBody != null)
         {
             var content = operation.RequestBody.Content.FirstOrDefault();
-            if (content.Value?.Schema != null)
+            if (content.Value.Schema?.Id != null)
             {
                 requestBodyType = GetTypeName(content.Value.Schema.Id);
                 parameters.Add($"{requestBodyType} request");
@@ -464,7 +464,7 @@ public class ClientGenerator
         if (successResponse.Value?.Content?.Any() == true)
         {
             var content = successResponse.Value.Content.FirstOrDefault();
-            if (content.Value?.Schema!= null)
+            if (content.Value.Schema?.Id!= null)
             {
                 return GetTypeName(content.Value.Schema.Id);
             }

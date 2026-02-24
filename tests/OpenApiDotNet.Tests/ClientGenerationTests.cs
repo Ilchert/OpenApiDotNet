@@ -28,7 +28,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
 
             diagnostic?.Errors.Should().BeEmpty();
 
@@ -71,7 +71,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -117,7 +117,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -164,7 +164,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -204,7 +204,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -283,7 +283,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -312,7 +312,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -348,7 +348,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -384,7 +384,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -416,7 +416,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
 
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
@@ -448,7 +448,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
 
             diagnostic.Errors.Should().BeEmpty();
 
@@ -485,7 +485,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
 
             var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
 
@@ -522,7 +522,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
 
             var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
 
@@ -559,7 +559,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
 
             var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
 
@@ -592,7 +592,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
 
             var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
 
@@ -631,7 +631,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
 
             var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
 

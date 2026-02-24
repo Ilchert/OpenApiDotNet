@@ -1,16 +1,20 @@
 using FluentAssertions;
 using Microsoft.OpenApi;
+using Microsoft.OpenApi.Reader;
 
 namespace OpenApiDotNet.Tests;
 
 public class PathParameterTests
 {
     private readonly string _fixturesPath;
+    private readonly OpenApiReaderSettings _settings;
 
     public PathParameterTests()
     {
         var baseDirectory = AppContext.BaseDirectory;
         _fixturesPath = Path.Combine(baseDirectory, "..", "..", "..", "Fixtures");
+        _settings = new OpenApiReaderSettings();
+        _settings.AddYamlReader();
     }
 
     [Fact]
@@ -23,7 +27,7 @@ public class PathParameterTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
 
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
@@ -57,7 +61,7 @@ public class PathParameterTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
 
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
@@ -96,7 +100,7 @@ public class PathParameterTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
 
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
@@ -131,7 +135,7 @@ public class PathParameterTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
 
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 

@@ -2,6 +2,7 @@
 using System.CommandLine.Completions;
 using System.Text.Json;
 using Microsoft.OpenApi;
+using Microsoft.OpenApi.Reader;
 using OpenApiDotNet;
 
 var openApiFileArgument = new Argument<FileInfo>("openapi-file")
@@ -90,7 +91,11 @@ static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, 
 
         using var stream = openApiFile.OpenRead();
 
-        var (openApiDocument, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+        var settings = new OpenApiReaderSettings
+        {
+        };
+        settings.AddYamlReader();
+        var (openApiDocument, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: settings);
         if (diagnostic?.Errors.Count > 0)
         {
             Console.Error.WriteLine("Errors found in OpenAPI document:");
