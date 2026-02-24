@@ -1,6 +1,7 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Completions;
 using System.Text.Json;
+using Microsoft.OpenApi;
 using Microsoft.OpenApi.Readers;
 using OpenApiDotNet;
 
@@ -46,12 +47,12 @@ var rootCommand = new RootCommand("OpenAPI Client Generator — generates strong
     namespaceOption,
 };
 
-rootCommand.SetAction(parseResult =>
+rootCommand.SetAction(async parseResult =>
 {
     var openApiFile = parseResult.GetValue(openApiFileArgument)!;
     var outputDirectory = parseResult.GetValue(outputOption)!;
     var namespaceName = parseResult.GetValue(namespaceOption)!;
-    Generate(openApiFile, outputDirectory, namespaceName);
+    await Generate(openApiFile, outputDirectory, namespaceName);
 });
 
 var updateConfigArgument = new Argument<FileInfo>("config-file")
@@ -75,7 +76,7 @@ rootCommand.Subcommands.Add(updateCommand);
 
 return rootCommand.Parse(args).Invoke();
 
-static void Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName)
+static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName)
 {
     if (!openApiFile.Exists)
     {
@@ -89,19 +90,18 @@ static void Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string
         Console.WriteLine();
 
         using var stream = openApiFile.OpenRead();
-        var reader = new OpenApiStreamReader();
-        var openApiDocument = reader.Read(stream, out var diagnostic);
 
-        if (diagnostic.Errors.Count > 0)
+        var (openApiDocument, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+        if (diagnostic?.Errors.Count > 0)
         {
             Console.Error.WriteLine("Errors found in OpenAPI document:");
             foreach (var error in diagnostic.Errors)
             {
                 Console.Error.WriteLine($"  - {error.Message}");
-            }            
+            }
         }
 
-        if (diagnostic.Warnings.Count > 0)
+        if (diagnostic?.Warnings.Count > 0)
         {
             Console.WriteLine("Warnings:");
             foreach (var warning in diagnostic.Warnings)

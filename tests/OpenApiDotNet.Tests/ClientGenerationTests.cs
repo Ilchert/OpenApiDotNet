@@ -1,5 +1,7 @@
 using FluentAssertions;
+using Microsoft.OpenApi;
 using Microsoft.OpenApi.Readers;
+using Microsoft.OpenApi.Readers.Interface;
 using OpenApiDotNet;
 
 namespace OpenApiDotNet.Tests;
@@ -16,19 +18,18 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_WithPetStoreSpec_CreatesExpectedFiles()
+    public async Task Generate_WithPetStoreSpec_CreatesExpectedFiles()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
         var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        
+
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out var diagnostic);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
-            diagnostic.Errors.Should().BeEmpty();
+            diagnostic?.Errors.Should().BeEmpty();
 
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
@@ -60,18 +61,16 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_PetModel_ContainsExpectedProperties()
+    public async Task Generate_PetModel_ContainsExpectedProperties()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
         var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        
+
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
-
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -108,18 +107,16 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_ClientClass_ContainsExpectedMethods()
+    public async Task Generate_ClientClass_ContainsExpectedMethods()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
         var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        
+
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
-
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -157,18 +154,16 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_JsonConfiguration_ContainsNodaTimeSetup()
+    public async Task Generate_JsonConfiguration_ContainsNodaTimeSetupAsync()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
         var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        
+
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
-
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -199,18 +194,16 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_WithQueryParameters_GeneratesProperQueryHandling()
+    public async Task Generate_WithQueryParameters_GeneratesProperQueryHandlingAsync()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
         var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        
+
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
-
+            using var stream = File.OpenRead(specPath);            
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -249,9 +242,9 @@ public class ClientGenerationTests
     public void Constructor_WithNullNamespace_ThrowsArgumentNullException()
     {
         // Arrange
-        var document = new Microsoft.OpenApi.Models.OpenApiDocument
+        var document = new OpenApiDocument
         {
-            Info = new Microsoft.OpenApi.Models.OpenApiInfo { Title = "Test", Version = "1.0" }
+            Info = new OpenApiInfo { Title = "Test", Version = "1.0" }
         };
 
         // Act
@@ -266,9 +259,9 @@ public class ClientGenerationTests
     public void Constructor_WithNullOutputDirectory_ThrowsArgumentNullException()
     {
         // Arrange
-        var document = new Microsoft.OpenApi.Models.OpenApiDocument
+        var document = new OpenApiDocument
         {
-            Info = new Microsoft.OpenApi.Models.OpenApiInfo { Title = "Test", Version = "1.0" }
+            Info = new OpenApiInfo { Title = "Test", Version = "1.0" }
         };
 
         // Act
@@ -280,7 +273,7 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_WithEnumSchema_CreatesEnumFile()
+    public async Task Generate_WithEnumSchema_CreatesEnumFileAsync()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
@@ -289,9 +282,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
-
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -311,7 +302,7 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_EnumModel_ContainsExpectedMembers()
+    public async Task Generate_EnumModel_ContainsExpectedMembersAsync()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
@@ -320,9 +311,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
-
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -349,7 +338,7 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_EnumWithHyphenatedValues_GeneratesPascalCaseMembers()
+    public async Task Generate_EnumWithHyphenatedValues_GeneratesPascalCaseMembersAsync()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
@@ -358,9 +347,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
-
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -387,7 +374,7 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_PetModel_ContainsEnumProperty()
+    public async Task Generate_PetModel_ContainsEnumPropertyAsync()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
@@ -396,9 +383,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
-
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
@@ -421,7 +406,7 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_JsonConfiguration_ContainsStringEnumConverter()
+    public async Task Generate_JsonConfiguration_ContainsStringEnumConverterAsync()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
@@ -430,8 +415,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
@@ -454,7 +438,7 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_WithDottedSchemaNames_CreatesFilesInSubDirectories()
+    public async Task Generate_WithDottedSchemaNames_CreatesFilesInSubDirectoriesAsync()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "dotted-names.yaml");
@@ -464,7 +448,7 @@ public class ClientGenerationTests
         {
             using var stream = File.OpenRead(specPath);
             var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out var diagnostic);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
             diagnostic.Errors.Should().BeEmpty();
 
@@ -492,7 +476,7 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_DottedModel_HasCorrectNamespaceAndTypeName()
+    public async Task Generate_DottedModel_HasCorrectNamespaceAndTypeNameAsync()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "dotted-names.yaml");
@@ -501,8 +485,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
             var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
 
@@ -530,7 +513,7 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_DottedEnum_HasCorrectNamespaceAndTypeName()
+    public async Task Generate_DottedEnum_HasCorrectNamespaceAndTypeNameAsync()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "dotted-names.yaml");
@@ -539,8 +522,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
             var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
 
@@ -568,7 +550,7 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_DottedModel_ReferencesUseSimpleTypeName()
+    public async Task Generate_DottedModel_ReferencesUseSimpleTypeNameAsync()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "dotted-names.yaml");
@@ -577,8 +559,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
             var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
 
@@ -602,7 +583,7 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_Client_WithDottedNames_HasSubNamespaceUsings()
+    public async Task Generate_Client_WithDottedNames_HasSubNamespaceUsingsAsync()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "dotted-names.yaml");
@@ -611,8 +592,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
             var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
 
@@ -642,7 +622,7 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public void Generate_NonDottedModel_StaysInRootModelsNamespace()
+    public async Task Generate_NonDottedModel_StaysInRootModelsNamespaceAsync()
     {
         // Arrange
         var specPath = Path.Combine(_fixturesPath, "dotted-names.yaml");
@@ -651,8 +631,7 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
-            var document = reader.Read(stream, out _);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
             var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
 

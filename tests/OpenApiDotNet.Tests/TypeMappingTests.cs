@@ -1,5 +1,5 @@
 using FluentAssertions;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using OpenApiDotNet;
 
 namespace OpenApiDotNet.Tests;
@@ -10,7 +10,7 @@ public class TypeMappingTests
     public void GetCSharpType_StringType_ReturnsString()
     {
         // Arrange
-        var schema = new OpenApiSchema { Type = "string" };
+        var schema = new OpenApiSchema { Type =JsonSchemaType.String };
         var generator = CreateGenerator();
 
         // Act
@@ -24,7 +24,7 @@ public class TypeMappingTests
     public void GetCSharpType_StringWithDateTimeFormat_ReturnsInstant()
     {
         // Arrange
-        var schema = new OpenApiSchema { Type = "string", Format = "date-time" };
+        var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" };
         var generator = CreateGenerator();
 
         // Act
@@ -38,7 +38,7 @@ public class TypeMappingTests
     public void GetCSharpType_StringWithDateFormat_ReturnsLocalDate()
     {
         // Arrange
-        var schema = new OpenApiSchema { Type = "string", Format = "date" };
+        var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date" };
         var generator = CreateGenerator();
 
         // Act
@@ -52,7 +52,7 @@ public class TypeMappingTests
     public void GetCSharpType_StringWithTimeFormat_ReturnsLocalTime()
     {
         // Arrange
-        var schema = new OpenApiSchema { Type = "string", Format = "time" };
+        var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "time" };
         var generator = CreateGenerator();
 
         // Act

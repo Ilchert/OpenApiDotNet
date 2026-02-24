@@ -1,4 +1,4 @@
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using System.Text;
 
 namespace OpenApiDotNet;
@@ -53,7 +53,7 @@ public class ClientGenerator
         }
     }
 
-    private void GenerateModel(string name, OpenApiSchema schema, string directory)
+    private void GenerateModel(string name, IOpenApiSchema schema, string directory)
     {
         if (_generatedModels.Contains(name))
             return;
@@ -131,7 +131,7 @@ public class ClientGenerator
         Console.WriteLine($"  Generated model: {name}");
     }
 
-    private void GenerateEnum(string name, OpenApiSchema schema, string directory)
+    private void GenerateEnum(string name, IOpenApiSchema schema, string directory)
     {
         var (additionalNamespace, typeName) = DecomposeName(name);
         var fullNamespace = string.IsNullOrEmpty(additionalNamespace)
@@ -157,9 +157,7 @@ public class ClientGenerator
 
         foreach (var enumValue in schema.Enum)
         {
-            var stringValue = enumValue is Microsoft.OpenApi.Any.OpenApiString openApiString
-                ? openApiString.Value
-                : enumValue.ToString() ?? string.Empty;
+            var stringValue = enumValue.ToString();
 
             var memberName = ToPascalCase(stringValue);
 
@@ -202,7 +200,7 @@ public class ClientGenerator
         sb.AppendLine();
 
         var clientName = GetClientName();
-        
+
         sb.AppendLine("/// <summary>");
         sb.AppendLine($"/// {EscapeXmlComment(_document.Info.Description ?? _document.Info.Title ?? "API Client")}");
         sb.AppendLine("/// </summary>");
@@ -236,9 +234,9 @@ public class ClientGenerator
         Console.WriteLine($"  Generated client: {clientName}");
     }
 
-    private void GenerateOperation(StringBuilder sb, string path, OperationType operationType, OpenApiOperation operation)
+    private void GenerateOperation(StringBuilder sb, string path, HttpMethod httpMethod, OpenApiOperation operation)
     {
-        var methodName = operation.OperationId ?? $"{operationType}{path.Replace("/", "").Replace("{", "").Replace("}", "")}";
+        var methodName = operation.OperationId ?? $"{httpMethod}{path.Replace("/", "").Replace("{", "").Replace("}", "")}";
         methodName = ToPascalCase(methodName);
 
         sb.AppendLine("    /// <summary>");
@@ -274,9 +272,9 @@ public class ClientGenerator
         if (operation.RequestBody != null)
         {
             var content = operation.RequestBody.Content.FirstOrDefault();
-            if (content.Value?.Schema?.Reference != null)
+            if (content.Value?.Schema != null)
             {
-                requestBodyType = GetTypeName(content.Value.Schema.Reference.Id);
+                requestBodyType = GetTypeName(content.Value.Schema.Id);
                 parameters.Add($"{requestBodyType} request");
             }
         }
@@ -293,14 +291,14 @@ public class ClientGenerator
 
         sb.AppendLine();
 
-        GenerateHttpCall(sb, operationType, responseType, requestBodyType != null);
+        GenerateHttpCall(sb, httpMethod, responseType, requestBodyType != null);
 
         sb.AppendLine("    }");
         sb.AppendLine();
     }
 
-    private void GenerateUrlBuilding(StringBuilder sb, string path, 
-        List<(string name, string paramName, string paramType)> pathParams, 
+    private void GenerateUrlBuilding(StringBuilder sb, string path,
+        List<(string name, string paramName, string paramType)> pathParams,
         List<(string name, string paramName, string paramType, bool required)> queryParams)
     {
         if (pathParams.Any() || queryParams.Any())
@@ -330,7 +328,7 @@ public class ClientGenerator
                 sb.AppendLine();
                 sb.AppendLine("        // Build query string with URL-encoded parameters");
                 sb.AppendLine("        var queryString = new List<string>();");
-                
+
                 foreach (var param in queryParams)
                 {
                     if (param.required)
@@ -343,7 +341,7 @@ public class ClientGenerator
                         sb.AppendLine($"            queryString.Add($\"{param.name}={{Uri.EscapeDataString({param.paramName}.ToString())}}\");");
                     }
                 }
-                
+
                 sb.AppendLine("        if (queryString.Any())");
                 sb.AppendLine("            url += \"?\" + string.Join(\"&\", queryString);");
             }
@@ -354,68 +352,70 @@ public class ClientGenerator
         }
     }
 
-    private void GenerateHttpCall(StringBuilder sb, OperationType operationType, string responseType, bool hasRequestBody)
+    private void GenerateHttpCall(StringBuilder sb, HttpMethod operationType, string responseType, bool hasRequestBody)
     {
-        switch (operationType)
+        if (operationType == HttpMethod.Get)
         {
-            case OperationType.Get:
-                sb.AppendLine("        var response = await _httpClient.GetAsync(url, cancellationToken);");
-                sb.AppendLine("        response.EnsureSuccessStatusCode();");
-                if (responseType != "void")
-                {
-                    sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
-                }
-                break;
-            case OperationType.Post:
-                if (hasRequestBody)
-                {
-                    sb.AppendLine("        var response = await _httpClient.PostAsJsonAsync(url, request, _jsonOptions, cancellationToken);");
-                }
-                else
-                {
-                    sb.AppendLine("        var response = await _httpClient.PostAsync(url, null, cancellationToken);");
-                }
-                sb.AppendLine("        response.EnsureSuccessStatusCode();");
-                if (responseType != "void")
-                {
-                    sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
-                }
-                break;
-            case OperationType.Put:
-                if (hasRequestBody)
-                {
-                    sb.AppendLine("        var response = await _httpClient.PutAsJsonAsync(url, request, _jsonOptions, cancellationToken);");
-                }
-                else
-                {
-                    sb.AppendLine("        var response = await _httpClient.PutAsync(url, null, cancellationToken);");
-                }
-                sb.AppendLine("        response.EnsureSuccessStatusCode();");
-                if (responseType != "void")
-                {
-                    sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
-                }
-                break;
-            case OperationType.Delete:
-                sb.AppendLine("        var response = await _httpClient.DeleteAsync(url, cancellationToken);");
-                sb.AppendLine("        response.EnsureSuccessStatusCode();");
-                break;
-            case OperationType.Patch:
-                if (hasRequestBody)
-                {
-                    sb.AppendLine("        var content = JsonContent.Create(request, options: _jsonOptions);");
-                    sb.AppendLine("        var response = await _httpClient.PatchAsync(url, content, cancellationToken);");
-                }
-                else
-                {
-                    sb.AppendLine("        var response = await _httpClient.PatchAsync(url, null, cancellationToken);");
-                }
-                sb.AppendLine("        response.EnsureSuccessStatusCode();");
-                if (responseType != "void")
-                {
-                    sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
-                }
-                break;
+            sb.AppendLine("        var response = await _httpClient.GetAsync(url, cancellationToken);");
+            sb.AppendLine("        response.EnsureSuccessStatusCode();");
+            if (responseType != "void")
+            {
+                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+            }
+        }
+        else if (operationType == HttpMethod.Post)
+        {
+            if (hasRequestBody)
+            {
+                sb.AppendLine("        var response = await _httpClient.PostAsJsonAsync(url, request, _jsonOptions, cancellationToken);");
+            }
+            else
+            {
+                sb.AppendLine("        var response = await _httpClient.PostAsync(url, null, cancellationToken);");
+            }
+            sb.AppendLine("        response.EnsureSuccessStatusCode();");
+            if (responseType != "void")
+            {
+                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+            }
+        }
+        else if (operationType == HttpMethod.Put)
+        {
+            if (hasRequestBody)
+            {
+                sb.AppendLine("        var response = await _httpClient.PutAsJsonAsync(url, request, _jsonOptions, cancellationToken);");
+            }
+            else
+            {
+                sb.AppendLine("        var response = await _httpClient.PutAsync(url, null, cancellationToken);");
+            }
+            sb.AppendLine("        response.EnsureSuccessStatusCode();");
+            if (responseType != "void")
+            {
+                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+            }
+        }
+        else if (operationType == HttpMethod.Delete)
+        {
+            sb.AppendLine("        var response = await _httpClient.DeleteAsync(url, cancellationToken);");
+            sb.AppendLine("        response.EnsureSuccessStatusCode();");
+        }
+        else if (operationType == HttpMethod.Patch)
+        {
+            if (hasRequestBody)
+            {
+                sb.AppendLine("        var content = JsonContent.Create(request, options: _jsonOptions);");
+                sb.AppendLine("        var response = await _httpClient.PatchAsync(url, content, cancellationToken);");
+            }
+            else
+            {
+                sb.AppendLine("        var response = await _httpClient.PatchAsync(url, null, cancellationToken);");
+            }
+            sb.AppendLine("        response.EnsureSuccessStatusCode();");
+            if (responseType != "void")
+            {
+                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+            }
         }
     }
 
@@ -464,9 +464,9 @@ public class ClientGenerator
         if (successResponse.Value?.Content?.Any() == true)
         {
             var content = successResponse.Value.Content.FirstOrDefault();
-            if (content.Value?.Schema?.Reference != null)
+            if (content.Value?.Schema!= null)
             {
-                return GetTypeName(content.Value.Schema.Reference.Id);
+                return GetTypeName(content.Value.Schema.Id);
             }
             if (content.Value?.Schema != null)
             {
@@ -482,49 +482,49 @@ public class ClientGenerator
         return $"{title}Client";
     }
 
-    public string GetCSharpType(OpenApiSchema schema)
+    public string GetCSharpType(IOpenApiSchema schema)
     {
-        if (schema.Reference != null)
+        if (schema.Id != null)
         {
-            return GetTypeName(schema.Reference.Id);
+            return GetTypeName(schema.Id);
         }
 
         return schema.Type switch
         {
-            "string" when schema.Format == "date-time" => "Instant",
-            "string" when schema.Format == "date" => "LocalDate",
-            "string" when schema.Format == "time" => "LocalTime",
-            "string" when schema.Format == "time-local" => "LocalTime",
-            "string" when schema.Format == "date-time-local" => "LocalDateTime",
-            "string" when schema.Format == "duration" => "Duration",
-            "string" when schema.Format == "uuid" => "Guid",
-            "string" when schema.Format == "uri" => "Uri",
-            "string" when schema.Format == "uri-reference" => "Uri",
-            "string" when schema.Format == "iri" => "Uri",
-            "string" when schema.Format == "iri-reference" => "Uri",
-            "string" when schema.Format == "byte" => "byte[]",
-            "string" when schema.Format == "binary" => "byte[]",
-            "string" when schema.Format == "base64url" => "byte[]",
-            "string" when schema.Format == "char" => "char",
-            "string" => "string",
-            "integer" when schema.Format == "int64" => "long",
-            "integer" when schema.Format == "int32" => "int",
-            "integer" when schema.Format == "int16" => "short",
-            "integer" when schema.Format == "int8" => "sbyte",
-            "integer" when schema.Format == "uint8" => "byte",
-            "integer" when schema.Format == "uint16" => "ushort",
-            "integer" when schema.Format == "uint32" => "uint",
-            "integer" when schema.Format == "uint64" => "ulong",
-            "integer" => "int",
-            "number" when schema.Format == "float" => "float",
-            "number" when schema.Format == "double" => "double",
-            "number" when schema.Format == "decimal" => "decimal",
-            "number" when schema.Format == "decimal128" => "decimal",
-            "number" when schema.Format == "double-int" => "long",
-            "number" => "double",
-            "boolean" => "bool",
-            "array" when schema.Items != null => $"List<{GetCSharpType(schema.Items)}>",
-            "array" => "List<object>",
+            JsonSchemaType.String when schema.Format == "date-time" => "Instant",
+            JsonSchemaType.String when schema.Format == "date" => "LocalDate",
+            JsonSchemaType.String when schema.Format == "time" => "LocalTime",
+            JsonSchemaType.String when schema.Format == "time-local" => "LocalTime",
+            JsonSchemaType.String when schema.Format == "date-time-local" => "LocalDateTime",
+            JsonSchemaType.String when schema.Format == "duration" => "Duration",
+            JsonSchemaType.String when schema.Format == "uuid" => "Guid",
+            JsonSchemaType.String when schema.Format == "uri" => "Uri",
+            JsonSchemaType.String when schema.Format == "uri-reference" => "Uri",
+            JsonSchemaType.String when schema.Format == "iri" => "Uri",
+            JsonSchemaType.String when schema.Format == "iri-reference" => "Uri",
+            JsonSchemaType.String when schema.Format == "byte" => "byte[]",
+            JsonSchemaType.String when schema.Format == "binary" => "byte[]",
+            JsonSchemaType.String when schema.Format == "base64url" => "byte[]",
+            JsonSchemaType.String when schema.Format == "char" => "char",
+            JsonSchemaType.String => "string",
+            JsonSchemaType.Integer when schema.Format == "int64" => "long",
+            JsonSchemaType.Integer when schema.Format == "int32" => "int",
+            JsonSchemaType.Integer when schema.Format == "int16" => "short",
+            JsonSchemaType.Integer when schema.Format == "int8" => "sbyte",
+            JsonSchemaType.Integer when schema.Format == "uint8" => "byte",
+            JsonSchemaType.Integer when schema.Format == "uint16" => "ushort",
+            JsonSchemaType.Integer when schema.Format == "uint32" => "uint",
+            JsonSchemaType.Integer when schema.Format == "uint64" => "ulong",
+            JsonSchemaType.Integer => "int",
+            JsonSchemaType.Number when schema.Format == "float" => "float",
+            JsonSchemaType.Number when schema.Format == "double" => "double",
+            JsonSchemaType.Number when schema.Format == "decimal" => "decimal",
+            JsonSchemaType.Number when schema.Format == "decimal128" => "decimal",
+            JsonSchemaType.Number when schema.Format == "double-int" => "long",
+            JsonSchemaType.Number => "double",
+            JsonSchemaType.Boolean => "bool",
+            JsonSchemaType.Array when schema.Items != null => $"List<{GetCSharpType(schema.Items)}>",
+            JsonSchemaType.Array => "List<object>",
             _ => "object"
         };
     }
@@ -532,7 +532,7 @@ public class ClientGenerator
     public static string ToPascalCase(string input)
     {
         if (string.IsNullOrEmpty(input)) return input;
-        
+
         var words = input.Split(new[] { '-', '_', ' ', '.' }, StringSplitOptions.RemoveEmptyEntries);
         return string.Concat(words.Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
     }
