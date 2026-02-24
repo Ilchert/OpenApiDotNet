@@ -74,6 +74,40 @@ updateCommand.SetAction(parseResult =>
 
 rootCommand.Subcommands.Add(updateCommand);
 
+var convertOutputArgument = new Argument<FileInfo>("output-file")
+{
+    Description = "Path for the converted output file"
+};
+
+var versionOption = new Option<string>("--version", "Target OpenAPI specification version");
+versionOption.Aliases.Add("-v");
+versionOption.DefaultValueFactory = _ => "3.1";
+versionOption.AcceptOnlyFromAmong("2.0", "3.0", "3.1", "3.2");
+
+var formatOption = new Option<string>("--format", "Output format");
+formatOption.Aliases.Add("-f");
+formatOption.DefaultValueFactory = _ => "json";
+formatOption.AcceptOnlyFromAmong("json", "yaml");
+
+var convertCommand = new Command("convert", "Convert an OpenAPI specification to a specific version and format")
+{
+    openApiFileArgument,
+    convertOutputArgument,
+    versionOption,
+    formatOption,
+};
+
+convertCommand.SetAction(async parseResult =>
+{
+    var inputFile = parseResult.GetValue(openApiFileArgument)!;
+    var outputFile = parseResult.GetValue(convertOutputArgument)!;
+    var version = parseResult.GetValue(versionOption)!;
+    var format = parseResult.GetValue(formatOption)!;
+    await Convert(inputFile, outputFile, version, format);
+});
+
+rootCommand.Subcommands.Add(convertCommand);
+
 return rootCommand.Parse(args).Invoke();
 
 static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName)
@@ -190,5 +224,64 @@ static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, stri
     var configPath = Path.Combine(outputDirectory.FullName, GenerationConfig.FileName);
     File.WriteAllText(configPath, json);
     Console.WriteLine($"  Saved configuration: {GenerationConfig.FileName}");
+}
+
+static async Task Convert(FileInfo inputFile, FileInfo outputFile, string version, string format)
+{
+    if (!inputFile.Exists)
+    {
+        Console.Error.WriteLine($"Error: File '{inputFile.FullName}' not found.");
+        return;
+    }
+
+    try
+    {
+        Console.WriteLine($"Reading OpenAPI specification from: {inputFile.FullName}");
+
+        using var stream = inputFile.OpenRead();
+        var settings = new OpenApiReaderSettings();
+        settings.AddYamlReader();
+        var (openApiDocument, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: settings);
+
+        if (diagnostic?.Errors.Count > 0)
+        {
+            Console.Error.WriteLine("Errors found in OpenAPI document:");
+            foreach (var error in diagnostic.Errors)
+            {
+                Console.Error.WriteLine($"  - {error.Message}");
+            }
+        }
+
+        var specVersion = version switch
+        {
+            "2.0" => OpenApiSpecVersion.OpenApi2_0,
+            "3.0" => OpenApiSpecVersion.OpenApi3_0,
+            "3.1" => OpenApiSpecVersion.OpenApi3_1,
+            "3.2" => OpenApiSpecVersion.OpenApi3_2,
+            _ => throw new ArgumentException($"Unsupported OpenAPI version: {version}")
+        };
+
+        var outputDirectory = Path.GetDirectoryName(outputFile.FullName);
+        if (!string.IsNullOrEmpty(outputDirectory))
+            Directory.CreateDirectory(outputDirectory);
+
+        using var fileStream = File.Create(outputFile.FullName);
+        using var textWriter = new StreamWriter(fileStream);
+
+        IOpenApiWriter writer = format switch
+        {
+            "yaml" => new OpenApiYamlWriter(textWriter),
+            _ => new OpenApiJsonWriter(textWriter),
+        };
+
+        openApiDocument.SerializeAs(specVersion, writer);
+
+        Console.WriteLine($"✓ Converted to OpenAPI {version} ({format}): {outputFile.FullName}");
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Error: {ex.Message}");
+        Console.Error.WriteLine(ex.StackTrace);
+    }
 }
 

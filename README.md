@@ -15,6 +15,7 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 - ?? **Enum Support**: Generates C# enums from OpenAPI string enums with `JsonStringEnumConverter`
 - ?? **Modern CLI**: Uses `System.CommandLine` with built-in help, validation, and shell tab-completion
 - ?? **Configuration Persistence**: Saves generation parameters to a JSON config file for easy re-generation via `update` command
+- ?? **Spec Conversion**: Convert OpenAPI specifications between versions (2.0, 3.0, 3.1, 3.2) and formats (JSON, YAML)
 
 ## Type Mapping
 
@@ -137,6 +138,31 @@ dotnet run --project src/OpenApiDotNet -- update ./Generated/.openapidotnet.json
 |---|---|---|
 | `[config-file]` | Path to the `.openapidotnet.json` configuration file | `.openapidotnet.json` |
 
+### Convert Command
+
+Convert an OpenAPI specification to a different version and/or format:
+
+```bash
+# Convert to OpenAPI 3.1 JSON (default)
+dotnet run --project src/OpenApiDotNet -- convert petstore.yaml output.json
+
+# Convert to OpenAPI 2.0 (Swagger) JSON
+dotnet run --project src/OpenApiDotNet -- convert petstore.yaml swagger.json -v 2.0
+
+# Convert to OpenAPI 3.0 YAML
+dotnet run --project src/OpenApiDotNet -- convert api.json api-v3.yaml -v 3.0 -f yaml
+
+# Convert to OpenAPI 3.2 YAML
+dotnet run --project src/OpenApiDotNet -- convert api.yaml api-v32.yaml -v 3.2 -f yaml
+```
+
+| Argument / Option | Description | Default |
+|---|---|---|
+| `<openapi-file>` | Path to the OpenAPI specification file to convert | *required* |
+| `<output-file>` | Path for the converted output file | *required* |
+| `-v`, `--version` | Target OpenAPI version (`2.0`, `3.0`, `3.1`, `3.2`) | `3.1` |
+| `-f`, `--format` | Output format (`json`, `yaml`) | `json` |
+
 ### Shell Tab-Completion
 
 The CLI supports shell tab-completion via the [`dotnet-suggest`](https://github.com/dotnet/command-line-api/blob/main/docs/dotnet-suggest.md) global tool.
@@ -175,6 +201,12 @@ dotnet run --project src/OpenApiDotNet -- --help
 ```bash
 # After initial generation, update from the saved config
 dotnet run --project src/OpenApiDotNet -- update ./Generated/.openapidotnet.json
+```
+
+**Convert to a Different Version/Format:**
+```bash
+dotnet run --project src/OpenApiDotNet -- convert petstore.yaml petstore-v2.json --version 2.0
+dotnet run --project src/OpenApiDotNet -- convert api.json api.yaml -f yaml
 ```
 
 ## Generated Code Structure
@@ -495,6 +527,7 @@ Other types
 - ? Descriptions and summaries
 - ? Special character encoding in URLs
 - ? [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) type mappings
+- ? Specification conversion between OpenAPI versions and formats
 
 ## Naming Conventions
 
@@ -513,11 +546,11 @@ The generator automatically converts:
 ## Dependencies
 
 ### Runtime Dependencies
-- Microsoft.OpenApi (1.6.22)
-- Microsoft.OpenApi.Readers (1.6.22)
+- Microsoft.OpenApi (3.3.1)
+- Microsoft.OpenApi.YamlReader (3.3.1)
 - NodaTime (3.3.0)
-- NodaTime.Serialization.SystemTextJson (1.3.0)
-- System.CommandLine (2.0.2)
+- NodaTime.Serialization.SystemTextJson (1.3.1)
+- System.CommandLine (2.0.3)
 
 ### Generated Code Dependencies
 Projects using the generated code need:
