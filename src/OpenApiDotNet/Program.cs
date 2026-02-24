@@ -79,12 +79,18 @@ var convertOutputArgument = new Argument<FileInfo>("output-file")
     Description = "Path for the converted output file"
 };
 
-var versionOption = new Option<string>("--version", "Target OpenAPI specification version");
+var versionOption = new Option<string>("--version")
+{
+    Description = "Target OpenAPI specification version"
+};
 versionOption.Aliases.Add("-v");
-versionOption.DefaultValueFactory = _ => "3.1";
+versionOption.DefaultValueFactory = _ => "3.2";
 versionOption.AcceptOnlyFromAmong("2.0", "3.0", "3.1", "3.2");
 
-var formatOption = new Option<string>("--format", "Output format");
+var formatOption = new Option<string>("--format")
+{
+    Description = "Output format"
+};
 formatOption.Aliases.Add("-f");
 formatOption.DefaultValueFactory = _ => "json";
 formatOption.AcceptOnlyFromAmong("json", "yaml");
