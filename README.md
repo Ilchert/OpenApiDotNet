@@ -220,13 +220,13 @@ namespace PetStoreClient.Models;
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum PetStatus
 {
-    [JsonPropertyName("available")]
+    [JsonStringEnumMemberName("available")]
     Available,
 
-    [JsonPropertyName("pending")]
+    [JsonStringEnumMemberName("pending")]
     Pending,
 
-    [JsonPropertyName("sold")]
+    [JsonStringEnumMemberName ("sold")]
     Sold,
 }
 ```
