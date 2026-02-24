@@ -115,6 +115,7 @@ dotnet run --project src/OpenApiDotNet -- <openapi-file> [options]
 | `<openapi-file>` | Path to the OpenAPI specification file (JSON or YAML) | *required* |
 | `-o`, `--output <dir>` | Directory where generated code will be placed | `./Generated` |
 | `-n`, `--namespace <ns>` | Namespace for generated code | `GeneratedClient` |
+| `-p`, `--namespace-prefix <prefix>` | Strip this dotted prefix from schema names when generating namespaces | *none* |
 | `--overlay <file>` | Path to overlay file(s) to apply before generation (repeatable) | *none* |
 
 Built-in flags provided by `System.CommandLine`:
@@ -208,6 +209,14 @@ dotnet run --project src/OpenApiDotNet -- petstore.yaml --overlay remove-depreca
 dotnet run --project src/OpenApiDotNet -- petstore.yaml --overlay base-overlay.yaml --overlay team-overlay.yaml
 ```
 
+**With Namespace Prefix Stripping:**
+```bash
+# Strip the 'Commerce' prefix from dotted schema names
+# Commerce.Order → Order (in root Models namespace)
+# Identity.Customer → Customer (in Identity sub-namespace, unchanged)
+dotnet run --project src/OpenApiDotNet -- api.yaml -n MyCompany.Client -p Commerce
+```
+
 **Re-generate from Saved Configuration:**
 ```bash
 # After initial generation, update from the saved config (overlay paths are preserved)
@@ -244,7 +253,8 @@ The `.openapidotnet.json` file stores the generation parameters so the client ca
   "namespace": "GeneratedClient",
   "overlayFiles": [
     "../remove-deprecated.yaml"
-  ]
+  ],
+  "namespacePrefix": "Commerce"
 }
 ```
 
@@ -543,6 +553,7 @@ Other types
 - ✅ [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) type mappings
 - ✅ Specification conversion between OpenAPI versions and formats
 - ✅ [OpenAPI Overlay Specification](https://spec.openapis.org/overlay/latest.html) support (single or multiple overlays)
+- ✅ Namespace prefix stripping for dotted schema names
 
 ## Naming Conventions
 

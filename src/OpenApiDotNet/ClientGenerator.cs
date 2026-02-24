@@ -13,12 +13,14 @@ public class ClientGenerator
     private readonly string _outputDirectory;
     private readonly HashSet<string> _generatedModels = new();
     private readonly HashSet<string> _subNamespaces = new();
+    private readonly string? _namespacePrefix;
 
-    public ClientGenerator(OpenApiDocument document, string namespaceName, string outputDirectory)
+    public ClientGenerator(OpenApiDocument document, string namespaceName, string outputDirectory, string? namespacePrefix = null)
     {
         _document = document ?? throw new ArgumentNullException(nameof(document));
         _namespace = namespaceName ?? throw new ArgumentNullException(nameof(namespaceName));
         _outputDirectory = outputDirectory ?? throw new ArgumentNullException(nameof(outputDirectory));
+        _namespacePrefix = namespacePrefix;
     }
 
     /// <summary>
@@ -42,7 +44,7 @@ public class ClientGenerator
         // Discover all sub-namespaces first
         foreach (var schema in _document.Components.Schemas)
         {
-            var (additionalNamespace, _) = DecomposeName(schema.Key);
+            var (additionalNamespace, _) = DecomposeName(StripNamespacePrefix(schema.Key));
             if (!string.IsNullOrEmpty(additionalNamespace))
                 _subNamespaces.Add(additionalNamespace);
         }
@@ -67,7 +69,7 @@ public class ClientGenerator
             return;
         }
 
-        var (additionalNamespace, typeName) = DecomposeName(name);
+        var (additionalNamespace, typeName) = DecomposeName(StripNamespacePrefix(name));
         var fullNamespace = string.IsNullOrEmpty(additionalNamespace)
             ? $"{_namespace}.Models"
             : $"{_namespace}.Models.{additionalNamespace}";
@@ -133,7 +135,7 @@ public class ClientGenerator
 
     private void GenerateEnum(string name, IOpenApiSchema schema, string directory)
     {
-        var (additionalNamespace, typeName) = DecomposeName(name);
+        var (additionalNamespace, typeName) = DecomposeName(StripNamespacePrefix(name));
         var fullNamespace = string.IsNullOrEmpty(additionalNamespace)
             ? $"{_namespace}.Models"
             : $"{_namespace}.Models.{additionalNamespace}";
@@ -545,6 +547,22 @@ public class ClientGenerator
         var pascal = ToPascalCase(input);
         if (string.IsNullOrEmpty(pascal)) return pascal;
         return char.ToLowerInvariant(pascal[0]) + pascal[1..];
+    }
+
+    /// <summary>
+    /// Strips the configured namespace prefix from a schema name.
+    /// For example, with prefix "Commerce", "Commerce.Order" becomes "Order".
+    /// </summary>
+    private string StripNamespacePrefix(string name)
+    {
+        if (string.IsNullOrEmpty(_namespacePrefix))
+            return name;
+
+        var prefix = _namespacePrefix.EndsWith('.') ? _namespacePrefix : _namespacePrefix + ".";
+
+        return name.StartsWith(prefix, StringComparison.Ordinal)
+            ? name[prefix.Length..]
+            : name;
     }
 
     /// <summary>

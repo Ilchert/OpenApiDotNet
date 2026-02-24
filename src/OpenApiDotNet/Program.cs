@@ -41,6 +41,12 @@ var namespaceOption = new Option<string>("--namespace")
 };
 namespaceOption.Aliases.Add("-n");
 
+var namespacePrefixOption = new Option<string?>("--namespace-prefix")
+{
+    Description = "Strip this dotted prefix from schema names when generating namespaces (e.g. 'Commerce' turns 'Commerce.Order' into 'Order')"
+};
+namespacePrefixOption.Aliases.Add("-p");
+
 var overlayOption = new Option<FileInfo[]>("--overlay")
 {
     Description = "Path to overlay file(s) to apply before generation. Can be specified multiple times.",
@@ -68,6 +74,7 @@ var rootCommand = new RootCommand
     openApiFileArgument,
     outputOption,
     namespaceOption,
+    namespacePrefixOption,
     overlayOption,
 };
 
@@ -76,8 +83,9 @@ rootCommand.SetAction(async parseResult =>
     var openApiFile = parseResult.GetValue(openApiFileArgument)!;
     var outputDirectory = parseResult.GetValue(outputOption)!;
     var namespaceName = parseResult.GetValue(namespaceOption)!;
+    var namespacePrefix = parseResult.GetValue(namespacePrefixOption);
     var overlayFiles = parseResult.GetValue(overlayOption) ?? [];
-    await Generate(openApiFile, outputDirectory, namespaceName, overlayFiles);
+    await Generate(openApiFile, outputDirectory, namespaceName, namespacePrefix, overlayFiles);
 });
 
 var updateConfigArgument = new Argument<FileInfo>("config-file")
@@ -141,7 +149,7 @@ rootCommand.Subcommands.Add(convertCommand);
 
 return rootCommand.Parse(args).Invoke();
 
-static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, FileInfo[] overlayFiles)
+static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, FileInfo[] overlayFiles)
 {
     if (!openApiFile.Exists)
     {
@@ -230,15 +238,17 @@ static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, 
         Console.WriteLine($"Version: {openApiDocument.Info.Version}");
         Console.WriteLine($"Output: {outputDirectory.FullName}");
         Console.WriteLine($"Namespace: {namespaceName}");
+        if (namespacePrefix != null)
+            Console.WriteLine($"Namespace prefix: {namespacePrefix}");
         Console.WriteLine();
 
         Console.WriteLine("Generating client code...");
         Console.WriteLine();
 
-        var generator = new ClientGenerator(openApiDocument, namespaceName, outputDirectory.FullName);
+        var generator = new ClientGenerator(openApiDocument, namespaceName, outputDirectory.FullName, namespacePrefix);
         generator.Generate();
 
-        SaveConfig(openApiFile, outputDirectory, namespaceName, overlayFiles);
+        SaveConfig(openApiFile, outputDirectory, namespaceName, namespacePrefix, overlayFiles);
 
         Console.WriteLine();
         Console.WriteLine("✓ Client generation complete!");
@@ -284,7 +294,7 @@ static void Update(FileInfo configFile)
             .ToArray();
 
         Console.WriteLine($"Updating from configuration: {configFile.FullName}");
-        Generate(new FileInfo(openApiFilePath), new DirectoryInfo(outputDirectoryPath), config.Namespace, overlayFiles);
+        Generate(new FileInfo(openApiFilePath), new DirectoryInfo(outputDirectoryPath), config.Namespace, config.NamespacePrefix, overlayFiles);
     }
     catch (JsonException ex)
     {
@@ -292,13 +302,14 @@ static void Update(FileInfo configFile)
     }
 }
 
-static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, FileInfo[] overlayFiles)
+static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, FileInfo[] overlayFiles)
 {
     var config = new GenerationConfig
     {
         OpenApiFile = Path.GetRelativePath(outputDirectory.FullName, openApiFile.FullName),
         OutputDirectory = ".",
         Namespace = namespaceName,
+        NamespacePrefix = namespacePrefix,
         OverlayFiles = overlayFiles.Select(f => Path.GetRelativePath(outputDirectory.FullName, f.FullName)).ToList()
     };
 

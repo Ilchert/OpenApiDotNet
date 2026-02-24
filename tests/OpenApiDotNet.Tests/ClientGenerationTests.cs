@@ -649,4 +649,50 @@ public class ClientGenerationTests
             }
         }
     }
+
+    [Fact]
+    public async Task Generate_WithNamespacePrefix_StripsMatchingPrefixFromNamespaceAsync()
+    {
+        // Arrange
+        var specPath = Path.Combine(_fixturesPath, "dotted-names.json");
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            using var stream = File.OpenRead(specPath);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+
+            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory, namespacePrefix: "Commerce");
+
+            // Act
+            generator.Generate();
+
+            // Assert - Commerce prefix is stripped, so Commerce.Order becomes just Order in root Models
+            File.Exists(Path.Combine(outputDirectory, "Models", "Order.cs")).Should().BeTrue();
+            File.Exists(Path.Combine(outputDirectory, "Models", "NewOrder.cs")).Should().BeTrue();
+            File.Exists(Path.Combine(outputDirectory, "Models", "OrderStatus.cs")).Should().BeTrue();
+
+            // Identity prefix does NOT match, so it keeps its sub-namespace
+            File.Exists(Path.Combine(outputDirectory, "Models", "Identity", "Customer.cs")).Should().BeTrue();
+
+            // Non-dotted name stays in root Models directory
+            File.Exists(Path.Combine(outputDirectory, "Models", "SimpleModel.cs")).Should().BeTrue();
+
+            // Verify namespace in stripped model
+            var orderContent = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Order.cs"));
+            orderContent.Should().Contain("namespace DottedNames.Client.Models;");
+            orderContent.Should().Contain("public class Order");
+
+            // Verify namespace in non-stripped model
+            var customerContent = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Identity", "Customer.cs"));
+            customerContent.Should().Contain("namespace DottedNames.Client.Models.Identity;");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+    }
 }
