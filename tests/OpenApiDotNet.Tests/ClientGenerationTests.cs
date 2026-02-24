@@ -82,8 +82,8 @@ public class ClientGenerationTests
             var content = File.ReadAllText(petModelPath);
 
             // Check for expected properties with correct types
-            content.Should().Contain("public long Id");
-            content.Should().Contain("public string Name");
+            content.Should().Contain("public required long Id");
+            content.Should().Contain("public required string Name");
             content.Should().Contain("public string? Tag");
             content.Should().Contain("public LocalDate? BirthDate");
             content.Should().Contain("public Instant? CreatedAt");

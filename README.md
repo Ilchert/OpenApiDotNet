@@ -11,7 +11,7 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 - ? **Async First**: All HTTP operations are async with proper cancellation support
 - ?? **Well Documented**: Preserves OpenAPI descriptions as XML documentation comments
 - ?? **Format Registry**: Comprehensive [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) support — integers, URIs, binary, decimals, and more
-- ?? **Nullable Aware**: Respects required/optional properties with nullable reference types
+- ?? **Nullable Aware**: Respects required/optional properties — required fields use the C# `required` modifier, optional fields use nullable reference types
 - ?? **Enum Support**: Generates C# enums from OpenAPI string enums with `JsonStringEnumConverter`
 - ?? **Modern CLI**: Uses `System.CommandLine` with built-in help, validation, and shell tab-completion
 - ?? **Configuration Persistence**: Saves generation parameters to a JSON config file for easy re-generation via `update` command
@@ -219,13 +219,13 @@ public class Pet
     /// Unique identifier for the pet
     /// </summary>
     [JsonPropertyName("id")]
-    public long Id { get; set; }
+    public required long Id { get; set; }
 
     /// <summary>
     /// Name of the pet
     /// </summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public required string Name { get; set; }
 
     /// <summary>
     /// Birth date of the pet

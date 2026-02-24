@@ -367,6 +367,67 @@ Path resolution is relative to the config file's directory, so the command works
 
 ---
 
+## Required Keyword for Required Properties
+
+### Overview
+
+Properties marked as `required` in the OpenAPI schema now use the C# `required` modifier in generated model classes. This provides compile-time enforcement that required properties must be set when constructing model instances.
+
+### Changes
+
+#### `ClientGenerator.cs`
+The property generation line was updated from:
+```csharp
+public {type} {Name} { get; set; }
+```
+to:
+```csharp
+public required {type} {Name} { get; set; }
+```
+for properties listed in the schema's `required` array. Optional properties remain nullable (`{type}?`) and unchanged.
+
+### Example
+
+Given an OpenAPI schema:
+```yaml
+Pet:
+  type: object
+  required:
+    - id
+    - name
+  properties:
+    id:
+      type: integer
+      format: int64
+    name:
+      type: string
+    tag:
+      type: string
+```
+
+The generated C# class:
+```csharp
+public class Pet
+{
+    [JsonPropertyName("id")]
+    public required long Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public required string Name { get; set; }
+
+    [JsonPropertyName("tag")]
+    public string? Tag { get; set; }
+}
+```
+
+### Files Modified
+- `src/OpenApiDotNet/ClientGenerator.cs` — added `required` modifier for required properties
+- `tests/OpenApiDotNet.Tests/ClientGenerationTests.cs` — updated assertions to expect `required` keyword
+- `README.md` — updated feature description and example generated model
+- `IMPLEMENTATION_SUMMARY.md` — this section
+
+---
+
 **Implementation Status**: ✅ **COMPLETE**
 **Quality**: Production Ready
 **Test Coverage**: 100% for path parameter features

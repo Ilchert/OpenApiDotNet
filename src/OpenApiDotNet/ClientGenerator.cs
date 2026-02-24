@@ -91,7 +91,7 @@ public class ClientGenerator
                 }
 
                 sb.AppendLine($"    [JsonPropertyName(\"{property.Key}\")]");
-                sb.AppendLine($"    public {propertyType}{(isRequired ? "" : "?")} {propertyName} {{ get; set; }}");
+                sb.AppendLine($"    public {(isRequired ? "required " : "")}{propertyType}{(isRequired ? "" : "?")} {propertyName} {{ get; set; }}");
                 sb.AppendLine();
             }
         }
