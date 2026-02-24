@@ -1,33 +1,29 @@
 using FluentAssertions;
 using Microsoft.OpenApi;
-using Microsoft.OpenApi.Reader;
 
 namespace OpenApiDotNet.Tests;
 
 public class PathParameterTests
 {
     private readonly string _fixturesPath;
-    private readonly OpenApiReaderSettings _settings;
 
     public PathParameterTests()
     {
         var baseDirectory = AppContext.BaseDirectory;
         _fixturesPath = Path.Combine(baseDirectory, "..", "..", "..", "Fixtures");
-        _settings = new OpenApiReaderSettings();
-        _settings.AddYamlReader();
     }
 
     [Fact]
     public async Task Generate_WithSinglePathParameter_GeneratesUrlEncodedPathAsync()
     {
         // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
+        var specPath = Path.Combine(_fixturesPath, "petstore.json");
         var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
@@ -55,13 +51,13 @@ public class PathParameterTests
     public async Task Generate_WithMultiplePathParameters_GeneratesCorrectUrlBuildingAsync()
     {
         // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
+        var specPath = Path.Combine(_fixturesPath, "petstore.json");
         var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
@@ -94,13 +90,13 @@ public class PathParameterTests
     public async Task Generate_WithMixedPathTypes_GeneratesCorrectParametersAsync()
     {
         // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
+        var specPath = Path.Combine(_fixturesPath, "petstore.json");
         var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
@@ -129,13 +125,13 @@ public class PathParameterTests
     public async Task Generate_WithPathAndQueryParameters_GeneratesBothCorrectlyAsync()
     {
         // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.yaml");
+        var specPath = Path.Combine(_fixturesPath, "petstore.json");
         var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 
         try
         {
             using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: _settings);
+            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
