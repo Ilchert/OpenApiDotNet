@@ -4,19 +4,19 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 
 ## Features
 
-- ? **Modern .NET**: Built for .NET 10 with C# 14.0
-- ?? **NodaTime Integration**: Automatic mapping of date/time formats to NodaTime types (`Instant`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Duration`)
-- ?? **System.Text.Json**: Native JSON serialization with optimal performance
-- ?? **Type-Safe**: Generates strongly-typed models and client methods
-- ? **Async First**: All HTTP operations are async with proper cancellation support
-- ?? **Well Documented**: Preserves OpenAPI descriptions as XML documentation comments
-- ?? **Format Registry**: Comprehensive [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) support — integers, URIs, binary, decimals, and more
-- ?? **Nullable Aware**: Respects required/optional properties — required fields use the C# `required` modifier, optional fields use nullable reference types
-- ?? **Enum Support**: Generates C# enums from OpenAPI string enums with `JsonStringEnumConverter`
-- ?? **Modern CLI**: Uses `System.CommandLine` with built-in help, validation, and shell tab-completion
-- ?? **Configuration Persistence**: Saves generation parameters to a JSON config file for easy re-generation via `update` command
-- ?? **Spec Conversion**: Convert OpenAPI specifications between versions (2.0, 3.0, 3.1, 3.2) and formats (JSON, YAML)
-- ?? **OpenAPI Overlays**: Apply [OpenAPI Overlay](https://spec.openapis.org/overlay/latest.html) documents to patch specifications before generation — powered by [BinkyLabs.OpenApi.Overlays](https://www.nuget.org/packages/BinkyLabs.OpenApi.Overlays)
+- 🚀 **Modern .NET**: Built for .NET 10 with C# 14.0
+- 🕐 **NodaTime Integration**: Automatic mapping of date/time formats to NodaTime types (`Instant`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Duration`)
+- ⚡ **System.Text.Json**: Native JSON serialization with optimal performance
+- 🛡️ **Type-Safe**: Generates strongly-typed models and client methods
+- ♻️ **Async First**: All HTTP operations are async with proper cancellation support
+- 📖 **Well Documented**: Preserves OpenAPI descriptions as XML documentation comments
+- 📋 **Format Registry**: Comprehensive [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) support — integers, URIs, binary, decimals, and more
+- ❔ **Nullable Aware**: Respects required/optional properties — required fields use the C# `required` modifier, optional fields use nullable reference types
+- 🏷️ **Enum Support**: Generates C# enums from OpenAPI string enums with `JsonStringEnumConverter`
+- 💻 **Modern CLI**: Uses `System.CommandLine` with built-in help, validation, and shell tab-completion
+- 💾 **Configuration Persistence**: Saves generation parameters to a JSON config file for easy re-generation via `update` command
+- 🔄 **Spec Conversion**: Convert OpenAPI specifications between versions (2.0, 3.0, 3.1, 3.2) and formats (JSON, YAML)
+- 🧩 **OpenAPI Overlays**: Apply [OpenAPI Overlay](https://spec.openapis.org/overlay/latest.html) documents to patch specifications before generation — powered by [BinkyLabs.OpenApi.Overlays](https://www.nuget.org/packages/BinkyLabs.OpenApi.Overlays)
 
 ## Type Mapping
 
@@ -525,24 +525,24 @@ Other types
 
 ## Supported OpenAPI Features
 
-- ? OpenAPI 3.0 specifications
-- ? JSON and YAML input formats
-- ? Path parameters with URL encoding
-- ? Query parameters with URL encoding
-- ? Multiple path parameters (e.g., `/owners/{ownerId}/pets/{petId}`)
-- ? Request bodies
-- ? Response models
-- ? Schema references (`$ref`)
-- ? Required/optional properties
-- ? Arrays and nested objects
-- ? Enum types with `JsonStringEnumConverter`
-- ? HTTP methods: GET, POST, PUT, PATCH, DELETE
-- ? Operation IDs for method naming
-- ? Descriptions and summaries
-- ? Special character encoding in URLs
-- ? [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) type mappings
-- ? Specification conversion between OpenAPI versions and formats
-- ? [OpenAPI Overlay Specification](https://spec.openapis.org/overlay/latest.html) support (single or multiple overlays)
+- ✅ OpenAPI 3.0 specifications
+- ✅ JSON and YAML input formats
+- ✅ Path parameters with URL encoding
+- ✅ Query parameters with URL encoding
+- ✅ Multiple path parameters (e.g., `/owners/{ownerId}/pets/{petId}`)
+- ✅ Request bodies
+- ✅ Response models
+- ✅ Schema references (`$ref`)
+- ✅ Required/optional properties
+- ✅ Arrays and nested objects
+- ✅ Enum types with `JsonStringEnumConverter`
+- ✅ HTTP methods: GET, POST, PUT, PATCH, DELETE
+- ✅ Operation IDs for method naming
+- ✅ Descriptions and summaries
+- ✅ Special character encoding in URLs
+- ✅ [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) type mappings
+- ✅ Specification conversion between OpenAPI versions and formats
+- ✅ [OpenAPI Overlay Specification](https://spec.openapis.org/overlay/latest.html) support (single or multiple overlays)
 
 ## Naming Conventions
 
@@ -554,9 +554,9 @@ The generator follows standard .NET naming conventions:
 - **JSON Properties**: Preserved from OpenAPI spec (typically camelCase)
 
 The generator automatically converts:
-- `birth_date` ? `BirthDate` (property) / `birthDate` (parameter)
-- `created-at` ? `CreatedAt` (property) / `createdAt` (parameter)
-- `user-name` ? `UserName` (property) / `userName` (parameter)
+- `birth_date` → `BirthDate` (property) / `birthDate` (parameter)
+- `created-at` → `CreatedAt` (property) / `createdAt` (parameter)
+- `user-name` → `UserName` (property) / `userName` (parameter)
 
 ## Dependencies
 
@@ -613,4 +613,4 @@ Built with:
 
 ---
 
-**Made with ?? for the .NET community**
+**Made with ❤️ for the .NET community**
