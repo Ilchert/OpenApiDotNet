@@ -12,6 +12,7 @@ public class ClientGenerator
     private readonly string _namespace;
     private readonly string _outputDirectory;
     private readonly HashSet<string> _generatedModels = new();
+    private readonly HashSet<string> _subNamespaces = new();
 
     public ClientGenerator(OpenApiDocument document, string namespaceName, string outputDirectory)
     {
@@ -38,6 +39,14 @@ public class ClientGenerator
         if (_document.Components?.Schemas == null)
             return;
 
+        // Discover all sub-namespaces first
+        foreach (var schema in _document.Components.Schemas)
+        {
+            var (additionalNamespace, _) = DecomposeName(schema.Key);
+            if (!string.IsNullOrEmpty(additionalNamespace))
+                _subNamespaces.Add(additionalNamespace);
+        }
+
         foreach (var schema in _document.Components.Schemas)
         {
             GenerateModel(schema.Key, schema.Value, modelsDirectory);
@@ -58,11 +67,25 @@ public class ClientGenerator
             return;
         }
 
+        var (additionalNamespace, typeName) = DecomposeName(name);
+        var fullNamespace = string.IsNullOrEmpty(additionalNamespace)
+            ? $"{_namespace}.Models"
+            : $"{_namespace}.Models.{additionalNamespace}";
+
         var sb = new StringBuilder();
         sb.AppendLine("using System.Text.Json.Serialization;");
         sb.AppendLine("using NodaTime;");
+
+        // Add using statements for all model sub-namespaces
+        foreach (var subNs in _subNamespaces.OrderBy(s => s))
+        {
+            var fullSubNamespace = $"{_namespace}.Models.{subNs}";
+            if (fullSubNamespace != fullNamespace)
+                sb.AppendLine($"using {fullSubNamespace};");
+        }
+
         sb.AppendLine();
-        sb.AppendLine($"namespace {_namespace}.Models;");
+        sb.AppendLine($"namespace {fullNamespace};");
         sb.AppendLine();
 
         if (!string.IsNullOrEmpty(schema.Description))
@@ -72,7 +95,7 @@ public class ClientGenerator
             sb.AppendLine("/// </summary>");
         }
 
-        sb.AppendLine($"public class {name}");
+        sb.AppendLine($"public class {typeName}");
         sb.AppendLine("{");
 
         if (schema.Properties != null)
@@ -98,17 +121,27 @@ public class ClientGenerator
 
         sb.AppendLine("}");
 
-        var filePath = Path.Combine(directory, $"{name}.cs");
+        var targetDirectory = string.IsNullOrEmpty(additionalNamespace)
+            ? directory
+            : Path.Combine(directory, additionalNamespace.Replace('.', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(targetDirectory);
+
+        var filePath = Path.Combine(targetDirectory, $"{typeName}.cs");
         File.WriteAllText(filePath, sb.ToString());
         Console.WriteLine($"  Generated model: {name}");
     }
 
     private void GenerateEnum(string name, OpenApiSchema schema, string directory)
     {
+        var (additionalNamespace, typeName) = DecomposeName(name);
+        var fullNamespace = string.IsNullOrEmpty(additionalNamespace)
+            ? $"{_namespace}.Models"
+            : $"{_namespace}.Models.{additionalNamespace}";
+
         var sb = new StringBuilder();
         sb.AppendLine("using System.Text.Json.Serialization;");
         sb.AppendLine();
-        sb.AppendLine($"namespace {_namespace}.Models;");
+        sb.AppendLine($"namespace {fullNamespace};");
         sb.AppendLine();
 
         if (!string.IsNullOrEmpty(schema.Description))
@@ -119,7 +152,7 @@ public class ClientGenerator
         }
 
         sb.AppendLine("[JsonConverter(typeof(JsonStringEnumConverter))]");
-        sb.AppendLine($"public enum {name}");
+        sb.AppendLine($"public enum {typeName}");
         sb.AppendLine("{");
 
         foreach (var enumValue in schema.Enum)
@@ -140,7 +173,12 @@ public class ClientGenerator
 
         sb.AppendLine("}");
 
-        var filePath = Path.Combine(directory, $"{name}.cs");
+        var targetDirectory = string.IsNullOrEmpty(additionalNamespace)
+            ? directory
+            : Path.Combine(directory, additionalNamespace.Replace('.', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(targetDirectory);
+
+        var filePath = Path.Combine(targetDirectory, $"{typeName}.cs");
         File.WriteAllText(filePath, sb.ToString());
         Console.WriteLine($"  Generated enum: {name}");
     }
@@ -152,6 +190,13 @@ public class ClientGenerator
         sb.AppendLine("using System.Text.Json;");
         sb.AppendLine("using NodaTime;");
         sb.AppendLine($"using {_namespace}.Models;");
+
+        // Add using statements for all model sub-namespaces
+        foreach (var subNs in _subNamespaces.OrderBy(s => s))
+        {
+            sb.AppendLine($"using {_namespace}.Models.{subNs};");
+        }
+
         sb.AppendLine();
         sb.AppendLine($"namespace {_namespace};");
         sb.AppendLine();
@@ -231,7 +276,7 @@ public class ClientGenerator
             var content = operation.RequestBody.Content.FirstOrDefault();
             if (content.Value?.Schema?.Reference != null)
             {
-                requestBodyType = content.Value.Schema.Reference.Id;
+                requestBodyType = GetTypeName(content.Value.Schema.Reference.Id);
                 parameters.Add($"{requestBodyType} request");
             }
         }
@@ -421,7 +466,7 @@ public class ClientGenerator
             var content = successResponse.Value.Content.FirstOrDefault();
             if (content.Value?.Schema?.Reference != null)
             {
-                return content.Value.Schema.Reference.Id;
+                return GetTypeName(content.Value.Schema.Reference.Id);
             }
             if (content.Value?.Schema != null)
             {
@@ -441,7 +486,7 @@ public class ClientGenerator
     {
         if (schema.Reference != null)
         {
-            return schema.Reference.Id;
+            return GetTypeName(schema.Reference.Id);
         }
 
         return schema.Type switch
@@ -497,6 +542,33 @@ public class ClientGenerator
         var pascal = ToPascalCase(input);
         if (string.IsNullOrEmpty(pascal)) return pascal;
         return char.ToLowerInvariant(pascal[0]) + pascal[1..];
+    }
+
+    /// <summary>
+    /// Decomposes a potentially dotted schema name into namespace segments and a type name.
+    /// For example, "Pet.Status" becomes ("Pet", "Status").
+    /// </summary>
+    private static (string additionalNamespace, string typeName) DecomposeName(string name)
+    {
+        var dotIndex = name.LastIndexOf('.');
+        if (dotIndex < 0)
+            return ("", name);
+
+        var namespacePart = name[..dotIndex];
+        var typeName = name[(dotIndex + 1)..];
+
+        var segments = namespacePart.Split('.');
+        var pascalSegments = segments.Select(ToPascalCase);
+        return (string.Join(".", pascalSegments), typeName);
+    }
+
+    /// <summary>
+    /// Extracts the type name (last segment) from a potentially dotted schema name.
+    /// </summary>
+    private static string GetTypeName(string name)
+    {
+        var dotIndex = name.LastIndexOf('.');
+        return dotIndex < 0 ? name : name[(dotIndex + 1)..];
     }
 
     private static string EscapeXmlComment(string text)

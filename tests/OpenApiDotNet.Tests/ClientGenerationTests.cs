@@ -452,4 +452,226 @@ public class ClientGenerationTests
             }
         }
     }
+
+    [Fact]
+    public void Generate_WithDottedSchemaNames_CreatesFilesInSubDirectories()
+    {
+        // Arrange
+        var specPath = Path.Combine(_fixturesPath, "dotted-names.yaml");
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            using var stream = File.OpenRead(specPath);
+            var reader = new OpenApiStreamReader();
+            var document = reader.Read(stream, out var diagnostic);
+
+            diagnostic.Errors.Should().BeEmpty();
+
+            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
+
+            // Act
+            generator.Generate();
+
+            // Assert - dotted names produce subdirectories
+            File.Exists(Path.Combine(outputDirectory, "Models", "Commerce", "Order.cs")).Should().BeTrue();
+            File.Exists(Path.Combine(outputDirectory, "Models", "Commerce", "NewOrder.cs")).Should().BeTrue();
+            File.Exists(Path.Combine(outputDirectory, "Models", "Commerce", "OrderStatus.cs")).Should().BeTrue();
+            File.Exists(Path.Combine(outputDirectory, "Models", "Identity", "Customer.cs")).Should().BeTrue();
+
+            // Non-dotted name stays in root Models directory
+            File.Exists(Path.Combine(outputDirectory, "Models", "SimpleModel.cs")).Should().BeTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Generate_DottedModel_HasCorrectNamespaceAndTypeName()
+    {
+        // Arrange
+        var specPath = Path.Combine(_fixturesPath, "dotted-names.yaml");
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            using var stream = File.OpenRead(specPath);
+            var reader = new OpenApiStreamReader();
+            var document = reader.Read(stream, out _);
+
+            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
+
+            // Act
+            generator.Generate();
+
+            // Assert
+            var orderPath = Path.Combine(outputDirectory, "Models", "Commerce", "Order.cs");
+            var content = File.ReadAllText(orderPath);
+
+            // Type name should be just the last segment
+            content.Should().Contain("public class Order");
+            // Namespace should include the dotted prefix
+            content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
+            // Should have using for other sub-namespace
+            content.Should().Contain("using DottedNames.Client.Models.Identity;");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Generate_DottedEnum_HasCorrectNamespaceAndTypeName()
+    {
+        // Arrange
+        var specPath = Path.Combine(_fixturesPath, "dotted-names.yaml");
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            using var stream = File.OpenRead(specPath);
+            var reader = new OpenApiStreamReader();
+            var document = reader.Read(stream, out _);
+
+            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
+
+            // Act
+            generator.Generate();
+
+            // Assert
+            var enumPath = Path.Combine(outputDirectory, "Models", "Commerce", "OrderStatus.cs");
+            var content = File.ReadAllText(enumPath);
+
+            content.Should().Contain("public enum OrderStatus");
+            content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
+            content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
+            content.Should().Contain("Pending,");
+            content.Should().Contain("Confirmed,");
+            content.Should().Contain("Shipped,");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Generate_DottedModel_ReferencesUseSimpleTypeName()
+    {
+        // Arrange
+        var specPath = Path.Combine(_fixturesPath, "dotted-names.yaml");
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            using var stream = File.OpenRead(specPath);
+            var reader = new OpenApiStreamReader();
+            var document = reader.Read(stream, out _);
+
+            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
+
+            // Act
+            generator.Generate();
+
+            // Assert - properties referencing dotted types use simple names
+            var orderPath = Path.Combine(outputDirectory, "Models", "Commerce", "Order.cs");
+            var content = File.ReadAllText(orderPath);
+
+            content.Should().Contain("public required OrderStatus Status");
+            content.Should().Contain("public Customer? Customer");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Generate_Client_WithDottedNames_HasSubNamespaceUsings()
+    {
+        // Arrange
+        var specPath = Path.Combine(_fixturesPath, "dotted-names.yaml");
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            using var stream = File.OpenRead(specPath);
+            var reader = new OpenApiStreamReader();
+            var document = reader.Read(stream, out _);
+
+            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
+
+            // Act
+            generator.Generate();
+
+            // Assert
+            var clientPath = Path.Combine(outputDirectory, "DottedNamesAPIClient.cs");
+            var content = File.ReadAllText(clientPath);
+
+            content.Should().Contain("using DottedNames.Client.Models;");
+            content.Should().Contain("using DottedNames.Client.Models.Commerce;");
+            content.Should().Contain("using DottedNames.Client.Models.Identity;");
+
+            // Methods should use simple type names
+            content.Should().Contain("Task<List<Order>>");
+            content.Should().Contain("Task<Order>");
+            content.Should().Contain("NewOrder request");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Generate_NonDottedModel_StaysInRootModelsNamespace()
+    {
+        // Arrange
+        var specPath = Path.Combine(_fixturesPath, "dotted-names.yaml");
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        try
+        {
+            using var stream = File.OpenRead(specPath);
+            var reader = new OpenApiStreamReader();
+            var document = reader.Read(stream, out _);
+
+            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
+
+            // Act
+            generator.Generate();
+
+            // Assert
+            var modelPath = Path.Combine(outputDirectory, "Models", "SimpleModel.cs");
+            var content = File.ReadAllText(modelPath);
+
+            content.Should().Contain("namespace DottedNames.Client.Models;");
+            content.Should().Contain("public class SimpleModel");
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+    }
 }
