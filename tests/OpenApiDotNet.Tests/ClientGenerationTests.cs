@@ -1,20 +1,21 @@
 using FluentAssertions;
 using Microsoft.OpenApi;
-using Microsoft.OpenApi.Readers;
-using Microsoft.OpenApi.Readers.Interface;
-using OpenApiDotNet;
+using Microsoft.OpenApi.Reader;
 
 namespace OpenApiDotNet.Tests;
 
 public class ClientGenerationTests
 {
     private readonly string _fixturesPath;
+    private OpenApiReaderSettings _settings;
 
     public ClientGenerationTests()
     {
         // Get the path to the fixtures directory
         var baseDirectory = AppContext.BaseDirectory;
         _fixturesPath = Path.Combine(baseDirectory, "..", "..", "..", "Fixtures");
+        _settings = new OpenApiReaderSettings();
+        _settings.AddYamlReader();
     }
 
     [Fact]
@@ -202,7 +203,7 @@ public class ClientGenerationTests
 
         try
         {
-            using var stream = File.OpenRead(specPath);            
+            using var stream = File.OpenRead(specPath);
             var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
             var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
 
@@ -447,7 +448,6 @@ public class ClientGenerationTests
         try
         {
             using var stream = File.OpenRead(specPath);
-            var reader = new OpenApiStreamReader();
             var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
             diagnostic.Errors.Should().BeEmpty();

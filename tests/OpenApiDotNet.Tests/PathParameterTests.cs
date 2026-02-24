@@ -1,7 +1,5 @@
 using FluentAssertions;
 using Microsoft.OpenApi;
-using Microsoft.OpenApi.Readers;
-using OpenApiDotNet;
 
 namespace OpenApiDotNet.Tests;
 

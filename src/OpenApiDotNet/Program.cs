@@ -2,7 +2,6 @@
 using System.CommandLine.Completions;
 using System.Text.Json;
 using Microsoft.OpenApi;
-using Microsoft.OpenApi.Readers;
 using OpenApiDotNet;
 
 var openApiFileArgument = new Argument<FileInfo>("openapi-file")
