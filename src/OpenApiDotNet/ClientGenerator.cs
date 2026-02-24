@@ -272,9 +272,10 @@ public class ClientGenerator
         if (operation.RequestBody != null)
         {
             var content = operation.RequestBody.Content.FirstOrDefault();
-            if (content.Value.Schema?.Id != null)
+            var bodySchemaName = content.Value.Schema != null ? GetSchemaName(content.Value.Schema) : null;
+            if (bodySchemaName != null)
             {
-                requestBodyType = GetTypeName(content.Value.Schema.Id);
+                requestBodyType = GetTypeName(bodySchemaName);
                 parameters.Add($"{requestBodyType} request");
             }
         }
@@ -464,9 +465,10 @@ public class ClientGenerator
         if (successResponse.Value?.Content?.Any() == true)
         {
             var content = successResponse.Value.Content.FirstOrDefault();
-            if (content.Value.Schema?.Id!= null)
+            var respSchemaName = content.Value.Schema != null ? GetSchemaName(content.Value.Schema) : null;
+            if (respSchemaName != null)
             {
-                return GetTypeName(content.Value.Schema.Id);
+                return GetTypeName(respSchemaName);
             }
             if (content.Value?.Schema != null)
             {
@@ -484,9 +486,10 @@ public class ClientGenerator
 
     public string GetCSharpType(IOpenApiSchema schema)
     {
-        if (schema.Id != null)
+        var schemaName = GetSchemaName(schema);
+        if (schemaName != null)
         {
-            return GetTypeName(schema.Id);
+            return GetTypeName(schemaName);
         }
 
         return schema.Type switch
@@ -569,6 +572,20 @@ public class ClientGenerator
     {
         var dotIndex = name.LastIndexOf('.');
         return dotIndex < 0 ? name : name[(dotIndex + 1)..];
+    }
+
+    /// <summary>
+    /// Extracts the schema name from an IOpenApiSchema, handling both direct Id and OpenApiSchemaReference.
+    /// </summary>
+    private static string? GetSchemaName(IOpenApiSchema schema)
+    {
+        if (!string.IsNullOrEmpty(schema.Id))
+            return schema.Id;
+
+        if (schema is OpenApiSchemaReference schemaRef)
+            return schemaRef.Reference.Id;
+
+        return null;
     }
 
     private static string EscapeXmlComment(string text)
