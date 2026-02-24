@@ -98,8 +98,7 @@ static void Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string
             foreach (var error in diagnostic.Errors)
             {
                 Console.Error.WriteLine($"  - {error.Message}");
-            }
-            return;
+            }            
         }
 
         if (diagnostic.Warnings.Count > 0)
