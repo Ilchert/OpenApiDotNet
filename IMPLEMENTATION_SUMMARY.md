@@ -451,6 +451,82 @@ public class Pet
 
 ---
 
+## Configurable Type Mappings
+
+### Overview
+
+Extracted the hardcoded OpenAPI-to-.NET type mappings from a switch expression in `ClientGenerator.GetCSharpType()` into a configurable `TypeMappingConfig` class. Users can now override any default type mapping via the `.openapidotnet.json` configuration file.
+
+### Features Added
+
+#### 1. **TypeMappingConfig Class**
+New `TypeMappingConfig` class (`src/OpenApiDotNet/TypeMappingConfig.cs`) that:
+- Holds all default type mappings in a `Dictionary<string, string>` keyed by `"type:format"` (e.g. `"string:date-time"` → `"NodaTime.Instant"`) or just `"type"` for defaults (e.g. `"string"` → `"string"`)
+- Accepts optional custom mappings merged on top of defaults
+- Provides `Resolve(schemaType, format)` for type lookup with format-specific → default fallback
+- Exposes `GetDefaults()` for retrieving the full set of built-in mappings
+
+#### 2. **Configuration Persistence**
+Added `TypeMappings` property to `GenerationConfig`, serialized as `"typeMappings"` in `.openapidotnet.json`:
+
+```json
+{
+  "openApiFile": "../api.yaml",
+  "outputDirectory": ".",
+  "namespace": "MyApp",
+  "typeMappings": {
+    "string:date-time": "DateTimeOffset",
+    "string:email": "EmailAddress",
+    "integer": "long"
+  }
+}
+```
+
+Only specified keys are overridden; all other defaults remain intact.
+
+#### 3. **ClientGenerator Integration**
+`ClientGenerator` now accepts an optional `TypeMappingConfig` parameter. The 35-line hardcoded switch expression was replaced with a call to `TypeMappingConfig.Resolve()`, keeping array and `$ref` handling in the remaining switch.
+
+### Mapping Key Format
+
+| Key | Description | Example |
+|---|---|---|
+| `type:format` | Maps a specific type+format combination | `"string:date-time"` → `"DateTimeOffset"` |
+| `type` | Default mapping when no format matches | `"integer"` → `"long"` |
+
+### Test Coverage
+
+Added **13 new tests** in `TypeMappingConfigTests.cs`:
+- Default resolution for string, integer, boolean types
+- Format-specific resolution (e.g. `string:date-time`)
+- Custom override of existing mappings
+- Custom default type override
+- Adding new custom format mappings
+- Verify overrides don't affect unrelated mappings
+- `GetDefaults()` returns all expected entries
+- Integration with `ClientGenerator.GetCSharpType()`
+
+### Files Created
+- `src/OpenApiDotNet/TypeMappingConfig.cs` — configurable type mapping class
+- `tests/OpenApiDotNet.Tests/TypeMappingConfigTests.cs` — 13 unit tests
+
+### Files Modified
+- `src/OpenApiDotNet/ClientGenerator.cs` — replaced hardcoded switch with `TypeMappingConfig.Resolve()`
+- `src/OpenApiDotNet/GenerationConfig.cs` — added `TypeMappings` property
+- `src/OpenApiDotNet/Program.cs` — threaded type mappings through `Generate`, `Update`, and `SaveConfig`
+- `README.md` — documented custom type mappings feature
+- `IMPLEMENTATION_SUMMARY.md` — this section
+
+### Backward Compatibility
+
+✅ Fully backward compatible:
+- Default mappings are identical to the previous hardcoded values
+- `TypeMappingConfig` parameter is optional (defaults to built-in mappings)
+- `typeMappings` in the config file is nullable (omitted when not set)
+- All 94 existing tests continue to pass
+
+---
+
 **Implementation Status**: ✅ **COMPLETE**
 **Quality**: Production Ready
 **Test Coverage**: 100% for path parameter features

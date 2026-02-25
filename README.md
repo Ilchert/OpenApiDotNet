@@ -15,23 +15,24 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 - 🏷️ **Enum Support**: Generates C# enums from OpenAPI string enums with `JsonStringEnumConverter`
 - 💻 **Modern CLI**: Uses `System.CommandLine` with built-in help, validation, and shell tab-completion
 - 💾 **Configuration Persistence**: Saves generation parameters to a JSON config file for easy re-generation via `update` command
+- 🔧 **Configurable Type Mappings**: Override default OpenAPI-to-.NET type mappings via the configuration file
 - 🔄 **Spec Conversion**: Convert OpenAPI specifications between versions (2.0, 3.0, 3.1, 3.2) and formats (JSON, YAML)
 - 🧩 **OpenAPI Overlays**: Apply [OpenAPI Overlay](https://spec.openapis.org/overlay/latest.html) documents to patch specifications before generation — powered by [BinkyLabs.OpenApi.Overlays](https://www.nuget.org/packages/BinkyLabs.OpenApi.Overlays)
 
 ## Type Mapping
 
-The generator maps OpenAPI types and formats to idiomatic C# types following the [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html).
+The generator maps OpenAPI types and formats to idiomatic C# types following the [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html). All mappings can be [overridden via the configuration file](#custom-type-mappings).
 
 ### String Formats
 
 | OpenAPI Format | C# Type | Notes |
 |---|---|---|
-| `date-time` | `Instant` | NodaTime — RFC 3339 date-time |
-| `date` | `LocalDate` | NodaTime — RFC 3339 full-date |
-| `time` | `LocalTime` | NodaTime — RFC 3339 full-time |
-| `time-local` | `LocalTime` | NodaTime — time without timezone |
-| `date-time-local` | `LocalDateTime` | NodaTime — date-time without timezone |
-| `duration` | `Duration` | NodaTime — RFC 3339 duration |
+| `date-time` | `NodaTime.Instant` | NodaTime — RFC 3339 date-time |
+| `date` | `NodaTime.LocalDate` | NodaTime — RFC 3339 full-date |
+| `time` | `NodaTime.LocalTime` | NodaTime — RFC 3339 full-time |
+| `time-local` | `NodaTime.LocalTime` | NodaTime — time without timezone |
+| `date-time-local` | `NodaTime.LocalDateTime` | NodaTime — date-time without timezone |
+| `duration` | `NodaTime.Duration` | NodaTime — RFC 3339 duration |
 | `uuid` | `Guid` | RFC 4122 UUID |
 | `uri` | `Uri` | RFC 3986 URI |
 | `uri-reference` | `Uri` | RFC 3986 URI reference |
@@ -264,15 +265,44 @@ The `.openapidotnet.json` file stores the generation parameters so the client ca
   "overlayFiles": [
     "../remove-deprecated.yaml"
   ],
-  "namespacePrefix": "Commerce"
+  "namespacePrefix": "Commerce",
+  "typeMappings": {
+    "string:date-time": "DateTimeOffset",
+    "integer": "long"
+  }
 }
 ```
+
+### Custom Type Mappings
+
+You can override default OpenAPI-to-.NET type mappings by adding a `typeMappings` section to the `.openapidotnet.json` configuration file. Mappings use keys in the format `"type:format"` (e.g. `"string:date-time"`) or just `"type"` for the default mapping of a type (e.g. `"integer"`).
+
+Only specified keys are overridden; all other defaults remain intact.
+
+```json
+{
+  "openApiFile": "../api.yaml",
+  "outputDirectory": ".",
+  "namespace": "MyApp",
+  "typeMappings": {
+    "string:date-time": "DateTimeOffset",
+    "string:date": "DateTime",
+    "string:email": "EmailAddress",
+    "integer": "long"
+  }
+}
+```
+
+In the example above:
+- `string` with format `date-time` maps to `DateTimeOffset` instead of the default `NodaTime.Instant`
+- `string` with format `date` maps to `DateTime` instead of the default `NodaTime.LocalDate`
+- `string` with format `email` is a new custom mapping (no built-in default)
+- `integer` without a format maps to `long` instead of the default `int`
 
 ### Example Generated Model
 
 ```csharp
 using System.Text.Json.Serialization;
-using NodaTime;
 
 namespace PetStoreClient.Models;
 
@@ -297,13 +327,13 @@ public class Pet
     /// Birth date of the pet
     /// </summary>
     [JsonPropertyName("birthDate")]
-    public LocalDate? BirthDate { get; set; }
+    public NodaTime.LocalDate? BirthDate { get; set; }
 
     /// <summary>
     /// When the pet was created
     /// </summary>
     [JsonPropertyName("createdAt")]
-    public Instant? CreatedAt { get; set; }
+    public NodaTime.Instant? CreatedAt { get; set; }
 }
 ```
 
@@ -491,24 +521,26 @@ The project includes comprehensive test coverage:
 ### Core Components
 
 1. **ClientGenerator**: Main orchestrator that generates all code
-2. **Type Mapper**: Converts OpenAPI schemas to C# types with NodaTime support
+2. **TypeMappingConfig**: Configurable OpenAPI-to-.NET type mappings with defaults and user overrides
 3. **Model Generator**: Creates C# classes from OpenAPI schemas
 4. **Client Generator**: Generates HTTP client with operation methods
 5. **JSON Configuration**: Sets up System.Text.Json with NodaTime converters
 
 ### Type Mapping Logic
 
+The type mapping logic is driven by `TypeMappingConfig`, which holds a dictionary of mappings keyed by `"type:format"` (e.g. `"string:date-time"` → `"Instant"`) or just `"type"` for defaults (e.g. `"string"` → `"string"`). Custom mappings from the configuration file are merged on top of the built-in defaults.
+
 The generator maps OpenAPI types and [format registry](https://spec.openapis.org/registry/format/index.html) values to C# types:
 
 ```
 String formats
   "string"                             → string
-  "string" (format: "date-time")       → Instant        (NodaTime)
-  "string" (format: "date")            → LocalDate      (NodaTime)
-  "string" (format: "time")            → LocalTime      (NodaTime)
-  "string" (format: "time-local")      → LocalTime      (NodaTime)
-  "string" (format: "date-time-local") → LocalDateTime   (NodaTime)
-  "string" (format: "duration")        → Duration       (NodaTime)
+  "string" (format: "date-time")       → NodaTime.Instant
+  "string" (format: "date")            → NodaTime.LocalDate
+  "string" (format: "time")            → NodaTime.LocalTime
+  "string" (format: "time-local")      → NodaTime.LocalTime
+  "string" (format: "date-time-local") → NodaTime.LocalDateTime
+  "string" (format: "duration")        → NodaTime.Duration
   "string" (format: "uuid")            → Guid
   "string" (format: "uri/iri")         → Uri
   "string" (format: "byte/binary")     → byte[]
@@ -561,6 +593,7 @@ Other types
 - ✅ Descriptions and summaries
 - ✅ Special character encoding in URLs
 - ✅ [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) type mappings
+- ✅ Configurable type mappings via `.openapidotnet.json`
 - ✅ Specification conversion between OpenAPI versions and formats
 - ✅ [OpenAPI Overlay Specification](https://spec.openapis.org/overlay/latest.html) support (single or multiple overlays)
 - ✅ Namespace prefix stripping for dotted schema names
@@ -615,6 +648,7 @@ This project is open source. Please check the license file for details.
 Future enhancements being considered:
 
 - [x] Enum types with `JsonStringEnumConverter` support
+- [x] Configurable type mappings via configuration file
 - [ ] Support for authentication schemes (Bearer, API Key, OAuth2)
 - [ ] Polymorphic types with discriminators
 - [ ] `allOf`, `oneOf`, `anyOf` schema composition
