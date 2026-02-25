@@ -23,7 +23,7 @@ public class TypeMappingConfigTests
 
         var result = config.Resolve(JsonSchemaType.String, "date-time");
 
-        result.Should().Be("Instant");
+        result.Should().Be("NodaTime.Instant");
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public class TypeMappingConfigTests
         var config = new TypeMappingConfig(customMappings);
 
         // Other string format mappings should remain unchanged
-        config.Resolve(JsonSchemaType.String, "date").Should().Be("LocalDate");
+        config.Resolve(JsonSchemaType.String, "date").Should().Be("NodaTime.LocalDate");
         config.Resolve(JsonSchemaType.String, "uuid").Should().Be("Guid");
         config.Resolve(JsonSchemaType.String, null).Should().Be("string");
     }
@@ -129,7 +129,7 @@ public class TypeMappingConfigTests
         var defaults = TypeMappingConfig.GetDefaults();
 
         defaults.Should().ContainKey("string").WhoseValue.Should().Be("string");
-        defaults.Should().ContainKey("string:date-time").WhoseValue.Should().Be("Instant");
+        defaults.Should().ContainKey("string:date-time").WhoseValue.Should().Be("NodaTime.Instant");
         defaults.Should().ContainKey("string:uuid").WhoseValue.Should().Be("Guid");
         defaults.Should().ContainKey("integer").WhoseValue.Should().Be("int");
         defaults.Should().ContainKey("integer:int64").WhoseValue.Should().Be("long");

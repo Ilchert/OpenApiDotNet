@@ -63,12 +63,12 @@ public class TypeMappingConfig
     {
         // String types
         ["string"] = "string",
-        ["string:date-time"] = "Instant",
-        ["string:date"] = "LocalDate",
-        ["string:time"] = "LocalTime",
-        ["string:time-local"] = "LocalTime",
-        ["string:date-time-local"] = "LocalDateTime",
-        ["string:duration"] = "Duration",
+        ["string:date-time"] = "NodaTime.Instant",
+        ["string:date"] = "NodaTime.LocalDate",
+        ["string:time"] = "NodaTime.LocalTime",
+        ["string:time-local"] = "NodaTime.LocalTime",
+        ["string:date-time-local"] = "NodaTime.LocalDateTime",
+        ["string:duration"] = "NodaTime.Duration",
         ["string:uuid"] = "Guid",
         ["string:uri"] = "Uri",
         ["string:uri-reference"] = "Uri",

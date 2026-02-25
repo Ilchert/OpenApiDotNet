@@ -461,7 +461,7 @@ Extracted the hardcoded OpenAPI-to-.NET type mappings from a switch expression i
 
 #### 1. **TypeMappingConfig Class**
 New `TypeMappingConfig` class (`src/OpenApiDotNet/TypeMappingConfig.cs`) that:
-- Holds all default type mappings in a `Dictionary<string, string>` keyed by `"type:format"` (e.g. `"string:date-time"` → `"Instant"`) or just `"type"` for defaults (e.g. `"string"` → `"string"`)
+- Holds all default type mappings in a `Dictionary<string, string>` keyed by `"type:format"` (e.g. `"string:date-time"` → `"NodaTime.Instant"`) or just `"type"` for defaults (e.g. `"string"` → `"string"`)
 - Accepts optional custom mappings merged on top of defaults
 - Provides `Resolve(schemaType, format)` for type lookup with format-specific → default fallback
 - Exposes `GetDefaults()` for retrieving the full set of built-in mappings

@@ -81,13 +81,13 @@ public class ClientGenerationTests
             content.Should().Contain("public required long Id");
             content.Should().Contain("public required string Name");
             content.Should().Contain("public string? Tag");
-            content.Should().Contain("public LocalDate? BirthDate");
-            content.Should().Contain("public Instant? CreatedAt");
+            content.Should().Contain("public NodaTime.LocalDate? BirthDate");
+            content.Should().Contain("public NodaTime.Instant? CreatedAt");
             content.Should().Contain("public bool? Vaccinated");
             content.Should().Contain("public double? Weight");
 
-            // Check for NodaTime using statement
-            content.Should().Contain("using NodaTime;");
+            // Check that NodaTime using statement is NOT present (fully qualified names used instead)
+            content.Should().NotContain("using NodaTime;");
 
             // Check for JSON attributes
             content.Should().Contain("[JsonPropertyName(\"id\")]");
@@ -171,10 +171,10 @@ public class ClientGenerationTests
             var content = File.ReadAllText(configPath);
 
             // Check for NodaTime configuration
-            content.Should().Contain("using NodaTime;");
+            content.Should().NotContain("using NodaTime;");
             content.Should().Contain("using NodaTime.Serialization.SystemTextJson;");
             content.Should().Contain("ConfigureForNodaTime");
-            content.Should().Contain("DateTimeZoneProviders.Tzdb");
+            content.Should().Contain("NodaTime.DateTimeZoneProviders.Tzdb");
 
             // Check for JSON options
             content.Should().Contain("JsonSerializerOptions");

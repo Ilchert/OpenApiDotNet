@@ -27,12 +27,12 @@ The generator maps OpenAPI types and formats to idiomatic C# types following the
 
 | OpenAPI Format | C# Type | Notes |
 |---|---|---|
-| `date-time` | `Instant` | NodaTime — RFC 3339 date-time |
-| `date` | `LocalDate` | NodaTime — RFC 3339 full-date |
-| `time` | `LocalTime` | NodaTime — RFC 3339 full-time |
-| `time-local` | `LocalTime` | NodaTime — time without timezone |
-| `date-time-local` | `LocalDateTime` | NodaTime — date-time without timezone |
-| `duration` | `Duration` | NodaTime — RFC 3339 duration |
+| `date-time` | `NodaTime.Instant` | NodaTime — RFC 3339 date-time |
+| `date` | `NodaTime.LocalDate` | NodaTime — RFC 3339 full-date |
+| `time` | `NodaTime.LocalTime` | NodaTime — RFC 3339 full-time |
+| `time-local` | `NodaTime.LocalTime` | NodaTime — time without timezone |
+| `date-time-local` | `NodaTime.LocalDateTime` | NodaTime — date-time without timezone |
+| `duration` | `NodaTime.Duration` | NodaTime — RFC 3339 duration |
 | `uuid` | `Guid` | RFC 4122 UUID |
 | `uri` | `Uri` | RFC 3986 URI |
 | `uri-reference` | `Uri` | RFC 3986 URI reference |
@@ -294,8 +294,8 @@ Only specified keys are overridden; all other defaults remain intact.
 ```
 
 In the example above:
-- `string` with format `date-time` maps to `DateTimeOffset` instead of the default `Instant`
-- `string` with format `date` maps to `DateTime` instead of the default `LocalDate`
+- `string` with format `date-time` maps to `DateTimeOffset` instead of the default `NodaTime.Instant`
+- `string` with format `date` maps to `DateTime` instead of the default `NodaTime.LocalDate`
 - `string` with format `email` is a new custom mapping (no built-in default)
 - `integer` without a format maps to `long` instead of the default `int`
 
@@ -303,7 +303,6 @@ In the example above:
 
 ```csharp
 using System.Text.Json.Serialization;
-using NodaTime;
 
 namespace PetStoreClient.Models;
 
@@ -328,13 +327,13 @@ public class Pet
     /// Birth date of the pet
     /// </summary>
     [JsonPropertyName("birthDate")]
-    public LocalDate? BirthDate { get; set; }
+    public NodaTime.LocalDate? BirthDate { get; set; }
 
     /// <summary>
     /// When the pet was created
     /// </summary>
     [JsonPropertyName("createdAt")]
-    public Instant? CreatedAt { get; set; }
+    public NodaTime.Instant? CreatedAt { get; set; }
 }
 ```
 
@@ -536,12 +535,12 @@ The generator maps OpenAPI types and [format registry](https://spec.openapis.org
 ```
 String formats
   "string"                             → string
-  "string" (format: "date-time")       → Instant        (NodaTime)
-  "string" (format: "date")            → LocalDate      (NodaTime)
-  "string" (format: "time")            → LocalTime      (NodaTime)
-  "string" (format: "time-local")      → LocalTime      (NodaTime)
-  "string" (format: "date-time-local") → LocalDateTime   (NodaTime)
-  "string" (format: "duration")        → Duration       (NodaTime)
+  "string" (format: "date-time")       → NodaTime.Instant
+  "string" (format: "date")            → NodaTime.LocalDate
+  "string" (format: "time")            → NodaTime.LocalTime
+  "string" (format: "time-local")      → NodaTime.LocalTime
+  "string" (format: "date-time-local") → NodaTime.LocalDateTime
+  "string" (format: "duration")        → NodaTime.Duration
   "string" (format: "uuid")            → Guid
   "string" (format: "uri/iri")         → Uri
   "string" (format: "byte/binary")     → byte[]

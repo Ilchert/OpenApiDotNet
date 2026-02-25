@@ -78,7 +78,6 @@ public class ClientGenerator
 
         var sb = new StringBuilder();
         sb.AppendLine("using System.Text.Json.Serialization;");
-        sb.AppendLine("using NodaTime;");
 
         // Add using statements for all model sub-namespaces
         foreach (var subNs in _subNamespaces.OrderBy(s => s))
@@ -190,7 +189,6 @@ public class ClientGenerator
         var sb = new StringBuilder();
         sb.AppendLine("using System.Net.Http.Json;");
         sb.AppendLine("using System.Text.Json;");
-        sb.AppendLine("using NodaTime;");
         sb.AppendLine($"using {_namespace}.Models;");
 
         // Add using statements for all model sub-namespaces
@@ -429,7 +427,6 @@ public class ClientGenerator
         var sb = new StringBuilder();
         sb.AppendLine("using System.Text.Json;");
         sb.AppendLine("using System.Text.Json.Serialization;");
-        sb.AppendLine("using NodaTime;");
         sb.AppendLine("using NodaTime.Serialization.SystemTextJson;");
         sb.AppendLine();
         sb.AppendLine($"namespace {_namespace};");
@@ -452,7 +449,7 @@ public class ClientGenerator
         sb.AppendLine("        options.Converters.Add(new JsonStringEnumConverter());");
         sb.AppendLine();
         sb.AppendLine("        // Configure NodaTime converters for date/time types");
-        sb.AppendLine("        options.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);");
+        sb.AppendLine("        options.ConfigureForNodaTime(NodaTime.DateTimeZoneProviders.Tzdb);");
         sb.AppendLine();
         sb.AppendLine("        return options;");
         sb.AppendLine("    }");

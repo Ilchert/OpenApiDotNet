@@ -32,7 +32,7 @@ public class TypeMappingTests
         var result = generator.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("Instant");
+        result.Should().Be("NodaTime.Instant");
     }
 
     [Fact]
@@ -46,7 +46,7 @@ public class TypeMappingTests
         var result = generator.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("LocalDate");
+        result.Should().Be("NodaTime.LocalDate");
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class TypeMappingTests
         var result = generator.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("LocalTime");
+        result.Should().Be("NodaTime.LocalTime");
     }
 
     [Fact]
@@ -222,7 +222,7 @@ public class TypeMappingTests
 
         var result = generator.GetCSharpType(schema);
 
-        result.Should().Be("Duration");
+        result.Should().Be("NodaTime.Duration");
     }
 
     [Fact]
@@ -233,7 +233,7 @@ public class TypeMappingTests
 
         var result = generator.GetCSharpType(schema);
 
-        result.Should().Be("LocalDateTime");
+        result.Should().Be("NodaTime.LocalDateTime");
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public class TypeMappingTests
 
         var result = generator.GetCSharpType(schema);
 
-        result.Should().Be("LocalTime");
+        result.Should().Be("NodaTime.LocalTime");
     }
 
     [Fact]
