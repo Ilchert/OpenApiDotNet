@@ -87,10 +87,16 @@ Enum values are converted to PascalCase members (e.g., `extra-large` → `ExtraL
 
 ## Installation
 
-### Prerequisites
+### As a .NET Tool (recommended)
 
-- .NET 10.0 SDK or later
-- Any IDE that supports .NET (Visual Studio, VS Code, Rider)
+```bash
+# Install globally
+dotnet tool install -g OpenApiDotNet
+
+# Or install as a local tool
+dotnet new tool-manifest   # if you don't have one yet
+dotnet tool install OpenApiDotNet
+```
 
 ### Build from Source
 
@@ -100,12 +106,16 @@ cd OpenApiDotNet
 dotnet build
 ```
 
+### Prerequisites
+
+- .NET 10.0 SDK or later
+
 ## Usage
 
 ### Command Line
 
 ```bash
-dotnet run --project src/OpenApiDotNet -- <openapi-file> [options]
+openapi-dotnet-generator <openapi-file> [options]
 ```
 
 ### Arguments & Options
@@ -131,10 +141,10 @@ After the initial generation, a `.openapidotnet.json` configuration file is save
 
 ```bash
 # Re-generate from config in the current directory
-dotnet run --project src/OpenApiDotNet -- update
+openapi-dotnet-generator update
 
 # Re-generate from a specific config file
-dotnet run --project src/OpenApiDotNet -- update ./Generated/.openapidotnet.json
+openapi-dotnet-generator update ./Generated/.openapidotnet.json
 ```
 
 | Argument | Description | Default |
@@ -147,16 +157,16 @@ Convert an OpenAPI specification to a different version and/or format:
 
 ```bash
 # Convert to OpenAPI 3.1 JSON (default)
-dotnet run --project src/OpenApiDotNet -- convert petstore.yaml output.json
+openapi-dotnet-generator convert petstore.yaml output.json
 
 # Convert to OpenAPI 2.0 (Swagger) JSON
-dotnet run --project src/OpenApiDotNet -- convert petstore.yaml swagger.json -v 2.0
+openapi-dotnet-generator convert petstore.yaml swagger.json -v 2.0
 
 # Convert to OpenAPI 3.0 YAML
-dotnet run --project src/OpenApiDotNet -- convert api.json api-v3.yaml -v 3.0 -f yaml
+openapi-dotnet-generator convert api.json api-v3.yaml -v 3.0 -f yaml
 
 # Convert to OpenAPI 3.2 YAML
-dotnet run --project src/OpenApiDotNet -- convert api.yaml api-v32.yaml -v 3.2 -f yaml
+openapi-dotnet-generator convert api.yaml api-v32.yaml -v 3.2 -f yaml
 ```
 
 | Argument / Option | Description | Default |
@@ -172,7 +182,7 @@ The CLI supports shell tab-completion via the [`dotnet-suggest`](https://github.
 Once configured, pressing <kbd>Tab</kbd> will auto-complete the `<openapi-file>` argument with `.json`, `.yaml`, and `.yml` files from the current directory.
 
 ```bash
-# Install the global tool (one-time)
+# Install the suggest tool (one-time)
 dotnet tool install -g dotnet-suggest
 
 # Follow the shell-specific setup instructions from dotnet-suggest
@@ -182,31 +192,31 @@ dotnet tool install -g dotnet-suggest
 
 **Basic Usage:**
 ```bash
-dotnet run --project src/OpenApiDotNet -- petstore.yaml
+openapi-dotnet-generator petstore.yaml
 ```
 
 **With Custom Output Directory:**
 ```bash
-dotnet run --project src/OpenApiDotNet -- api.yaml -o ./src/Client
+openapi-dotnet-generator api.yaml -o ./src/Client
 ```
 
 **With Custom Namespace:**
 ```bash
-dotnet run --project src/OpenApiDotNet -- swagger.json -o ./Generated -n MyCompany.ApiClient
+openapi-dotnet-generator swagger.json -o ./Generated -n MyCompany.ApiClient
 ```
 
 **Show Help:**
 ```bash
-dotnet run --project src/OpenApiDotNet -- --help
+openapi-dotnet-generator --help
 ```
 
 **With Overlays:**
 ```bash
 # Apply a single overlay before generation
-dotnet run --project src/OpenApiDotNet -- petstore.yaml --overlay remove-deprecated.yaml
+openapi-dotnet-generator petstore.yaml --overlay remove-deprecated.yaml
 
 # Apply multiple overlays (applied in order)
-dotnet run --project src/OpenApiDotNet -- petstore.yaml --overlay base-overlay.yaml --overlay team-overlay.yaml
+openapi-dotnet-generator petstore.yaml --overlay base-overlay.yaml --overlay team-overlay.yaml
 ```
 
 **With Namespace Prefix Stripping:**
@@ -214,19 +224,19 @@ dotnet run --project src/OpenApiDotNet -- petstore.yaml --overlay base-overlay.y
 # Strip the 'Commerce' prefix from dotted schema names
 # Commerce.Order → Order (in root Models namespace)
 # Identity.Customer → Customer (in Identity sub-namespace, unchanged)
-dotnet run --project src/OpenApiDotNet -- api.yaml -n MyCompany.Client -p Commerce
+openapi-dotnet-generator api.yaml -n MyCompany.Client -p Commerce
 ```
 
 **Re-generate from Saved Configuration:**
 ```bash
 # After initial generation, update from the saved config (overlay paths are preserved)
-dotnet run --project src/OpenApiDotNet -- update ./Generated/.openapidotnet.json
+openapi-dotnet-generator update ./Generated/.openapidotnet.json
 ```
 
 **Convert to a Different Version/Format:**
 ```bash
-dotnet run --project src/OpenApiDotNet -- convert petstore.yaml petstore-v2.json --version 2.0
-dotnet run --project src/OpenApiDotNet -- convert api.json api.yaml -f yaml
+openapi-dotnet-generator convert petstore.yaml petstore-v2.json --version 2.0
+openapi-dotnet-generator convert api.json api.yaml -f yaml
 ```
 
 ## Generated Code Structure

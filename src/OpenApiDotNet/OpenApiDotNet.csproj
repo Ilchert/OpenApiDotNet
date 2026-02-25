@@ -1,38 +1,37 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<!-- .NET Tool packaging -->
+		<PackAsTool>true</PackAsTool>
+		<ToolCommandName>openapi-dotnet-generator</ToolCommandName>
 
-    <!-- .NET Tool packaging -->
-    <PackAsTool>true</PackAsTool>
-    <ToolCommandName>openapi-dotnet</ToolCommandName>
+		<!-- NuGet metadata -->
+		<PackageId>OpenApiDotNet</PackageId>
+		<Description>A modern OpenAPI client code generator for .NET with NodaTime support</Description>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<PackageProjectUrl>https://github.com/Ilchert/OpenApiDotNet</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/Ilchert/OpenApiDotNet</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageTags>openapi;codegen;client;dotnet-tool;nodatime</PackageTags>
+	</PropertyGroup>
 
-    <!-- NuGet metadata -->
-    <PackageId>OpenApiDotNet</PackageId>
-    <Description>A modern OpenAPI client code generator for .NET with NodaTime support</Description>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <PackageProjectUrl>https://github.com/Ilchert/OpenApiDotNet</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/Ilchert/OpenApiDotNet</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageTags>openapi;codegen;client;dotnet-tool;nodatime</PackageTags>
-  </PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="BinkyLabs.OpenApi.Overlays" Version="2.4.0" />
+		<PackageReference Include="Microsoft.OpenApi" Version="3.3.1" />
+		<PackageReference Include="Microsoft.OpenApi.YamlReader" Version="3.3.1" />
+		<PackageReference Include="NodaTime" Version="3.3.0" />
+		<PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.3.1" />
+		<PackageReference Include="System.CommandLine" Version="2.0.3" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="BinkyLabs.OpenApi.Overlays" Version="2.4.0" />
-    <PackageReference Include="Microsoft.OpenApi" Version="3.3.1" />
-    <PackageReference Include="Microsoft.OpenApi.YamlReader" Version="3.3.1" />
-    <PackageReference Include="NodaTime" Version="3.3.0" />
-    <PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.3.1" />
-    <PackageReference Include="System.CommandLine" Version="2.0.3" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
-    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
-  </ItemGroup>
+	<ItemGroup>
+		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
+		<None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
+	</ItemGroup>
 
 </Project>
