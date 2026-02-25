@@ -407,7 +407,6 @@ public interface IClient : IBuilder
 ```csharp
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
-using PetStoreClient.Models;
 
 namespace PetStoreClient;
 
@@ -435,7 +434,7 @@ public class PetsBuilder : IBuilder
     /// <summary>
     /// List all pets
     /// </summary>
-    public virtual async Task<List<Pet>> Get(
+    public virtual async Task<List<PetStoreClient.Models.Pet>> Get(
         int? limit = default, CancellationToken cancellationToken = default)
     {
         var url = GetPath();
@@ -448,7 +447,7 @@ public class PetsBuilder : IBuilder
 
         var response = await Client.HttpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<List<Pet>>(Client.JsonOptions, cancellationToken)
+        return await response.Content.ReadFromJsonAsync<List<PetStoreClient.Models.Pet>>(Client.JsonOptions, cancellationToken)
             ?? throw new InvalidOperationException("Response was null");
     }
 }

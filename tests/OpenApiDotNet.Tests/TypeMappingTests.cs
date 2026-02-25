@@ -184,7 +184,7 @@ public class TypeMappingTests
     }
 
     [Fact]
-    public void GetCSharpType_Reference_ReturnsReferencedTypeName()
+    public void GetCSharpType_Reference_ReturnsFullyQualifiedTypeName()
     {
         // Arrange
         var schema = new OpenApiSchema 
@@ -197,7 +197,7 @@ public class TypeMappingTests
         var result = generator.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("Pet");
+        result.Should().Be("TestNamespace.Models.Pet");
     }
 
     [Fact]
@@ -446,7 +446,7 @@ public class TypeMappingTests
     }
 
     [Fact]
-    public void GetCSharpType_EnumWithReference_ReturnsEnumName()
+    public void GetCSharpType_EnumWithReference_ReturnsFullyQualifiedEnumName()
     {
         var schema = new OpenApiSchema
         {
@@ -456,7 +456,7 @@ public class TypeMappingTests
 
         var result = generator.GetCSharpType(schema);
 
-        result.Should().Be("PetStatus");
+        result.Should().Be("TestNamespace.Models.PetStatus");
     }
 
     [Fact]

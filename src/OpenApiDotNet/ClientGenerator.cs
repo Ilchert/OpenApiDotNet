@@ -12,7 +12,6 @@ public class ClientGenerator
     private readonly string _namespace;
     private readonly string _outputDirectory;
     private readonly HashSet<string> _generatedModels = new();
-    private readonly HashSet<string> _subNamespaces = new();
     private readonly string? _namespacePrefix;
     private readonly string? _clientName;
     private readonly TypeMappingConfig _typeMappingConfig;
@@ -50,14 +49,6 @@ public class ClientGenerator
         if (_document.Components?.Schemas == null)
             return;
 
-        // Discover all sub-namespaces first
-        foreach (var schema in _document.Components.Schemas)
-        {
-            var (additionalNamespace, _) = DecomposeName(StripNamespacePrefix(schema.Key));
-            if (!string.IsNullOrEmpty(additionalNamespace))
-                _subNamespaces.Add(additionalNamespace);
-        }
-
         foreach (var schema in _document.Components.Schemas)
         {
             GenerateModel(schema.Key, schema.Value, modelsDirectory);
@@ -85,15 +76,6 @@ public class ClientGenerator
 
         var sb = new StringBuilder();
         sb.AppendLine("using System.Text.Json.Serialization;");
-
-        // Add using statements for all model sub-namespaces
-        foreach (var subNs in _subNamespaces.OrderBy(s => s))
-        {
-            var fullSubNamespace = $"{_namespace}.Models.{subNs}";
-            if (fullSubNamespace != fullNamespace)
-                sb.AppendLine($"using {fullSubNamespace};");
-        }
-
         sb.AppendLine();
         sb.AppendLine($"namespace {fullNamespace};");
         sb.AppendLine();
@@ -264,13 +246,6 @@ public class ClientGenerator
         sb.AppendLine("using System.Net.Http.Json;");
         sb.AppendLine("using System.Text.Json;");
         sb.AppendLine("using System.Text.Json.Serialization;");
-        sb.AppendLine($"using {_namespace}.Models;");
-
-        foreach (var subNs in _subNamespaces.OrderBy(s => s))
-        {
-            sb.AppendLine($"using {_namespace}.Models.{subNs};");
-        }
-
         sb.AppendLine();
         sb.AppendLine($"namespace {_namespace};");
         sb.AppendLine();
@@ -452,7 +427,7 @@ public class ClientGenerator
             var bodySchemaName = content.Value.Schema != null ? GetSchemaName(content.Value.Schema) : null;
             if (bodySchemaName != null)
             {
-                requestBodyType = GetTypeName(bodySchemaName);
+                requestBodyType = GetFullyQualifiedTypeName(bodySchemaName);
                 requiredParameters.Add($"{requestBodyType} request");
             }
             else if (IsInlineObjectSchema(content.Value?.Schema))
@@ -646,7 +621,7 @@ public class ClientGenerator
             var respSchemaName = content.Value.Schema != null ? GetSchemaName(content.Value.Schema) : null;
             if (respSchemaName != null)
             {
-                return GetTypeName(respSchemaName);
+                return GetFullyQualifiedTypeName(respSchemaName);
             }
             if (content.Value?.Schema != null)
             {
@@ -710,7 +685,7 @@ public class ClientGenerator
         var schemaName = GetSchemaName(schema);
         if (schemaName != null)
         {
-            return GetTypeName(schemaName);
+            return GetFullyQualifiedTypeName(schemaName);
         }
 
         // Try to resolve from type mapping config
@@ -776,12 +751,16 @@ public class ClientGenerator
     }
 
     /// <summary>
-    /// Extracts the type name (last segment) from a potentially dotted schema name.
+    /// Returns the fully qualified type name for a schema, including the full namespace path.
     /// </summary>
-    private static string GetTypeName(string name)
+    private string GetFullyQualifiedTypeName(string schemaName)
     {
-        var dotIndex = name.LastIndexOf('.');
-        return dotIndex < 0 ? name : name[(dotIndex + 1)..];
+        var stripped = StripNamespacePrefix(schemaName);
+        var (additionalNamespace, typeName) = DecomposeName(stripped);
+        var fullNamespace = string.IsNullOrEmpty(additionalNamespace)
+            ? $"{_namespace}.Models"
+            : $"{_namespace}.Models.{additionalNamespace}";
+        return $"{fullNamespace}.{typeName}";
     }
 
     /// <summary>

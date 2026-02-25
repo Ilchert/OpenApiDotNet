@@ -159,10 +159,10 @@ public class ClientGenerationTests : IDisposable
 
         // PetsBuilder should have Get and Post operations
         var petsContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs"));
-        petsContent.Should().Contain("public virtual async Task<List<Pet>> Get");
-        petsContent.Should().Contain("public virtual async Task<Pet> Post");
+        petsContent.Should().Contain("public virtual async Task<List<PetStore.Client.Models.Pet>> Get");
+        petsContent.Should().Contain("public virtual async Task<PetStore.Client.Models.Pet> Post");
         petsContent.Should().Contain("int? limit");
-        petsContent.Should().Contain("NewPet request");
+        petsContent.Should().Contain("PetStore.Client.Models.NewPet request");
         petsContent.Should().Contain("CancellationToken cancellationToken = default");
         petsContent.Should().Contain("Client.HttpClient.GetAsync");
         petsContent.Should().Contain("Client.HttpClient.PostAsJsonAsync");
@@ -170,7 +170,7 @@ public class ClientGenerationTests : IDisposable
 
         // PetsIdBuilder should have Get and Delete operations
         var petsIdContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsIdBuilder.cs"));
-        petsIdContent.Should().Contain("public virtual async Task<Pet> Get");
+        petsIdContent.Should().Contain("public virtual async Task<PetStore.Client.Models.Pet> Get");
         petsIdContent.Should().Contain("public virtual async Task Delete");
         petsIdContent.Should().Contain("Client.HttpClient.DeleteAsync");
     }
@@ -360,7 +360,7 @@ public class ClientGenerationTests : IDisposable
         var signature = content[signatureStart..signatureEnd];
 
         var categoryPos = signature.IndexOf("string category");
-        var requestPos = signature.IndexOf("SearchRequest request");
+        var requestPos = signature.IndexOf("Test.Client.Models.SearchRequest request");
         var limitPos = signature.IndexOf("int? limit");
         var offsetPos = signature.IndexOf("int? offset");
         var ctPos = signature.IndexOf("CancellationToken cancellationToken");
@@ -639,8 +639,8 @@ public class ClientGenerationTests : IDisposable
         generator.Generate();
 
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Pet.cs"));
-        content.Should().Contain("public PetStatus? Status");
-        content.Should().Contain("public PetSize? Size");
+        content.Should().Contain("public Test.Client.Models.PetStatus? Status");
+        content.Should().Contain("public Test.Client.Models.PetSize? Size");
     }
 
     [Fact]
@@ -724,7 +724,7 @@ public class ClientGenerationTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Commerce", "Order.cs"));
         content.Should().Contain("public class Order");
         content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
-        content.Should().Contain("using DottedNames.Client.Models.Identity;");
+        content.Should().NotContain("using DottedNames.Client.Models");
     }
 
     [Fact]
@@ -756,7 +756,7 @@ public class ClientGenerationTests : IDisposable
     }
 
     [Fact]
-    public void Generate_DottedModel_ReferencesUseSimpleTypeNameAsync()
+    public void Generate_DottedModel_ReferencesUseFullyQualifiedTypeNameAsync()
     {
         var spec = """
             {
@@ -789,12 +789,12 @@ public class ClientGenerationTests : IDisposable
         generator.Generate();
 
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Commerce", "Order.cs"));
-        content.Should().Contain("public required OrderStatus Status");
-        content.Should().Contain("public Customer? Customer");
+        content.Should().Contain("public required DottedNames.Client.Models.Commerce.OrderStatus Status");
+        content.Should().Contain("public DottedNames.Client.Models.Identity.Customer? Customer");
     }
 
     [Fact]
-    public void Generate_Client_WithDottedNames_HasSubNamespaceUsingsAsync()
+    public void Generate_Client_WithDottedNames_UsesFullyQualifiedTypeNamesAsync()
     {
         var spec = """
             {
@@ -827,12 +827,10 @@ public class ClientGenerationTests : IDisposable
         generator.Generate();
 
         var builderContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "OrdersBuilder.cs"));
-        builderContent.Should().Contain("using DottedNames.Client.Models;");
-        builderContent.Should().Contain("using DottedNames.Client.Models.Commerce;");
-        builderContent.Should().Contain("using DottedNames.Client.Models.Identity;");
-        builderContent.Should().Contain("Task<List<Order>>");
-        builderContent.Should().Contain("Task<Order>");
-        builderContent.Should().Contain("NewOrder request");
+        builderContent.Should().NotContain("using DottedNames.Client.Models");
+        builderContent.Should().Contain("Task<List<DottedNames.Client.Models.Commerce.Order>>");
+        builderContent.Should().Contain("Task<DottedNames.Client.Models.Commerce.Order>");
+        builderContent.Should().Contain("DottedNames.Client.Models.Commerce.NewOrder request");
     }
 
     [Fact]
