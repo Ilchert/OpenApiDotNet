@@ -4,19 +4,25 @@ using Microsoft.OpenApi;
 
 namespace OpenApiDotNet.Tests;
 
-public class ClientGenerationTests
+public class ClientGenerationTests : IDisposable
 {
-    private static (ClientGenerator Generator, string OutputDirectory) CreateGenerator(
+    private string _outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+    private ClientGenerator CreateGenerator(
         string specJson,
         string namespaceName = "Test.Client",
         string? namespacePrefix = null)
     {
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(specJson));
         var (document, diagnostic) = OpenApiDocument.Load(stream);
         diagnostic?.Errors.Should().BeEmpty();
-        var generator = new ClientGenerator(document, namespaceName, outputDirectory, namespacePrefix: namespacePrefix);
-        return (generator, outputDirectory);
+        return new ClientGenerator(document, namespaceName, _outputDirectory, namespacePrefix: namespacePrefix);
+    }
+
+    public void Dispose()
+    {
+        if (_outputDirectory is not null && Directory.Exists(_outputDirectory))
+            Directory.Delete(_outputDirectory, true);
     }
 
     [Fact]
@@ -39,24 +45,16 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec, "PetStore.Client");
+        var generator = CreateGenerator(spec, "PetStore.Client");
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            Directory.Exists(outputDirectory).Should().BeTrue();
-            Directory.Exists(Path.Combine(outputDirectory, "Models")).Should().BeTrue();
-            File.Exists(Path.Combine(outputDirectory, "Models", "Pet.cs")).Should().BeTrue();
-            File.Exists(Path.Combine(outputDirectory, "Models", "NewPet.cs")).Should().BeTrue();
-            File.Exists(Path.Combine(outputDirectory, "PetStoreAPIClient.cs")).Should().BeTrue();
-            File.Exists(Path.Combine(outputDirectory, "JsonConfiguration.cs")).Should().BeTrue();
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        Directory.Exists(_outputDirectory).Should().BeTrue();
+        Directory.Exists(Path.Combine(_outputDirectory, "Models")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "Models", "Pet.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "Models", "NewPet.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "PetStoreAPIClient.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "JsonConfiguration.cs")).Should().BeTrue();
     }
 
     [Fact]
@@ -86,31 +84,23 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec);
+        var generator = CreateGenerator(spec);
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Pet.cs"));
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Pet.cs"));
 
-            content.Should().Contain("public required long Id");
-            content.Should().Contain("public required string Name");
-            content.Should().Contain("public string? Tag");
-            content.Should().Contain("public NodaTime.LocalDate? BirthDate");
-            content.Should().Contain("public NodaTime.Instant? CreatedAt");
-            content.Should().Contain("public bool? Vaccinated");
-            content.Should().Contain("public double? Weight");
-            content.Should().NotContain("using NodaTime;");
-            content.Should().Contain("[JsonPropertyName(\"id\")]");
-            content.Should().Contain("[JsonPropertyName(\"birthDate\")]");
-            content.Should().Contain("[JsonPropertyName(\"createdAt\")]");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        content.Should().Contain("public required long Id");
+        content.Should().Contain("public required string Name");
+        content.Should().Contain("public string? Tag");
+        content.Should().Contain("public NodaTime.LocalDate? BirthDate");
+        content.Should().Contain("public NodaTime.Instant? CreatedAt");
+        content.Should().Contain("public bool? Vaccinated");
+        content.Should().Contain("public double? Weight");
+        content.Should().NotContain("using NodaTime;");
+        content.Should().Contain("[JsonPropertyName(\"id\")]");
+        content.Should().Contain("[JsonPropertyName(\"birthDate\")]");
+        content.Should().Contain("[JsonPropertyName(\"createdAt\")]");
     }
 
     [Fact]
@@ -154,32 +144,23 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec, "PetStore.Client");
+        var generator = CreateGenerator(spec, "PetStore.Client");
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            var content = File.ReadAllText(Path.Combine(outputDirectory, "PetStoreAPIClient.cs"));
-
-            content.Should().Contain("public async Task<List<Pet>> ListPetsAsync");
-            content.Should().Contain("public async Task<Pet> CreatePetAsync");
-            content.Should().Contain("public async Task<Pet> GetPetByIdAsync");
-            content.Should().Contain("public async Task<void> DeletePetAsync");
-            content.Should().Contain("int? limit");
-            content.Should().Contain("long petId");
-            content.Should().Contain("NewPet request");
-            content.Should().Contain("CancellationToken cancellationToken = default");
-            content.Should().Contain("private readonly HttpClient _httpClient;");
-            content.Should().Contain("_httpClient.GetAsync");
-            content.Should().Contain("_httpClient.PostAsJsonAsync");
-            content.Should().Contain("_httpClient.DeleteAsync");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "PetStoreAPIClient.cs"));
+        content.Should().Contain("public async Task<List<Pet>> ListPetsAsync");
+        content.Should().Contain("public async Task<Pet> CreatePetAsync");
+        content.Should().Contain("public async Task<Pet> GetPetByIdAsync");
+        content.Should().Contain("public async Task<void> DeletePetAsync");
+        content.Should().Contain("int? limit");
+        content.Should().Contain("long petId");
+        content.Should().Contain("NewPet request");
+        content.Should().Contain("CancellationToken cancellationToken = default");
+        content.Should().Contain("private readonly HttpClient _httpClient;");
+        content.Should().Contain("_httpClient.GetAsync");
+        content.Should().Contain("_httpClient.PostAsJsonAsync");
+        content.Should().Contain("_httpClient.DeleteAsync");
     }
 
     [Fact]
@@ -192,27 +173,18 @@ public class ClientGenerationTests
               "paths": {}
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec);
+        var generator = CreateGenerator(spec);
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            var content = File.ReadAllText(Path.Combine(outputDirectory, "JsonConfiguration.cs"));
-
-            content.Should().NotContain("using NodaTime;");
-            content.Should().Contain("using NodaTime.Serialization.SystemTextJson;");
-            content.Should().Contain("ConfigureForNodaTime");
-            content.Should().Contain("NodaTime.DateTimeZoneProviders.Tzdb");
-            content.Should().Contain("JsonSerializerOptions");
-            content.Should().Contain("PropertyNamingPolicy = JsonNamingPolicy.CamelCase");
-            content.Should().Contain("DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "JsonConfiguration.cs"));
+        content.Should().NotContain("using NodaTime;");
+        content.Should().Contain("using NodaTime.Serialization.SystemTextJson;");
+        content.Should().Contain("ConfigureForNodaTime");
+        content.Should().Contain("NodaTime.DateTimeZoneProviders.Tzdb");
+        content.Should().Contain("JsonSerializerOptions");
+        content.Should().Contain("PropertyNamingPolicy = JsonNamingPolicy.CamelCase");
+        content.Should().Contain("DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull");
     }
 
     [Fact]
@@ -233,23 +205,14 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec);
+        var generator = CreateGenerator(spec);
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            var content = File.ReadAllText(Path.Combine(outputDirectory, "TestClient.cs"));
-
-            content.Should().Contain("var queryString = new List<string>();");
-            content.Should().Contain("if (limit != null)");
-            content.Should().Contain("Uri.EscapeDataString");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "TestClient.cs"));
+        content.Should().Contain("var queryString = new List<string>();");
+        content.Should().Contain("if (limit != null)");
+        content.Should().Contain("Uri.EscapeDataString");
     }
 
     [Fact]
@@ -313,20 +276,12 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec);
+        var generator = CreateGenerator(spec);
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            File.Exists(Path.Combine(outputDirectory, "Models", "PetStatus.cs")).Should().BeTrue();
-            File.Exists(Path.Combine(outputDirectory, "Models", "PetSize.cs")).Should().BeTrue();
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        File.Exists(Path.Combine(_outputDirectory, "Models", "PetStatus.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "Models", "PetSize.cs")).Should().BeTrue();
     }
 
     [Fact]
@@ -348,26 +303,17 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec);
+        var generator = CreateGenerator(spec);
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "PetStatus.cs"));
-
-            content.Should().Contain("public enum PetStatus");
-            content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
-            content.Should().Contain("Available,");
-            content.Should().Contain("Pending,");
-            content.Should().Contain("Sold,");
-            content.Should().Contain("using System.Text.Json.Serialization;");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "PetStatus.cs"));
+        content.Should().Contain("public enum PetStatus");
+        content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
+        content.Should().Contain("Available,");
+        content.Should().Contain("Pending,");
+        content.Should().Contain("Sold,");
+        content.Should().Contain("using System.Text.Json.Serialization;");
     }
 
     [Fact]
@@ -385,26 +331,17 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec);
+        var generator = CreateGenerator(spec);
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "PetSize.cs"));
-
-            content.Should().Contain("public enum PetSize");
-            content.Should().Contain("Small,");
-            content.Should().Contain("Medium,");
-            content.Should().Contain("Large,");
-            content.Should().Contain("ExtraLarge,");
-            content.Should().Contain("[JsonStringEnumMemberName(\"extra-large\")]");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "PetSize.cs"));
+        content.Should().Contain("public enum PetSize");
+        content.Should().Contain("Small,");
+        content.Should().Contain("Medium,");
+        content.Should().Contain("Large,");
+        content.Should().Contain("ExtraLarge,");
+        content.Should().Contain("[JsonStringEnumMemberName(\"extra-large\")]");
     }
 
     [Fact]
@@ -430,22 +367,13 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec);
+        var generator = CreateGenerator(spec);
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Pet.cs"));
-
-            content.Should().Contain("public PetStatus? Status");
-            content.Should().Contain("public PetSize? Size");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Pet.cs"));
+        content.Should().Contain("public PetStatus? Status");
+        content.Should().Contain("public PetSize? Size");
     }
 
     [Fact]
@@ -458,21 +386,12 @@ public class ClientGenerationTests
               "paths": {}
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec);
+        var generator = CreateGenerator(spec);
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            var content = File.ReadAllText(Path.Combine(outputDirectory, "JsonConfiguration.cs"));
-
-            content.Should().Contain("JsonStringEnumConverter");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "JsonConfiguration.cs"));
+        content.Should().Contain("JsonStringEnumConverter");
     }
 
     [Fact]
@@ -498,23 +417,15 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client");
+        var generator = CreateGenerator(spec, "DottedNames.Client");
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            File.Exists(Path.Combine(outputDirectory, "Models", "Commerce", "Order.cs")).Should().BeTrue();
-            File.Exists(Path.Combine(outputDirectory, "Models", "Commerce", "NewOrder.cs")).Should().BeTrue();
-            File.Exists(Path.Combine(outputDirectory, "Models", "Commerce", "OrderStatus.cs")).Should().BeTrue();
-            File.Exists(Path.Combine(outputDirectory, "Models", "Identity", "Customer.cs")).Should().BeTrue();
-            File.Exists(Path.Combine(outputDirectory, "Models", "SimpleModel.cs")).Should().BeTrue();
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        File.Exists(Path.Combine(_outputDirectory, "Models", "Commerce", "Order.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "Models", "Commerce", "NewOrder.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "Models", "Commerce", "OrderStatus.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "Models", "Identity", "Customer.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "Models", "SimpleModel.cs")).Should().BeTrue();
     }
 
     [Fact]
@@ -539,23 +450,14 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client");
+        var generator = CreateGenerator(spec, "DottedNames.Client");
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Commerce", "Order.cs"));
-
-            content.Should().Contain("public class Order");
-            content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
-            content.Should().Contain("using DottedNames.Client.Models.Identity;");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Commerce", "Order.cs"));
+        content.Should().Contain("public class Order");
+        content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
+        content.Should().Contain("using DottedNames.Client.Models.Identity;");
     }
 
     [Fact]
@@ -573,26 +475,17 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client");
+        var generator = CreateGenerator(spec, "DottedNames.Client");
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Commerce", "OrderStatus.cs"));
-
-            content.Should().Contain("public enum OrderStatus");
-            content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
-            content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
-            content.Should().Contain("Pending,");
-            content.Should().Contain("Confirmed,");
-            content.Should().Contain("Shipped,");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Commerce", "OrderStatus.cs"));
+        content.Should().Contain("public enum OrderStatus");
+        content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
+        content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
+        content.Should().Contain("Pending,");
+        content.Should().Contain("Confirmed,");
+        content.Should().Contain("Shipped,");
     }
 
     [Fact]
@@ -624,22 +517,13 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client");
+        var generator = CreateGenerator(spec, "DottedNames.Client");
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Commerce", "Order.cs"));
-
-            content.Should().Contain("public required OrderStatus Status");
-            content.Should().Contain("public Customer? Customer");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Commerce", "Order.cs"));
+        content.Should().Contain("public required OrderStatus Status");
+        content.Should().Contain("public Customer? Customer");
     }
 
     [Fact]
@@ -671,26 +555,17 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client");
+        var generator = CreateGenerator(spec, "DottedNames.Client");
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            var content = File.ReadAllText(Path.Combine(outputDirectory, "DottedNamesAPIClient.cs"));
-
-            content.Should().Contain("using DottedNames.Client.Models;");
-            content.Should().Contain("using DottedNames.Client.Models.Commerce;");
-            content.Should().Contain("using DottedNames.Client.Models.Identity;");
-            content.Should().Contain("Task<List<Order>>");
-            content.Should().Contain("Task<Order>");
-            content.Should().Contain("NewOrder request");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "DottedNamesAPIClient.cs"));
+        content.Should().Contain("using DottedNames.Client.Models;");
+        content.Should().Contain("using DottedNames.Client.Models.Commerce;");
+        content.Should().Contain("using DottedNames.Client.Models.Identity;");
+        content.Should().Contain("Task<List<Order>>");
+        content.Should().Contain("Task<Order>");
+        content.Should().Contain("NewOrder request");
     }
 
     [Fact]
@@ -708,22 +583,13 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client");
+        var generator = CreateGenerator(spec, "DottedNames.Client");
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "SimpleModel.cs"));
-
-            content.Should().Contain("namespace DottedNames.Client.Models;");
-            content.Should().Contain("public class SimpleModel");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "SimpleModel.cs"));
+        content.Should().Contain("namespace DottedNames.Client.Models;");
+        content.Should().Contain("public class SimpleModel");
     }
 
     [Fact]
@@ -752,29 +618,21 @@ public class ClientGenerationTests
               }
             }
             """;
-        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client", namespacePrefix: "Commerce");
+        var generator = CreateGenerator(spec, "DottedNames.Client", namespacePrefix: "Commerce");
 
-        try
-        {
-            generator.Generate();
+        generator.Generate();
 
-            File.Exists(Path.Combine(outputDirectory, "Models", "Order.cs")).Should().BeTrue();
-            File.Exists(Path.Combine(outputDirectory, "Models", "NewOrder.cs")).Should().BeTrue();
-            File.Exists(Path.Combine(outputDirectory, "Models", "OrderStatus.cs")).Should().BeTrue();
-            File.Exists(Path.Combine(outputDirectory, "Models", "Identity", "Customer.cs")).Should().BeTrue();
-            File.Exists(Path.Combine(outputDirectory, "Models", "SimpleModel.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "Models", "Order.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "Models", "NewOrder.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "Models", "OrderStatus.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "Models", "Identity", "Customer.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "Models", "SimpleModel.cs")).Should().BeTrue();
 
-            var orderContent = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Order.cs"));
-            orderContent.Should().Contain("namespace DottedNames.Client.Models;");
-            orderContent.Should().Contain("public class Order");
+        var orderContent = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Order.cs"));
+        orderContent.Should().Contain("namespace DottedNames.Client.Models;");
+        orderContent.Should().Contain("public class Order");
 
-            var customerContent = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Identity", "Customer.cs"));
-            customerContent.Should().Contain("namespace DottedNames.Client.Models.Identity;");
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        var customerContent = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Identity", "Customer.cs"));
+        customerContent.Should().Contain("namespace DottedNames.Client.Models.Identity;");
     }
 }
