@@ -14,13 +14,15 @@ public class ClientGenerator
     private readonly HashSet<string> _generatedModels = new();
     private readonly HashSet<string> _subNamespaces = new();
     private readonly string? _namespacePrefix;
+    private readonly TypeMappingConfig _typeMappingConfig;
 
-    public ClientGenerator(OpenApiDocument document, string namespaceName, string outputDirectory, string? namespacePrefix = null)
+    public ClientGenerator(OpenApiDocument document, string namespaceName, string outputDirectory, string? namespacePrefix = null, TypeMappingConfig? typeMappingConfig = null)
     {
         _document = document ?? throw new ArgumentNullException(nameof(document));
         _namespace = namespaceName ?? throw new ArgumentNullException(nameof(namespaceName));
         _outputDirectory = outputDirectory ?? throw new ArgumentNullException(nameof(outputDirectory));
         _namespacePrefix = namespacePrefix;
+        _typeMappingConfig = typeMappingConfig ?? new TypeMappingConfig();
     }
 
     /// <summary>
@@ -494,40 +496,13 @@ public class ClientGenerator
             return GetTypeName(schemaName);
         }
 
+        // Try to resolve from type mapping config
+        var resolved = _typeMappingConfig.Resolve(schema.Type, schema.Format);
+        if (resolved != null)
+            return resolved;
+
         return schema.Type switch
         {
-            JsonSchemaType.String when schema.Format == "date-time" => "Instant",
-            JsonSchemaType.String when schema.Format == "date" => "LocalDate",
-            JsonSchemaType.String when schema.Format == "time" => "LocalTime",
-            JsonSchemaType.String when schema.Format == "time-local" => "LocalTime",
-            JsonSchemaType.String when schema.Format == "date-time-local" => "LocalDateTime",
-            JsonSchemaType.String when schema.Format == "duration" => "Duration",
-            JsonSchemaType.String when schema.Format == "uuid" => "Guid",
-            JsonSchemaType.String when schema.Format == "uri" => "Uri",
-            JsonSchemaType.String when schema.Format == "uri-reference" => "Uri",
-            JsonSchemaType.String when schema.Format == "iri" => "Uri",
-            JsonSchemaType.String when schema.Format == "iri-reference" => "Uri",
-            JsonSchemaType.String when schema.Format == "byte" => "byte[]",
-            JsonSchemaType.String when schema.Format == "binary" => "byte[]",
-            JsonSchemaType.String when schema.Format == "base64url" => "byte[]",
-            JsonSchemaType.String when schema.Format == "char" => "char",
-            JsonSchemaType.String => "string",
-            JsonSchemaType.Integer when schema.Format == "int64" => "long",
-            JsonSchemaType.Integer when schema.Format == "int32" => "int",
-            JsonSchemaType.Integer when schema.Format == "int16" => "short",
-            JsonSchemaType.Integer when schema.Format == "int8" => "sbyte",
-            JsonSchemaType.Integer when schema.Format == "uint8" => "byte",
-            JsonSchemaType.Integer when schema.Format == "uint16" => "ushort",
-            JsonSchemaType.Integer when schema.Format == "uint32" => "uint",
-            JsonSchemaType.Integer when schema.Format == "uint64" => "ulong",
-            JsonSchemaType.Integer => "int",
-            JsonSchemaType.Number when schema.Format == "float" => "float",
-            JsonSchemaType.Number when schema.Format == "double" => "double",
-            JsonSchemaType.Number when schema.Format == "decimal" => "decimal",
-            JsonSchemaType.Number when schema.Format == "decimal128" => "decimal",
-            JsonSchemaType.Number when schema.Format == "double-int" => "long",
-            JsonSchemaType.Number => "double",
-            JsonSchemaType.Boolean => "bool",
             JsonSchemaType.Array when schema.Items != null => $"List<{GetCSharpType(schema.Items)}>",
             JsonSchemaType.Array => "List<object>",
             _ => "object"

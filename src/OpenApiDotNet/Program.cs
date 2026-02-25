@@ -85,7 +85,7 @@ rootCommand.SetAction(async parseResult =>
     var namespaceName = parseResult.GetValue(namespaceOption)!;
     var namespacePrefix = parseResult.GetValue(namespacePrefixOption);
     var overlayFiles = parseResult.GetValue(overlayOption) ?? [];
-    await Generate(openApiFile, outputDirectory, namespaceName, namespacePrefix, overlayFiles);
+    await Generate(openApiFile, outputDirectory, namespaceName, namespacePrefix, overlayFiles, null);
 });
 
 var updateConfigArgument = new Argument<FileInfo>("config-file")
@@ -149,7 +149,7 @@ rootCommand.Subcommands.Add(convertCommand);
 
 return rootCommand.Parse(args).Invoke();
 
-static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, FileInfo[] overlayFiles)
+static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, FileInfo[] overlayFiles, Dictionary<string, string>? typeMappings)
 {
     if (!openApiFile.Exists)
     {
@@ -245,10 +245,10 @@ static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, 
         Console.WriteLine("Generating client code...");
         Console.WriteLine();
 
-        var generator = new ClientGenerator(openApiDocument, namespaceName, outputDirectory.FullName, namespacePrefix);
+        var generator = new ClientGenerator(openApiDocument, namespaceName, outputDirectory.FullName, namespacePrefix, new TypeMappingConfig(typeMappings));
         generator.Generate();
 
-        SaveConfig(openApiFile, outputDirectory, namespaceName, namespacePrefix, overlayFiles);
+        SaveConfig(openApiFile, outputDirectory, namespaceName, namespacePrefix, overlayFiles, typeMappings);
 
         Console.WriteLine();
         Console.WriteLine("✓ Client generation complete!");
@@ -294,7 +294,7 @@ static void Update(FileInfo configFile)
             .ToArray();
 
         Console.WriteLine($"Updating from configuration: {configFile.FullName}");
-        Generate(new FileInfo(openApiFilePath), new DirectoryInfo(outputDirectoryPath), config.Namespace, config.NamespacePrefix, overlayFiles);
+        Generate(new FileInfo(openApiFilePath), new DirectoryInfo(outputDirectoryPath), config.Namespace, config.NamespacePrefix, overlayFiles, config.TypeMappings);
     }
     catch (JsonException ex)
     {
@@ -302,7 +302,7 @@ static void Update(FileInfo configFile)
     }
 }
 
-static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, FileInfo[] overlayFiles)
+static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, FileInfo[] overlayFiles, Dictionary<string, string>? typeMappings)
 {
     var config = new GenerationConfig
     {
@@ -310,7 +310,8 @@ static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, stri
         OutputDirectory = ".",
         Namespace = namespaceName,
         NamespacePrefix = namespacePrefix,
-        OverlayFiles = overlayFiles.Select(f => Path.GetRelativePath(outputDirectory.FullName, f.FullName)).ToList()
+        OverlayFiles = overlayFiles.Select(f => Path.GetRelativePath(outputDirectory.FullName, f.FullName)).ToList(),
+        TypeMappings = typeMappings
     };
 
     var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
