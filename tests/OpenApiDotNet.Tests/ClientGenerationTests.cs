@@ -1,3 +1,4 @@
+using System.Text;
 using FluentAssertions;
 using Microsoft.OpenApi;
 
@@ -5,79 +6,94 @@ namespace OpenApiDotNet.Tests;
 
 public class ClientGenerationTests
 {
-    private readonly string _fixturesPath;
-
-    public ClientGenerationTests()
+    private static (ClientGenerator Generator, string OutputDirectory) CreateGenerator(
+        string specJson,
+        string namespaceName = "Test.Client",
+        string? namespacePrefix = null)
     {
-        // Get the path to the fixtures directory
-        var baseDirectory = AppContext.BaseDirectory;
-        _fixturesPath = Path.Combine(baseDirectory, "Fixtures");
+        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(specJson));
+        var (document, diagnostic) = OpenApiDocument.Load(stream);
+        diagnostic?.Errors.Should().BeEmpty();
+        var generator = new ClientGenerator(document, namespaceName, outputDirectory, namespacePrefix: namespacePrefix);
+        return (generator, outputDirectory);
     }
 
     [Fact]
-    public async Task Generate_WithPetStoreSpec_CreatesExpectedFiles()
+    public void Generate_WithPetStoreSpec_CreatesExpectedFiles()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Pet Store API", "version": "1.0.0" },
+              "paths": {
+                "/pets": {
+                  "get": { "operationId": "listPets", "responses": { "200": { "description": "ok" } } }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "Pet": { "type": "object", "properties": { "id": { "type": "integer", "format": "int64" } } },
+                  "NewPet": { "type": "object", "properties": { "name": { "type": "string" } } }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec, "PetStore.Client");
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-
-            diagnostic?.Errors.Should().BeEmpty();
-
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
             Directory.Exists(outputDirectory).Should().BeTrue();
             Directory.Exists(Path.Combine(outputDirectory, "Models")).Should().BeTrue();
-
-            // Check that model files were created
             File.Exists(Path.Combine(outputDirectory, "Models", "Pet.cs")).Should().BeTrue();
             File.Exists(Path.Combine(outputDirectory, "Models", "NewPet.cs")).Should().BeTrue();
-
-            // Check that client file was created
             File.Exists(Path.Combine(outputDirectory, "PetStoreAPIClient.cs")).Should().BeTrue();
-
-            // Check that JSON configuration was created
             File.Exists(Path.Combine(outputDirectory, "JsonConfiguration.cs")).Should().BeTrue();
         }
         finally
         {
-            // Cleanup
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_PetModel_ContainsExpectedProperties()
+    public void Generate_PetModel_ContainsExpectedProperties()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "Pet": {
+                    "type": "object",
+                    "required": ["id", "name"],
+                    "properties": {
+                      "id": { "type": "integer", "format": "int64" },
+                      "name": { "type": "string" },
+                      "tag": { "type": "string" },
+                      "birthDate": { "type": "string", "format": "date" },
+                      "createdAt": { "type": "string", "format": "date-time" },
+                      "vaccinated": { "type": "boolean" },
+                      "weight": { "type": "number", "format": "double" }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec);
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
-            var petModelPath = Path.Combine(outputDirectory, "Models", "Pet.cs");
-            var content = File.ReadAllText(petModelPath);
+            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Pet.cs"));
 
-            // Check for expected properties with correct types
             content.Should().Contain("public required long Id");
             content.Should().Contain("public required string Name");
             content.Should().Contain("public string? Tag");
@@ -85,11 +101,7 @@ public class ClientGenerationTests
             content.Should().Contain("public NodaTime.Instant? CreatedAt");
             content.Should().Contain("public bool? Vaccinated");
             content.Should().Contain("public double? Weight");
-
-            // Check that NodaTime using statement is NOT present (fully qualified names used instead)
             content.Should().NotContain("using NodaTime;");
-
-            // Check for JSON attributes
             content.Should().Contain("[JsonPropertyName(\"id\")]");
             content.Should().Contain("[JsonPropertyName(\"birthDate\")]");
             content.Should().Contain("[JsonPropertyName(\"createdAt\")]");
@@ -97,45 +109,67 @@ public class ClientGenerationTests
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_ClientClass_ContainsExpectedMethods()
+    public void Generate_ClientClass_ContainsExpectedMethods()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Pet Store API", "version": "1.0.0" },
+              "paths": {
+                "/pets": {
+                  "get": {
+                    "operationId": "listPets",
+                    "parameters": [{ "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "format": "int32" } }],
+                    "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Pet" } } } } } }
+                  },
+                  "post": {
+                    "operationId": "createPet",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NewPet" } } } },
+                    "responses": { "201": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Pet" } } } } }
+                  }
+                },
+                "/pets/{petId}": {
+                  "get": {
+                    "operationId": "getPetById",
+                    "parameters": [{ "name": "petId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+                    "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Pet" } } } } }
+                  },
+                  "delete": {
+                    "operationId": "deletePet",
+                    "parameters": [{ "name": "petId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+                    "responses": { "204": { "description": "ok" } }
+                  }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "Pet": { "type": "object", "properties": { "id": { "type": "integer", "format": "int64" } } },
+                  "NewPet": { "type": "object", "properties": { "name": { "type": "string" } } }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec, "PetStore.Client");
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
-            var clientPath = Path.Combine(outputDirectory, "PetStoreAPIClient.cs");
-            var content = File.ReadAllText(clientPath);
+            var content = File.ReadAllText(Path.Combine(outputDirectory, "PetStoreAPIClient.cs"));
 
-            // Check for expected methods based on operationIds
             content.Should().Contain("public async Task<List<Pet>> ListPetsAsync");
             content.Should().Contain("public async Task<Pet> CreatePetAsync");
             content.Should().Contain("public async Task<Pet> GetPetByIdAsync");
             content.Should().Contain("public async Task<void> DeletePetAsync");
-
-            // Check for proper parameters
             content.Should().Contain("int? limit");
             content.Should().Contain("long petId");
             content.Should().Contain("NewPet request");
             content.Should().Contain("CancellationToken cancellationToken = default");
-
-            // Check for HttpClient usage
             content.Should().Contain("private readonly HttpClient _httpClient;");
             content.Should().Contain("_httpClient.GetAsync");
             content.Should().Contain("_httpClient.PostAsJsonAsync");
@@ -144,39 +178,32 @@ public class ClientGenerationTests
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_JsonConfiguration_ContainsNodaTimeSetupAsync()
+    public void Generate_JsonConfiguration_ContainsNodaTimeSetupAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {}
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec);
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
-            var configPath = Path.Combine(outputDirectory, "JsonConfiguration.cs");
-            var content = File.ReadAllText(configPath);
+            var content = File.ReadAllText(Path.Combine(outputDirectory, "JsonConfiguration.cs"));
 
-            // Check for NodaTime configuration
             content.Should().NotContain("using NodaTime;");
             content.Should().Contain("using NodaTime.Serialization.SystemTextJson;");
             content.Should().Contain("ConfigureForNodaTime");
             content.Should().Contain("NodaTime.DateTimeZoneProviders.Tzdb");
-
-            // Check for JSON options
             content.Should().Contain("JsonSerializerOptions");
             content.Should().Contain("PropertyNamingPolicy = JsonNamingPolicy.CamelCase");
             content.Should().Contain("DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull");
@@ -184,33 +211,36 @@ public class ClientGenerationTests
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_WithQueryParameters_GeneratesProperQueryHandlingAsync()
+    public void Generate_WithQueryParameters_GeneratesProperQueryHandlingAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items": {
+                  "get": {
+                    "operationId": "listItems",
+                    "parameters": [{ "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "format": "int32" } }],
+                    "responses": { "200": { "description": "ok" } }
+                  }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec);
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
-            var clientPath = Path.Combine(outputDirectory, "PetStoreAPIClient.cs");
-            var content = File.ReadAllText(clientPath);
+            var content = File.ReadAllText(Path.Combine(outputDirectory, "TestClient.cs"));
 
-            // Check for query parameter handling in ListPets method
             content.Should().Contain("var queryString = new List<string>();");
             content.Should().Contain("if (limit != null)");
             content.Should().Contain("Uri.EscapeDataString");
@@ -218,9 +248,7 @@ public class ClientGenerationTests
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
@@ -270,53 +298,63 @@ public class ClientGenerationTests
     }
 
     [Fact]
-    public async Task Generate_WithEnumSchema_CreatesEnumFileAsync()
+    public void Generate_WithEnumSchema_CreatesEnumFileAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "PetStatus": { "type": "string", "enum": ["available", "pending", "sold"] },
+                  "PetSize": { "type": "string", "enum": ["small", "medium", "large", "extra-large"] }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec);
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
             File.Exists(Path.Combine(outputDirectory, "Models", "PetStatus.cs")).Should().BeTrue();
             File.Exists(Path.Combine(outputDirectory, "Models", "PetSize.cs")).Should().BeTrue();
         }
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_EnumModel_ContainsExpectedMembersAsync()
+    public void Generate_EnumModel_ContainsExpectedMembersAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "PetStatus": {
+                    "type": "string",
+                    "description": "The status of a pet in the store",
+                    "enum": ["available", "pending", "sold"]
+                  }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec);
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
-            var enumPath = Path.Combine(outputDirectory, "Models", "PetStatus.cs");
-            var content = File.ReadAllText(enumPath);
+            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "PetStatus.cs"));
 
             content.Should().Contain("public enum PetStatus");
             content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
@@ -328,31 +366,32 @@ public class ClientGenerationTests
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_EnumWithHyphenatedValues_GeneratesPascalCaseMembersAsync()
+    public void Generate_EnumWithHyphenatedValues_GeneratesPascalCaseMembersAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "PetSize": { "type": "string", "enum": ["small", "medium", "large", "extra-large"] }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec);
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
-            var enumPath = Path.Combine(outputDirectory, "Models", "PetSize.cs");
-            var content = File.ReadAllText(enumPath);
+            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "PetSize.cs"));
 
             content.Should().Contain("public enum PetSize");
             content.Should().Contain("Small,");
@@ -364,31 +403,40 @@ public class ClientGenerationTests
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_PetModel_ContainsEnumPropertyAsync()
+    public void Generate_PetModel_ContainsEnumPropertyAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "Pet": {
+                    "type": "object",
+                    "properties": {
+                      "status": { "$ref": "#/components/schemas/PetStatus" },
+                      "size": { "$ref": "#/components/schemas/PetSize" }
+                    }
+                  },
+                  "PetStatus": { "type": "string", "enum": ["available"] },
+                  "PetSize": { "type": "string", "enum": ["small"] }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec);
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
-            var petPath = Path.Combine(outputDirectory, "Models", "Pet.cs");
-            var content = File.ReadAllText(petPath);
+            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Pet.cs"));
 
             content.Should().Contain("public PetStatus? Status");
             content.Should().Contain("public PetSize? Size");
@@ -396,138 +444,142 @@ public class ClientGenerationTests
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_JsonConfiguration_ContainsStringEnumConverterAsync()
+    public void Generate_JsonConfiguration_ContainsStringEnumConverterAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "petstore.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {}
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec);
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
-            var configPath = Path.Combine(outputDirectory, "JsonConfiguration.cs");
-            var content = File.ReadAllText(configPath);
+            var content = File.ReadAllText(Path.Combine(outputDirectory, "JsonConfiguration.cs"));
 
             content.Should().Contain("JsonStringEnumConverter");
         }
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_WithDottedSchemaNames_CreatesFilesInSubDirectoriesAsync()
+    public void Generate_WithDottedSchemaNames_CreatesFilesInSubDirectoriesAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "dotted-names.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Dotted Names API", "version": "1.0.0" },
+              "paths": {
+                "/orders": {
+                  "get": { "operationId": "listOrders", "responses": { "200": { "description": "ok" } } }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "Commerce.Order": { "type": "object", "properties": { "id": { "type": "integer", "format": "int64" } } },
+                  "Commerce.NewOrder": { "type": "object", "properties": { "customerId": { "type": "integer", "format": "int64" } } },
+                  "Commerce.OrderStatus": { "type": "string", "enum": ["pending", "confirmed", "shipped"] },
+                  "Identity.Customer": { "type": "object", "properties": { "id": { "type": "integer", "format": "int64" } } },
+                  "SimpleModel": { "type": "object", "properties": { "value": { "type": "string" } } }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client");
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-
-            diagnostic.Errors.Should().BeEmpty();
-
-            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert - dotted names produce subdirectories
             File.Exists(Path.Combine(outputDirectory, "Models", "Commerce", "Order.cs")).Should().BeTrue();
             File.Exists(Path.Combine(outputDirectory, "Models", "Commerce", "NewOrder.cs")).Should().BeTrue();
             File.Exists(Path.Combine(outputDirectory, "Models", "Commerce", "OrderStatus.cs")).Should().BeTrue();
             File.Exists(Path.Combine(outputDirectory, "Models", "Identity", "Customer.cs")).Should().BeTrue();
-
-            // Non-dotted name stays in root Models directory
             File.Exists(Path.Combine(outputDirectory, "Models", "SimpleModel.cs")).Should().BeTrue();
         }
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_DottedModel_HasCorrectNamespaceAndTypeNameAsync()
+    public void Generate_DottedModel_HasCorrectNamespaceAndTypeNameAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "dotted-names.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "Commerce.Order": {
+                    "type": "object",
+                    "properties": { "id": { "type": "integer", "format": "int64" } }
+                  },
+                  "Identity.Customer": {
+                    "type": "object",
+                    "properties": { "id": { "type": "integer", "format": "int64" } }
+                  }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client");
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-
-            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
-            var orderPath = Path.Combine(outputDirectory, "Models", "Commerce", "Order.cs");
-            var content = File.ReadAllText(orderPath);
+            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Commerce", "Order.cs"));
 
-            // Type name should be just the last segment
             content.Should().Contain("public class Order");
-            // Namespace should include the dotted prefix
             content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
-            // Should have using for other sub-namespace
             content.Should().Contain("using DottedNames.Client.Models.Identity;");
         }
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_DottedEnum_HasCorrectNamespaceAndTypeNameAsync()
+    public void Generate_DottedEnum_HasCorrectNamespaceAndTypeNameAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "dotted-names.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "Commerce.OrderStatus": { "type": "string", "enum": ["pending", "confirmed", "shipped"] }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client");
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-
-            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
-            var enumPath = Path.Combine(outputDirectory, "Models", "Commerce", "OrderStatus.cs");
-            var content = File.ReadAllText(enumPath);
+            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Commerce", "OrderStatus.cs"));
 
             content.Should().Contain("public enum OrderStatus");
             content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
@@ -539,32 +591,46 @@ public class ClientGenerationTests
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_DottedModel_ReferencesUseSimpleTypeNameAsync()
+    public void Generate_DottedModel_ReferencesUseSimpleTypeNameAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "dotted-names.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "Commerce.Order": {
+                    "type": "object",
+                    "required": ["id", "status"],
+                    "properties": {
+                      "id": { "type": "integer", "format": "int64" },
+                      "status": { "$ref": "#/components/schemas/Commerce.OrderStatus" },
+                      "customer": { "$ref": "#/components/schemas/Identity.Customer" }
+                    }
+                  },
+                  "Commerce.OrderStatus": { "type": "string", "enum": ["pending"] },
+                  "Identity.Customer": {
+                    "type": "object",
+                    "required": ["id"],
+                    "properties": { "id": { "type": "integer", "format": "int64" } }
+                  }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client");
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-
-            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert - properties referencing dotted types use simple names
-            var orderPath = Path.Combine(outputDirectory, "Models", "Commerce", "Order.cs");
-            var content = File.ReadAllText(orderPath);
+            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Commerce", "Order.cs"));
 
             content.Should().Contain("public required OrderStatus Status");
             content.Should().Contain("public Customer? Customer");
@@ -572,38 +638,50 @@ public class ClientGenerationTests
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_Client_WithDottedNames_HasSubNamespaceUsingsAsync()
+    public void Generate_Client_WithDottedNames_HasSubNamespaceUsingsAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "dotted-names.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Dotted Names API", "version": "1.0.0" },
+              "paths": {
+                "/orders": {
+                  "get": {
+                    "operationId": "listOrders",
+                    "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Commerce.Order" } } } } } }
+                  },
+                  "post": {
+                    "operationId": "createOrder",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Commerce.NewOrder" } } } },
+                    "responses": { "201": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Commerce.Order" } } } } }
+                  }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "Commerce.Order": { "type": "object", "properties": { "id": { "type": "integer", "format": "int64" } } },
+                  "Commerce.NewOrder": { "type": "object", "properties": { "customerId": { "type": "integer", "format": "int64" } } },
+                  "Identity.Customer": { "type": "object", "properties": { "id": { "type": "integer", "format": "int64" } } }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client");
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-
-            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
-            var clientPath = Path.Combine(outputDirectory, "DottedNamesAPIClient.cs");
-            var content = File.ReadAllText(clientPath);
+            var content = File.ReadAllText(Path.Combine(outputDirectory, "DottedNamesAPIClient.cs"));
 
             content.Should().Contain("using DottedNames.Client.Models;");
             content.Should().Contain("using DottedNames.Client.Models.Commerce;");
             content.Should().Contain("using DottedNames.Client.Models.Identity;");
-
-            // Methods should use simple type names
             content.Should().Contain("Task<List<Order>>");
             content.Should().Contain("Task<Order>");
             content.Should().Contain("NewOrder request");
@@ -611,32 +689,32 @@ public class ClientGenerationTests
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_NonDottedModel_StaysInRootModelsNamespaceAsync()
+    public void Generate_NonDottedModel_StaysInRootModelsNamespaceAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "dotted-names.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "SimpleModel": { "type": "object", "properties": { "value": { "type": "string" } } }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client");
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-
-            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory);
-
-            // Act
             generator.Generate();
 
-            // Assert
-            var modelPath = Path.Combine(outputDirectory, "Models", "SimpleModel.cs");
-            var content = File.ReadAllText(modelPath);
+            var content = File.ReadAllText(Path.Combine(outputDirectory, "Models", "SimpleModel.cs"));
 
             content.Should().Contain("namespace DottedNames.Client.Models;");
             content.Should().Contain("public class SimpleModel");
@@ -644,55 +722,59 @@ public class ClientGenerationTests
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 
     [Fact]
-    public async Task Generate_WithNamespacePrefix_StripsMatchingPrefixFromNamespaceAsync()
+    public void Generate_WithNamespacePrefix_StripsMatchingPrefixFromNamespaceAsync()
     {
-        // Arrange
-        var specPath = Path.Combine(_fixturesPath, "dotted-names.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "Commerce.Order": { "type": "object", "properties": { "id": { "type": "integer", "format": "int64" } } },
+                  "Commerce.NewOrder": { "type": "object", "properties": { "customerId": { "type": "integer", "format": "int64" } } },
+                  "Commerce.OrderStatus": { "type": "string", "enum": ["pending"] },
+                  "Identity.Customer": {
+                    "type": "object",
+                    "required": ["id", "name"],
+                    "properties": {
+                      "id": { "type": "integer", "format": "int64" },
+                      "name": { "type": "string" }
+                    }
+                  },
+                  "SimpleModel": { "type": "object", "properties": { "value": { "type": "string" } } }
+                }
+              }
+            }
+            """;
+        var (generator, outputDirectory) = CreateGenerator(spec, "DottedNames.Client", namespacePrefix: "Commerce");
 
         try
         {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-
-            var generator = new ClientGenerator(document, "DottedNames.Client", outputDirectory, namespacePrefix: "Commerce");
-
-            // Act
             generator.Generate();
 
-            // Assert - Commerce prefix is stripped, so Commerce.Order becomes just Order in root Models
             File.Exists(Path.Combine(outputDirectory, "Models", "Order.cs")).Should().BeTrue();
             File.Exists(Path.Combine(outputDirectory, "Models", "NewOrder.cs")).Should().BeTrue();
             File.Exists(Path.Combine(outputDirectory, "Models", "OrderStatus.cs")).Should().BeTrue();
-
-            // Identity prefix does NOT match, so it keeps its sub-namespace
             File.Exists(Path.Combine(outputDirectory, "Models", "Identity", "Customer.cs")).Should().BeTrue();
-
-            // Non-dotted name stays in root Models directory
             File.Exists(Path.Combine(outputDirectory, "Models", "SimpleModel.cs")).Should().BeTrue();
 
-            // Verify namespace in stripped model
             var orderContent = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Order.cs"));
             orderContent.Should().Contain("namespace DottedNames.Client.Models;");
             orderContent.Should().Contain("public class Order");
 
-            // Verify namespace in non-stripped model
             var customerContent = File.ReadAllText(Path.Combine(outputDirectory, "Models", "Identity", "Customer.cs"));
             customerContent.Should().Contain("namespace DottedNames.Client.Models.Identity;");
         }
         finally
         {
             if (Directory.Exists(outputDirectory))
-            {
                 Directory.Delete(outputDirectory, true);
-            }
         }
     }
 }
