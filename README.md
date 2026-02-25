@@ -8,7 +8,7 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 - 🕐 **NodaTime Integration**: Automatic mapping of date/time formats to NodaTime types (`Instant`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Duration`)
 - ⚡ **System.Text.Json**: Native JSON serialization with optimal performance
 - 🛡️ **Type-Safe**: Generates strongly-typed models and client methods
-- 🧱 **Fluent Builder API**: Navigate resources naturally — `client.Pets[123].Photos[photoId].GetPetPhoto()`
+- 🧱 **Fluent Builder API**: Navigate resources naturally — `client.Pets[123].Photos[photoId].Get()`
 - 🧪 **Mockable by Design**: All builders use `virtual` methods and `protected` constructors for seamless Moq integration
 - ♻️ **Async First**: All HTTP operations are async with proper cancellation support
 - 📖 **Well Documented**: Preserves OpenAPI descriptions as XML documentation comments
@@ -87,7 +87,7 @@ Enum values are converted to PascalCase members (e.g., `extra-large` → `ExtraL
 |---|---|
 | `boolean` | `bool` |
 | `array` | `List<T>` |
-| `object` (inline) | Nested class in builder (e.g., `GetStatsResponse`) |
+| `object` (inline) | Nested class in builder (e.g., `GetResponse`) |
 | `$ref` | Referenced class / enum |
 
 ## Installation
@@ -435,7 +435,7 @@ public class PetsBuilder : IBuilder
     /// <summary>
     /// List all pets
     /// </summary>
-    public virtual async Task<List<Pet>> ListPets(
+    public virtual async Task<List<Pet>> Get(
         int? limit = default, CancellationToken cancellationToken = default)
     {
         var url = GetPath();
@@ -462,7 +462,6 @@ When a response schema is defined inline (not via `$ref`), the generator creates
 # OpenAPI spec
 /stats:
   get:
-    operationId: getStats
     responses:
       200:
         content:
@@ -490,19 +489,19 @@ public class StatsBuilder : IBuilder
     /// <summary>
     /// Get statistics
     /// </summary>
-    public virtual async Task<GetStatsResponse> GetStats(
+    public virtual async Task<GetResponse> Get(
         CancellationToken cancellationToken = default)
     {
         var url = GetPath();
 
         var response = await Client.HttpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<GetStatsResponse>(
+        return await response.Content.ReadFromJsonAsync<GetResponse>(
             Client.JsonOptions, cancellationToken)
             ?? throw new InvalidOperationException("Response was null");
     }
 
-    public class GetStatsResponse
+    public class GetResponse
     {
         [JsonPropertyName("totalCount")]
         public int? TotalCount { get; set; }
@@ -516,7 +515,7 @@ public class StatsBuilder : IBuilder
 }
 ```
 
-The same applies to inline request body schemas, which generate `{MethodName}Request` nested classes.
+The same applies to inline request body schemas, which generate `{HttpMethod}Request` nested classes (e.g., `PostRequest`).
 
 ## Fluent Builder Pattern
 
@@ -524,16 +523,16 @@ The generator produces a **fluent builder API** where each URL segment maps to i
 
 ```csharp
 // GET /pets?limit=10
-var pets = await client.Pets.ListPets(limit: 10);
+var pets = await client.Pets.Get(limit: 10);
 
 // GET /pets/123
-var pet = await client.Pets[123].GetPetById();
+var pet = await client.Pets[123].Get();
 
 // GET /pets/123/photos/{photoId}
-var photo = await client.Pets[123].Photos[photoId].GetPetPhoto();
+var photo = await client.Pets[123].Photos[photoId].Get();
 
 // DELETE /pets/123
-await client.Pets[123].DeletePet();
+await client.Pets[123].Delete();
 ```
 
 Path building is handled automatically by chaining `GetPath()` through the builder hierarchy — no manual URL construction needed.
@@ -548,10 +547,10 @@ All builder classes are designed for easy mocking with frameworks like [Moq](htt
 
 ```csharp
 var mock = new Mock<IClient>();
-mock.Setup(c => c.Pets[123].ListPets(It.IsAny<CancellationToken>()))
+mock.Setup(c => c.Pets[123].Get(It.IsAny<CancellationToken>()))
     .ReturnsAsync(new List<Pet> { new Pet() });
 
-var result = await mock.Object.Pets[123].ListPets(default);
+var result = await mock.Object.Pets[123].Get(default);
 ```
 
 ## URL Encoding & Query Parameters
@@ -560,7 +559,7 @@ Query string values are automatically URL-encoded for safe transmission:
 
 ```csharp
 // Query parameter encoding
-var pets = await client.Pets.ListPets(limit: 10, status: "available & active");
+var pets = await client.Pets.Get(limit: 10, status: "available & active");
 // Generates: /pets?limit=10&status=available%20%26%20active
 ```
 
@@ -606,7 +605,7 @@ builder.Services.AddHttpClient<PetStoreClient>(client =>
 
 ```csharp
 // List pets with query parameters
-var pets = await client.Pets.ListPets(limit: 10);
+var pets = await client.Pets.Get(limit: 10);
 
 // Create a pet
 var newPet = new NewPet
@@ -614,16 +613,16 @@ var newPet = new NewPet
     Name = "Fluffy",
     BirthDate = LocalDate.FromDateTime(DateTime.Now.AddYears(-2))
 };
-var createdPet = await client.Pets.CreatePet(newPet);
+var createdPet = await client.Pets.Post(newPet);
 
 // Get specific pet by ID
-var pet = await client.Pets[123].GetPetById();
+var pet = await client.Pets[123].Get();
 
 // Navigate nested resources
-var photo = await client.Pets[123].Photos[photoId].GetPetPhoto();
+var photo = await client.Pets[123].Photos[photoId].Get();
 
 // Delete a pet
-await client.Pets[123].DeletePet();
+await client.Pets[123].Delete();
 
 // Check timestamps with NodaTime
 if (pet.CreatedAt.HasValue)
@@ -686,9 +685,9 @@ OpenAPI Schemas → Model Generator → Models/*.cs
 The path tree maps URL structure to builder hierarchy:
 
 ```
-/pets                          → PetsBuilder (operations: listPets, createPet)
-/pets/{petId}                  → PetsIdBuilder (operations: getPetById, deletePet)
-/pets/{petId}/photos/{photoId} → PhotosBuilder + PhotosIdBuilder (operation: getPetPhoto)
+/pets                          → PetsBuilder (operations: Get, Post)
+/pets/{petId}                  → PetsIdBuilder (operations: Get, Delete)
+/pets/{petId}/photos/{photoId} → PhotosBuilder + PhotosIdBuilder (operation: Get)
 /owners/{ownerId}/pets/{petId} → OwnersBuilder + OwnersIdBuilder
                                  + OwnersIdPetsBuilder + OwnersIdPetsIdBuilder
 ```
@@ -763,7 +762,7 @@ Other types
 - ✅ Inline object schemas as nested classes in builders
 - ✅ Enum types with `JsonStringEnumConverter`
 - ✅ HTTP methods: GET, POST, PUT, PATCH, DELETE
-- ✅ Operation IDs for method naming
+- ✅ HTTP method-based operation naming (Get, Post, Put, Patch, Delete)
 - ✅ Descriptions and summaries
 - ✅ [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) type mappings
 - ✅ Configurable type mappings via `.openapidotnet.json`

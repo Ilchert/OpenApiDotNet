@@ -30,13 +30,13 @@ public class PathParameterTests
             // Act
             generator.Generate();
 
-            // Assert - PetsIdBuilder should have GetPetById operation and petId in constructor
+            // Assert - PetsIdBuilder should have Get operation and petId in constructor
             var builderPath = Path.Combine(outputDirectory, "Builders", "PetsIdBuilder.cs");
             var content = File.ReadAllText(builderPath);
 
             // Path parameter is captured in the builder constructor
             content.Should().Contain("long petId");
-            content.Should().Contain("GetPetById");
+            content.Should().Contain("Get");
         }
         finally
         {
@@ -69,7 +69,7 @@ public class PathParameterTests
             petsIdContent.Should().Contain("long petId");
 
             var photosIdContent = File.ReadAllText(Path.Combine(outputDirectory, "Builders", "PhotosIdBuilder.cs"));
-            photosIdContent.Should().Contain("GetPetPhoto");
+            photosIdContent.Should().Contain("Get");
             photosIdContent.Should().Contain("Guid photoId");
         }
         finally
@@ -104,7 +104,7 @@ public class PathParameterTests
 
             // pets under owners/{ownerId} gets a context-prefixed name due to collision
             var ownersIdPetsIdContent = File.ReadAllText(Path.Combine(outputDirectory, "Builders", "OwnersIdPetsIdBuilder.cs"));
-            ownersIdPetsIdContent.Should().Contain("GetOwnerPet");
+            ownersIdPetsIdContent.Should().Contain("Get");
             ownersIdPetsIdContent.Should().Contain("long petId");
         }
         finally
@@ -137,7 +137,7 @@ public class PathParameterTests
             var builderPath = Path.Combine(outputDirectory, "Builders", "PetsBuilder.cs");
             var content = File.ReadAllText(builderPath);
 
-            content.Should().Contain("ListPets");
+            content.Should().Contain("Get");
             content.Should().Contain("int? limit");
             content.Should().Contain("Uri.EscapeDataString");
         }

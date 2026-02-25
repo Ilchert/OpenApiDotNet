@@ -413,8 +413,7 @@ public class ClientGenerator
 
     private void GenerateBuilderOperation(StringBuilder sb, HttpMethod httpMethod, OpenApiOperation operation)
     {
-        var methodName = operation.OperationId ?? $"{httpMethod}";
-        methodName = ToPascalCase(methodName);
+        var methodName = ToPascalCase($"{httpMethod}".ToLowerInvariant());
 
         var nestedClasses = new StringBuilder();
 

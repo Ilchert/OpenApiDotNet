@@ -157,10 +157,10 @@ public class ClientGenerationTests : IDisposable
         clientContent.Should().Contain("HttpClient HttpClient");
         clientContent.Should().Contain("JsonSerializerOptions JsonOptions");
 
-        // PetsBuilder should have listPets and createPet operations
+        // PetsBuilder should have Get and Post operations
         var petsContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs"));
-        petsContent.Should().Contain("public virtual async Task<List<Pet>> ListPets");
-        petsContent.Should().Contain("public virtual async Task<Pet> CreatePet");
+        petsContent.Should().Contain("public virtual async Task<List<Pet>> Get");
+        petsContent.Should().Contain("public virtual async Task<Pet> Post");
         petsContent.Should().Contain("int? limit");
         petsContent.Should().Contain("NewPet request");
         petsContent.Should().Contain("CancellationToken cancellationToken = default");
@@ -168,10 +168,10 @@ public class ClientGenerationTests : IDisposable
         petsContent.Should().Contain("Client.HttpClient.PostAsJsonAsync");
         petsContent.Should().Contain("PetsIdBuilder this[long petId]");
 
-        // PetsIdBuilder should have getPetById and deletePet operations
+        // PetsIdBuilder should have Get and Delete operations
         var petsIdContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsIdBuilder.cs"));
-        petsIdContent.Should().Contain("public virtual async Task<Pet> GetPetById");
-        petsIdContent.Should().Contain("public virtual async Task DeletePet");
+        petsIdContent.Should().Contain("public virtual async Task<Pet> Get");
+        petsIdContent.Should().Contain("public virtual async Task Delete");
         petsIdContent.Should().Contain("Client.HttpClient.DeleteAsync");
     }
 
@@ -355,7 +355,7 @@ public class ClientGenerationTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
 
         // Required parameters (category, request) should appear before optional ones (limit, offset, cancellationToken)
-        var signatureStart = content.IndexOf("SearchItems(");
+        var signatureStart = content.IndexOf("Post(");
         var signatureEnd = content.IndexOf(')', signatureStart);
         var signature = content[signatureStart..signatureEnd];
 
@@ -420,11 +420,11 @@ public class ClientGenerationTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "StatsBuilder.cs"));
 
         // Return type should reference the nested class
-        content.Should().Contain("Task<GetStatsResponse>");
-        content.Should().Contain("GetStats");
+        content.Should().Contain("Task<GetResponse>");
+        content.Should().Contain("Get");
 
         // Nested class should be generated with properties
-        content.Should().Contain("public class GetStatsResponse");
+        content.Should().Contain("public class GetResponse");
         content.Should().Contain("[JsonPropertyName(\"totalCount\")]");
         content.Should().Contain("public int? TotalCount");
         content.Should().Contain("[JsonPropertyName(\"activeCount\")]");
@@ -472,10 +472,10 @@ public class ClientGenerationTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "FeedbackBuilder.cs"));
 
         // Request body should use the nested class
-        content.Should().Contain("SubmitFeedbackRequest request");
+        content.Should().Contain("PostRequest request");
 
         // Nested class should be generated with properties
-        content.Should().Contain("public class SubmitFeedbackRequest");
+        content.Should().Contain("public class PostRequest");
         content.Should().Contain("[JsonPropertyName(\"message\")]");
         content.Should().Contain("public required string Message");
         content.Should().Contain("[JsonPropertyName(\"rating\")]");
