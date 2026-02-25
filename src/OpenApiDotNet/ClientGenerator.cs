@@ -419,8 +419,9 @@ public class ClientGenerator
         sb.AppendLine($"    /// {EscapeXmlComment(operation.Summary ?? operation.Description ?? methodName)}");
         sb.AppendLine("    /// </summary>");
 
-        var parameters = new List<string>();
-        var queryParams = new List<(string name, string paramName, string paramType, bool required)>();
+        var requiredParameters = new List<string>();
+        var optionalParameters = new List<string>();
+        var queryParams = new List<(string name, string paramName, string paramType, bool required, bool isCollection)>();
         string? requestBodyType = null;
 
         // Only include query parameters (path params are handled by the builder chain)
@@ -433,8 +434,12 @@ public class ClientGenerator
                     var paramName = ToCamelCase(parameter.Name);
                     var paramType = GetCSharpType(parameter.Schema);
                     var isRequired = parameter.Required;
-                    parameters.Add($"{paramType}{(isRequired ? "" : "?")} {paramName}{(isRequired ? "" : " = default")}");
-                    queryParams.Add((parameter.Name, paramName, paramType, isRequired));
+                    var isCollection = paramType.StartsWith("List<");
+                    if (isRequired)
+                        requiredParameters.Add($"{paramType} {paramName}");
+                    else
+                        optionalParameters.Add($"{paramType}? {paramName} = default");
+                    queryParams.Add((parameter.Name, paramName, paramType, isRequired, isCollection));
                 }
             }
         }
@@ -446,13 +451,15 @@ public class ClientGenerator
             if (bodySchemaName != null)
             {
                 requestBodyType = GetTypeName(bodySchemaName);
-                parameters.Add($"{requestBodyType} request");
+                requiredParameters.Add($"{requestBodyType} request");
             }
         }
 
         var responseType = GetResponseType(operation);
 
-        parameters.Add("CancellationToken cancellationToken = default");
+        optionalParameters.Add("CancellationToken cancellationToken = default");
+
+        var parameters = requiredParameters.Concat(optionalParameters).ToList();
 
         sb.AppendLine($"    public virtual async Task{(responseType == "void" ? "" : $"<{responseType}>")} {methodName}({string.Join(", ", parameters)})");
         sb.AppendLine("    {");
@@ -466,7 +473,21 @@ public class ClientGenerator
 
             foreach (var param in queryParams)
             {
-                if (param.required)
+                if (param.isCollection)
+                {
+                    if (!param.required)
+                    {
+                        sb.AppendLine($"        if ({param.paramName} != null)");
+                        sb.AppendLine($"            foreach (var item in {param.paramName})");
+                        sb.AppendLine($"                queryString.Add($\"{param.name}={{Uri.EscapeDataString(item.ToString())}}\");");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"        foreach (var item in {param.paramName})");
+                        sb.AppendLine($"            queryString.Add($\"{param.name}={{Uri.EscapeDataString(item.ToString())}}\");");
+                    }
+                }
+                else if (param.required)
                 {
                     sb.AppendLine($"        queryString.Add($\"{param.name}={{Uri.EscapeDataString({param.paramName}.ToString())}}\");");
                 }

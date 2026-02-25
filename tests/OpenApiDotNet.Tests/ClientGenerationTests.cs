@@ -271,6 +271,115 @@ public class ClientGenerationTests : IDisposable
     }
 
     [Fact]
+    public void Generate_WithListQueryParameter_GeneratesForeachOverItems()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items": {
+                  "get": {
+                    "operationId": "listItems",
+                    "parameters": [
+                      { "name": "tags", "in": "query", "required": false, "schema": { "type": "array", "items": { "type": "string" } } },
+                      { "name": "statuses", "in": "query", "required": true, "schema": { "type": "array", "items": { "type": "string" } } },
+                      { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "format": "int32" } }
+                    ],
+                    "responses": { "200": { "description": "ok" } }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
+
+        // Optional list parameter should be nullable
+        content.Should().Contain("List<string>? tags");
+
+        // Required list parameter should be non-nullable
+        content.Should().Contain("List<string> statuses");
+        content.Should().NotContain("List<string>? statuses");
+
+        // Optional list parameter should have null check before foreach
+        content.Should().Contain("if (tags != null)");
+        content.Should().Contain("foreach (var item in tags)");
+
+        // Required list parameter should iterate without null check
+        content.Should().Contain("foreach (var item in statuses)");
+
+        // Each item should be individually escaped and added with the parameter name
+        content.Should().Contain("Uri.EscapeDataString(item.ToString())");
+
+        // Scalar parameter should still use direct .ToString()
+        content.Should().Contain("if (limit != null)");
+        content.Should().Contain("Uri.EscapeDataString(limit.ToString())");
+    }
+
+    [Fact]
+    public void Generate_WithMixedRequiredAndOptionalQueryParameters_RequiredParametersGoFirst()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items": {
+                  "post": {
+                    "operationId": "searchItems",
+                    "parameters": [
+                      { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "format": "int32" } },
+                      { "name": "category", "in": "query", "required": true, "schema": { "type": "string" } },
+                      { "name": "offset", "in": "query", "required": false, "schema": { "type": "integer", "format": "int32" } }
+                    ],
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SearchRequest" } } } },
+                    "responses": { "200": { "description": "ok" } }
+                  }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "SearchRequest": { "type": "object", "properties": { "query": { "type": "string" } } }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
+
+        // Required parameters (category, request) should appear before optional ones (limit, offset, cancellationToken)
+        var signatureStart = content.IndexOf("SearchItems(");
+        var signatureEnd = content.IndexOf(')', signatureStart);
+        var signature = content[signatureStart..signatureEnd];
+
+        var categoryPos = signature.IndexOf("string category");
+        var requestPos = signature.IndexOf("SearchRequest request");
+        var limitPos = signature.IndexOf("int? limit");
+        var offsetPos = signature.IndexOf("int? offset");
+        var ctPos = signature.IndexOf("CancellationToken cancellationToken");
+
+        categoryPos.Should().BePositive();
+        requestPos.Should().BePositive();
+        limitPos.Should().BePositive();
+        offsetPos.Should().BePositive();
+        ctPos.Should().BePositive();
+
+        // Required params before optional params
+        categoryPos.Should().BeLessThan(limitPos);
+        categoryPos.Should().BeLessThan(offsetPos);
+        requestPos.Should().BeLessThan(limitPos);
+        requestPos.Should().BeLessThan(offsetPos);
+        requestPos.Should().BeLessThan(ctPos);
+    }
+
+    [Fact]
     public void Constructor_WithNullDocument_ThrowsArgumentNullException()
     {
         // Act
