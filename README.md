@@ -15,6 +15,7 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 - 📋 **Format Registry**: Comprehensive [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) support — integers, URIs, binary, decimals, and more
 - ❔ **Nullable Aware**: Respects required/optional properties — required fields use the C# `required` modifier, optional fields use nullable reference types
 - 🏷️ **Enum Support**: Generates C# enums from OpenAPI string enums with `JsonStringEnumConverter`
+- 📦 **Inline Object Schemas**: Inline `type: object` schemas in responses and request bodies are generated as public nested classes inside builder classes
 - 💻 **Modern CLI**: Uses `System.CommandLine` with built-in help, validation, and shell tab-completion
 - 💾 **Configuration Persistence**: Saves generation parameters to a JSON config file for easy re-generation via `update` command
 - 🔧 **Configurable Type Mappings**: Override default OpenAPI-to-.NET type mappings via the configuration file
@@ -86,6 +87,7 @@ Enum values are converted to PascalCase members (e.g., `extra-large` → `ExtraL
 |---|---|
 | `boolean` | `bool` |
 | `array` | `List<T>` |
+| `object` (inline) | Nested class in builder (e.g., `GetStatsResponse`) |
 | `$ref` | Referenced class / enum |
 
 ## Installation
@@ -404,6 +406,7 @@ public interface IClient : IBuilder
 
 ```csharp
 using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using PetStoreClient.Models;
 
 namespace PetStoreClient;
@@ -450,6 +453,70 @@ public class PetsBuilder : IBuilder
     }
 }
 ```
+
+### Example Generated Inline Response
+
+When a response schema is defined inline (not via `$ref`), the generator creates a public nested class inside the builder:
+
+```yaml
+# OpenAPI spec
+/stats:
+  get:
+    operationId: getStats
+    responses:
+      200:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                totalCount:
+                  type: integer
+                  format: int32
+                activeCount:
+                  type: integer
+                  format: int32
+                lastUpdated:
+                  type: string
+                  format: date-time
+```
+
+```csharp
+// Generated StatsBuilder.cs
+public class StatsBuilder : IBuilder
+{
+    // ... builder infrastructure ...
+
+    /// <summary>
+    /// Get statistics
+    /// </summary>
+    public virtual async Task<GetStatsResponse> GetStats(
+        CancellationToken cancellationToken = default)
+    {
+        var url = GetPath();
+
+        var response = await Client.HttpClient.GetAsync(url, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<GetStatsResponse>(
+            Client.JsonOptions, cancellationToken)
+            ?? throw new InvalidOperationException("Response was null");
+    }
+
+    public class GetStatsResponse
+    {
+        [JsonPropertyName("totalCount")]
+        public int? TotalCount { get; set; }
+
+        [JsonPropertyName("activeCount")]
+        public int? ActiveCount { get; set; }
+
+        [JsonPropertyName("lastUpdated")]
+        public NodaTime.Instant? LastUpdated { get; set; }
+    }
+}
+```
+
+The same applies to inline request body schemas, which generate `{MethodName}Request` nested classes.
 
 ## Fluent Builder Pattern
 
@@ -589,7 +656,7 @@ The project includes comprehensive test coverage:
 
 ### Test Coverage
 
-- **107 tests** covering all major functionality
+- **112 tests** covering all major functionality
 - **100% pass rate**
 - Unit tests for type mapping and naming conventions
 - Integration tests with real OpenAPI specifications
@@ -674,6 +741,7 @@ Enum types
 Other types
   "boolean"                            → bool
   "array"                              → List<T>
+  Inline "object" (in response/body)   → Nested class in builder
   Reference ($ref)                     → Custom Type / Enum
 ```
 
@@ -692,6 +760,7 @@ Other types
 - ✅ Schema references (`$ref`)
 - ✅ Required/optional properties
 - ✅ Arrays and nested objects
+- ✅ Inline object schemas as nested classes in builders
 - ✅ Enum types with `JsonStringEnumConverter`
 - ✅ HTTP methods: GET, POST, PUT, PATCH, DELETE
 - ✅ Operation IDs for method naming
