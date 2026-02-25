@@ -21,6 +21,9 @@ public class GenerationConfig
     [JsonPropertyName("namespacePrefix")]
     public string? NamespacePrefix { get; set; }
 
+    [JsonPropertyName("clientName")]
+    public string? ClientName { get; set; }
+
     [JsonPropertyName("typeMappings")]
     public Dictionary<string, string>? TypeMappings { get; set; }
 }

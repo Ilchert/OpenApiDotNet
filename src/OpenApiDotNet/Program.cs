@@ -47,6 +47,12 @@ var namespacePrefixOption = new Option<string?>("--namespace-prefix")
 };
 namespacePrefixOption.Aliases.Add("-p");
 
+var clientNameOption = new Option<string?>("--client-name")
+{
+    Description = "Custom name for the generated client class (default: derived from API title)"
+};
+clientNameOption.Aliases.Add("-c");
+
 var overlayOption = new Option<FileInfo[]>("--overlay")
 {
     Description = "Path to overlay file(s) to apply before generation. Can be specified multiple times.",
@@ -75,6 +81,7 @@ var rootCommand = new RootCommand
     outputOption,
     namespaceOption,
     namespacePrefixOption,
+    clientNameOption,
     overlayOption,
 };
 
@@ -84,8 +91,9 @@ rootCommand.SetAction(async parseResult =>
     var outputDirectory = parseResult.GetValue(outputOption)!;
     var namespaceName = parseResult.GetValue(namespaceOption)!;
     var namespacePrefix = parseResult.GetValue(namespacePrefixOption);
+    var clientName = parseResult.GetValue(clientNameOption);
     var overlayFiles = parseResult.GetValue(overlayOption) ?? [];
-    await Generate(openApiFile, outputDirectory, namespaceName, namespacePrefix, overlayFiles, null);
+    await Generate(openApiFile, outputDirectory, namespaceName, namespacePrefix, clientName, overlayFiles, null);
 });
 
 var updateConfigArgument = new Argument<FileInfo>("config-file")
@@ -149,7 +157,7 @@ rootCommand.Subcommands.Add(convertCommand);
 
 return rootCommand.Parse(args).Invoke();
 
-static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, FileInfo[] overlayFiles, Dictionary<string, string>? typeMappings)
+static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, string? clientName, FileInfo[] overlayFiles, Dictionary<string, string>? typeMappings)
 {
     if (!openApiFile.Exists)
     {
@@ -240,15 +248,17 @@ static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, 
         Console.WriteLine($"Namespace: {namespaceName}");
         if (namespacePrefix != null)
             Console.WriteLine($"Namespace prefix: {namespacePrefix}");
+        if (clientName != null)
+            Console.WriteLine($"Client name: {clientName}");
         Console.WriteLine();
 
         Console.WriteLine("Generating client code...");
         Console.WriteLine();
 
-        var generator = new ClientGenerator(openApiDocument, namespaceName, outputDirectory.FullName, namespacePrefix, new TypeMappingConfig(typeMappings));
+        var generator = new ClientGenerator(openApiDocument, namespaceName, outputDirectory.FullName, namespacePrefix, clientName, new TypeMappingConfig(typeMappings));
         generator.Generate();
 
-        SaveConfig(openApiFile, outputDirectory, namespaceName, namespacePrefix, overlayFiles, typeMappings);
+        SaveConfig(openApiFile, outputDirectory, namespaceName, namespacePrefix, clientName, overlayFiles, typeMappings);
 
         Console.WriteLine();
         Console.WriteLine("✓ Client generation complete!");
@@ -294,7 +304,7 @@ static void Update(FileInfo configFile)
             .ToArray();
 
         Console.WriteLine($"Updating from configuration: {configFile.FullName}");
-        Generate(new FileInfo(openApiFilePath), new DirectoryInfo(outputDirectoryPath), config.Namespace, config.NamespacePrefix, overlayFiles, config.TypeMappings);
+        Generate(new FileInfo(openApiFilePath), new DirectoryInfo(outputDirectoryPath), config.Namespace, config.NamespacePrefix, config.ClientName, overlayFiles, config.TypeMappings);
     }
     catch (JsonException ex)
     {
@@ -302,7 +312,7 @@ static void Update(FileInfo configFile)
     }
 }
 
-static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, FileInfo[] overlayFiles, Dictionary<string, string>? typeMappings)
+static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, string? clientName, FileInfo[] overlayFiles, Dictionary<string, string>? typeMappings)
 {
     var config = new GenerationConfig
     {
@@ -310,6 +320,7 @@ static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, stri
         OutputDirectory = ".",
         Namespace = namespaceName,
         NamespacePrefix = namespacePrefix,
+        ClientName = clientName,
         OverlayFiles = overlayFiles.Select(f => Path.GetRelativePath(outputDirectory.FullName, f.FullName)).ToList(),
         TypeMappings = typeMappings
     };

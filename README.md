@@ -127,6 +127,7 @@ openapi-dotnet-generator <openapi-file> [options]
 | `-o`, `--output <dir>` | Directory where generated code will be placed | `./Generated` |
 | `-n`, `--namespace <ns>` | Namespace for generated code | `GeneratedClient` |
 | `-p`, `--namespace-prefix <prefix>` | Strip this dotted prefix from schema names when generating namespaces | *none* |
+| `-c`, `--client-name <name>` | Custom name for the generated client class | Derived from API title |
 | `--overlay <file>` | Path to overlay file(s) to apply before generation (repeatable) | *none* |
 
 Built-in flags provided by `System.CommandLine`:
@@ -228,6 +229,12 @@ openapi-dotnet-generator petstore.yaml --overlay base-overlay.yaml --overlay tea
 openapi-dotnet-generator api.yaml -n MyCompany.Client -p Commerce
 ```
 
+**With Custom Client Name:**
+```bash
+# Override the default client class name derived from the API title
+openapi-dotnet-generator petstore.yaml -c PetStoreClient
+```
+
 **Re-generate from Saved Configuration:**
 ```bash
 # After initial generation, update from the saved config (overlay paths are preserved)
@@ -266,6 +273,7 @@ The `.openapidotnet.json` file stores the generation parameters so the client ca
     "../remove-deprecated.yaml"
   ],
   "namespacePrefix": "Commerce",
+  "clientName": "PetStoreClient",
   "typeMappings": {
     "string:date-time": "DateTimeOffset",
     "integer": "long"

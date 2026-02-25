@@ -14,14 +14,16 @@ public class ClientGenerator
     private readonly HashSet<string> _generatedModels = new();
     private readonly HashSet<string> _subNamespaces = new();
     private readonly string? _namespacePrefix;
+    private readonly string? _clientName;
     private readonly TypeMappingConfig _typeMappingConfig;
 
-    public ClientGenerator(OpenApiDocument document, string namespaceName, string outputDirectory, string? namespacePrefix = null, TypeMappingConfig? typeMappingConfig = null)
+    public ClientGenerator(OpenApiDocument document, string namespaceName, string outputDirectory, string? namespacePrefix = null, string? clientName = null, TypeMappingConfig? typeMappingConfig = null)
     {
         _document = document ?? throw new ArgumentNullException(nameof(document));
         _namespace = namespaceName ?? throw new ArgumentNullException(nameof(namespaceName));
         _outputDirectory = outputDirectory ?? throw new ArgumentNullException(nameof(outputDirectory));
         _namespacePrefix = namespacePrefix;
+        _clientName = clientName;
         _typeMappingConfig = typeMappingConfig ?? new TypeMappingConfig();
     }
 
@@ -481,6 +483,9 @@ public class ClientGenerator
 
     private string GetClientName()
     {
+        if (!string.IsNullOrEmpty(_clientName))
+            return _clientName;
+
         var title = _document.Info?.Title?.Replace(" ", "").Replace("-", "").Replace("_", "") ?? "Api";
         return $"{title}Client";
     }
