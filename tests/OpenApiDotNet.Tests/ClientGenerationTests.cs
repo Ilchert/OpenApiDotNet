@@ -149,10 +149,10 @@ public class ClientGenerationTests : IDisposable
         generator.Generate();
 
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "PetStoreAPIClient.cs"));
-        content.Should().Contain("public async Task<List<Pet>> ListPetsAsync");
-        content.Should().Contain("public async Task<Pet> CreatePetAsync");
-        content.Should().Contain("public async Task<Pet> GetPetByIdAsync");
-        content.Should().Contain("public async Task<void> DeletePetAsync");
+        content.Should().Contain("public async Task<List<Pet>> ListPets");
+        content.Should().Contain("public async Task<Pet> CreatePet");
+        content.Should().Contain("public async Task<Pet> GetPetById");
+        content.Should().Contain("public async Task DeletePet");
         content.Should().Contain("int? limit");
         content.Should().Contain("long petId");
         content.Should().Contain("NewPet request");

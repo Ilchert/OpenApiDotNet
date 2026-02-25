@@ -36,7 +36,7 @@ public class PathParameterTests
 
             // Should contain URL encoding for path parameter
             content.Should().Contain("Uri.EscapeDataString(petId.ToString())");
-            content.Should().Contain("GetPetByIdAsync");
+            content.Should().Contain("GetPetById");
         }
         finally
         {
@@ -69,7 +69,7 @@ public class PathParameterTests
             var content = File.ReadAllText(clientPath);
 
             // Should have method with multiple path parameters
-            content.Should().Contain("GetPetPhotoAsync");
+            content.Should().Contain("GetPetPhoto");
             content.Should().Contain("long petId");
             content.Should().Contain("Guid photoId");
             
@@ -108,7 +108,7 @@ public class PathParameterTests
             var content = File.ReadAllText(clientPath);
 
             // GetOwnerPet should have string ownerId and long petId
-            content.Should().Contain("GetOwnerPetAsync");
+            content.Should().Contain("GetOwnerPet");
             content.Should().Contain("string ownerId");
             content.Should().Contain("long petId");
         }
@@ -143,7 +143,7 @@ public class PathParameterTests
             var content = File.ReadAllText(clientPath);
 
             // ListPets should have query parameters with encoding
-            content.Should().Contain("ListPetsAsync");
+            content.Should().Contain("ListPets");
             content.Should().Contain("int? limit");
             content.Should().Contain("Uri.EscapeDataString");
         }

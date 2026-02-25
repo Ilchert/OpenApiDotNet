@@ -288,7 +288,7 @@ public class ClientGenerator
 
         parameters.Add("CancellationToken cancellationToken = default");
 
-        sb.AppendLine($"    public async Task<{responseType}> {methodName}Async({string.Join(", ", parameters)})");
+        sb.AppendLine($"    public async Task{(responseType == "void" ? "" : $"<{responseType}>")} {methodName}({string.Join(", ", parameters)})");
         sb.AppendLine("    {");
 
         // Generate URL building code with proper encoding
