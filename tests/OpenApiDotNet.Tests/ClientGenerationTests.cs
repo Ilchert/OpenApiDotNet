@@ -11,7 +11,7 @@ public class ClientGenerationTests
     {
         // Get the path to the fixtures directory
         var baseDirectory = AppContext.BaseDirectory;
-        _fixturesPath = Path.Combine(baseDirectory, "..", "..", "..", "Fixtures");
+        _fixturesPath = Path.Combine(baseDirectory, "Fixtures");
     }
 
     [Fact]

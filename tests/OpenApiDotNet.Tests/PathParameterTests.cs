@@ -10,7 +10,7 @@ public class PathParameterTests
     public PathParameterTests()
     {
         var baseDirectory = AppContext.BaseDirectory;
-        _fixturesPath = Path.Combine(baseDirectory, "..", "..", "..", "Fixtures");
+        _fixturesPath = Path.Combine(baseDirectory, "Fixtures");
     }
 
     [Fact]
