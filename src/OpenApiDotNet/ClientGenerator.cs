@@ -433,7 +433,7 @@ public class ClientGenerator
                     var paramName = ToCamelCase(parameter.Name);
                     var paramType = GetCSharpType(parameter.Schema);
                     var isRequired = parameter.Required;
-                    parameters.Add($"{paramType}{(isRequired ? "" : "?")} {paramName} = default");
+                    parameters.Add($"{paramType}{(isRequired ? "" : "?")} {paramName}{(isRequired ? "" : " = default")}");
                     queryParams.Add((parameter.Name, paramName, paramType, isRequired));
                 }
             }

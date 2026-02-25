@@ -228,6 +228,49 @@ public class ClientGenerationTests : IDisposable
     }
 
     [Fact]
+    public void Generate_WithRequiredQueryParameter_GeneratesNonNullableParameterAndAlwaysAddsToQuery()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items": {
+                  "get": {
+                    "operationId": "listItems",
+                    "parameters": [
+                      { "name": "category", "in": "query", "required": true, "schema": { "type": "string" } },
+                      { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "format": "int32" } }
+                    ],
+                    "responses": { "200": { "description": "ok" } }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
+
+        // Required parameter should be non-nullable
+        content.Should().Contain("string category");
+        content.Should().NotContain("string? category");
+        content.Should().NotContain("string category = default");
+        
+        // Optional parameter should be nullable
+        content.Should().Contain("int? limit");
+
+        // Required parameter should always be added to query string (no null check)
+        content.Should().Contain("Uri.EscapeDataString(category.ToString())");
+        content.Should().NotContain("if (category != null)");
+
+        // Optional parameter should have null check
+        content.Should().Contain("if (limit != null)");
+    }
+
+    [Fact]
     public void Constructor_WithNullDocument_ThrowsArgumentNullException()
     {
         // Act
