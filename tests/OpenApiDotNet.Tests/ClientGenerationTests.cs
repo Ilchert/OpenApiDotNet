@@ -380,6 +380,109 @@ public class ClientGenerationTests : IDisposable
     }
 
     [Fact]
+    public void Generate_WithInlineObjectSchemaInResponse_GeneratesNestedClass()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/stats": {
+                  "get": {
+                    "operationId": "getStats",
+                    "summary": "Get statistics",
+                    "responses": {
+                      "200": {
+                        "description": "Statistics",
+                        "content": {
+                          "application/json": {
+                            "schema": {
+                              "type": "object",
+                              "properties": {
+                                "totalCount": { "type": "integer", "format": "int32" },
+                                "activeCount": { "type": "integer", "format": "int32" },
+                                "lastUpdated": { "type": "string", "format": "date-time" }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "StatsBuilder.cs"));
+
+        // Return type should reference the nested class
+        content.Should().Contain("Task<GetStatsResponse>");
+        content.Should().Contain("GetStats");
+
+        // Nested class should be generated with properties
+        content.Should().Contain("public class GetStatsResponse");
+        content.Should().Contain("[JsonPropertyName(\"totalCount\")]");
+        content.Should().Contain("public int? TotalCount");
+        content.Should().Contain("[JsonPropertyName(\"activeCount\")]");
+        content.Should().Contain("public int? ActiveCount");
+        content.Should().Contain("[JsonPropertyName(\"lastUpdated\")]");
+        content.Should().Contain("public NodaTime.Instant? LastUpdated");
+    }
+
+    [Fact]
+    public void Generate_WithInlineObjectSchemaInRequestBody_GeneratesNestedClass()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/feedback": {
+                  "post": {
+                    "operationId": "submitFeedback",
+                    "requestBody": {
+                      "required": true,
+                      "content": {
+                        "application/json": {
+                          "schema": {
+                            "type": "object",
+                            "required": ["message"],
+                            "properties": {
+                              "message": { "type": "string" },
+                              "rating": { "type": "integer", "format": "int32" }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "responses": { "204": { "description": "ok" } }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "FeedbackBuilder.cs"));
+
+        // Request body should use the nested class
+        content.Should().Contain("SubmitFeedbackRequest request");
+
+        // Nested class should be generated with properties
+        content.Should().Contain("public class SubmitFeedbackRequest");
+        content.Should().Contain("[JsonPropertyName(\"message\")]");
+        content.Should().Contain("public required string Message");
+        content.Should().Contain("[JsonPropertyName(\"rating\")]");
+        content.Should().Contain("public int? Rating");
+    }
+
+    [Fact]
     public void Constructor_WithNullDocument_ThrowsArgumentNullException()
     {
         // Act

@@ -263,6 +263,7 @@ public class ClientGenerator
         var sb = new StringBuilder();
         sb.AppendLine("using System.Net.Http.Json;");
         sb.AppendLine("using System.Text.Json;");
+        sb.AppendLine("using System.Text.Json.Serialization;");
         sb.AppendLine($"using {_namespace}.Models;");
 
         foreach (var subNs in _subNamespaces.OrderBy(s => s))
@@ -415,6 +416,8 @@ public class ClientGenerator
         var methodName = operation.OperationId ?? $"{httpMethod}";
         methodName = ToPascalCase(methodName);
 
+        var nestedClasses = new StringBuilder();
+
         sb.AppendLine("    /// <summary>");
         sb.AppendLine($"    /// {EscapeXmlComment(operation.Summary ?? operation.Description ?? methodName)}");
         sb.AppendLine("    /// </summary>");
@@ -453,9 +456,23 @@ public class ClientGenerator
                 requestBodyType = GetTypeName(bodySchemaName);
                 requiredParameters.Add($"{requestBodyType} request");
             }
+            else if (IsInlineObjectSchema(content.Value?.Schema))
+            {
+                var nestedClassName = $"{methodName}Request";
+                requestBodyType = nestedClassName;
+                GenerateNestedClass(nestedClasses, nestedClassName, content.Value!.Schema!);
+                requiredParameters.Add($"{requestBodyType} request");
+            }
         }
 
         var responseType = GetResponseType(operation);
+        var responseSchema = GetSuccessResponseSchema(operation);
+        if (IsInlineObjectSchema(responseSchema))
+        {
+            var nestedClassName = $"{methodName}Response";
+            responseType = nestedClassName;
+            GenerateNestedClass(nestedClasses, nestedClassName, responseSchema!);
+        }
 
         optionalParameters.Add("CancellationToken cancellationToken = default");
 
@@ -513,6 +530,7 @@ public class ClientGenerator
 
         sb.AppendLine("    }");
         sb.AppendLine();
+        sb.Append(nestedClasses);
     }
 
     private static void GenerateBuilderHttpCall(StringBuilder sb, HttpMethod operationType, string responseType, bool hasRequestBody)
@@ -637,6 +655,46 @@ public class ClientGenerator
             }
         }
         return "void";
+    }
+
+    private static IOpenApiSchema? GetSuccessResponseSchema(OpenApiOperation operation)
+    {
+        var successResponse = operation.Responses.FirstOrDefault(r => r.Key.StartsWith("2"));
+        if (successResponse.Value?.Content?.Any() == true)
+        {
+            return successResponse.Value.Content.FirstOrDefault().Value?.Schema;
+        }
+        return null;
+    }
+
+    private static bool IsInlineObjectSchema(IOpenApiSchema? schema)
+    {
+        if (schema == null) return false;
+        if (GetSchemaName(schema) != null) return false;
+        return schema.Type == JsonSchemaType.Object && schema.Properties?.Count > 0;
+    }
+
+    private void GenerateNestedClass(StringBuilder sb, string className, IOpenApiSchema schema)
+    {
+        sb.AppendLine($"    public class {className}");
+        sb.AppendLine("    {");
+
+        if (schema.Properties != null)
+        {
+            foreach (var property in schema.Properties)
+            {
+                var propertyName = ToPascalCase(property.Key);
+                var propertyType = GetCSharpType(property.Value);
+                var isRequired = schema.Required?.Contains(property.Key) ?? false;
+
+                sb.AppendLine($"        [JsonPropertyName(\"{property.Key}\")]");
+                sb.AppendLine($"        public {(isRequired ? "required " : "")}{propertyType}{(isRequired ? "" : "?")} {propertyName} {{ get; set; }}");
+                sb.AppendLine();
+            }
+        }
+
+        sb.AppendLine("    }");
+        sb.AppendLine();
     }
 
     private string GetClientName()
