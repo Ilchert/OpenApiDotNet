@@ -53,7 +53,10 @@ public class ClientGenerationTests : IDisposable
         Directory.Exists(Path.Combine(_outputDirectory, "Models")).Should().BeTrue();
         File.Exists(Path.Combine(_outputDirectory, "Models", "Pet.cs")).Should().BeTrue();
         File.Exists(Path.Combine(_outputDirectory, "Models", "NewPet.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "PetStoreAPIClient.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "IBuilder.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "IClient.cs")).Should().BeTrue();
+        Directory.Exists(Path.Combine(_outputDirectory, "Builders")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs")).Should().BeTrue();
         File.Exists(Path.Combine(_outputDirectory, "JsonConfiguration.cs")).Should().BeTrue();
     }
 
@@ -148,19 +151,28 @@ public class ClientGenerationTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "PetStoreAPIClient.cs"));
-        content.Should().Contain("public async Task<List<Pet>> ListPets");
-        content.Should().Contain("public async Task<Pet> CreatePet");
-        content.Should().Contain("public async Task<Pet> GetPetById");
-        content.Should().Contain("public async Task DeletePet");
-        content.Should().Contain("int? limit");
-        content.Should().Contain("long petId");
-        content.Should().Contain("NewPet request");
-        content.Should().Contain("CancellationToken cancellationToken = default");
-        content.Should().Contain("private readonly HttpClient _httpClient;");
-        content.Should().Contain("_httpClient.GetAsync");
-        content.Should().Contain("_httpClient.PostAsJsonAsync");
-        content.Should().Contain("_httpClient.DeleteAsync");
+        // IClient should have navigation property for Pets
+        var clientContent = File.ReadAllText(Path.Combine(_outputDirectory, "IClient.cs"));
+        clientContent.Should().Contain("PetsBuilder Pets");
+        clientContent.Should().Contain("HttpClient HttpClient");
+        clientContent.Should().Contain("JsonSerializerOptions JsonOptions");
+
+        // PetsBuilder should have listPets and createPet operations
+        var petsContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs"));
+        petsContent.Should().Contain("public virtual async Task<List<Pet>> ListPets");
+        petsContent.Should().Contain("public virtual async Task<Pet> CreatePet");
+        petsContent.Should().Contain("int? limit");
+        petsContent.Should().Contain("NewPet request");
+        petsContent.Should().Contain("CancellationToken cancellationToken = default");
+        petsContent.Should().Contain("Client.HttpClient.GetAsync");
+        petsContent.Should().Contain("Client.HttpClient.PostAsJsonAsync");
+        petsContent.Should().Contain("PetsIdBuilder this[long petId]");
+
+        // PetsIdBuilder should have getPetById and deletePet operations
+        var petsIdContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsIdBuilder.cs"));
+        petsIdContent.Should().Contain("public virtual async Task<Pet> GetPetById");
+        petsIdContent.Should().Contain("public virtual async Task DeletePet");
+        petsIdContent.Should().Contain("Client.HttpClient.DeleteAsync");
     }
 
     [Fact]
@@ -209,7 +221,7 @@ public class ClientGenerationTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "TestClient.cs"));
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
         content.Should().Contain("var queryString = new List<string>();");
         content.Should().Contain("if (limit != null)");
         content.Should().Contain("Uri.EscapeDataString");
@@ -559,13 +571,13 @@ public class ClientGenerationTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "DottedNamesAPIClient.cs"));
-        content.Should().Contain("using DottedNames.Client.Models;");
-        content.Should().Contain("using DottedNames.Client.Models.Commerce;");
-        content.Should().Contain("using DottedNames.Client.Models.Identity;");
-        content.Should().Contain("Task<List<Order>>");
-        content.Should().Contain("Task<Order>");
-        content.Should().Contain("NewOrder request");
+        var builderContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "OrdersBuilder.cs"));
+        builderContent.Should().Contain("using DottedNames.Client.Models;");
+        builderContent.Should().Contain("using DottedNames.Client.Models.Commerce;");
+        builderContent.Should().Contain("using DottedNames.Client.Models.Identity;");
+        builderContent.Should().Contain("Task<List<Order>>");
+        builderContent.Should().Contain("Task<Order>");
+        builderContent.Should().Contain("NewOrder request");
     }
 
     [Fact]

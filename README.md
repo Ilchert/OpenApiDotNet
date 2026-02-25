@@ -8,6 +8,8 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 - 🕐 **NodaTime Integration**: Automatic mapping of date/time formats to NodaTime types (`Instant`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Duration`)
 - ⚡ **System.Text.Json**: Native JSON serialization with optimal performance
 - 🛡️ **Type-Safe**: Generates strongly-typed models and client methods
+- 🧱 **Fluent Builder API**: Navigate resources naturally — `client.Pets[123].Photos[photoId].GetPetPhoto()`
+- 🧪 **Mockable by Design**: All builders use `virtual` methods and `protected` constructors for seamless Moq integration
 - ♻️ **Async First**: All HTTP operations are async with proper cancellation support
 - 📖 **Well Documented**: Preserves OpenAPI descriptions as XML documentation comments
 - 📋 **Format Registry**: Comprehensive [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) support — integers, URIs, binary, decimals, and more
@@ -76,7 +78,7 @@ The generator maps OpenAPI types and formats to idiomatic C# types following the
 | `type: string` + `enum: [...]` | `enum` | Generated with `[JsonStringEnumConverter]` |
 | `$ref` to enum schema | Enum type name | Strongly-typed enum reference |
 
-Enum values are converted to PascalCase members (e.g., `extra-large` → `ExtraLarge`) with `[JsonPropertyName]` attributes preserving the original value.
+Enum values are converted to PascalCase members (e.g., `extra-large` → `ExtraLarge`) with `[JsonStringEnumMemberName]` attributes preserving the original value.
 
 ### Other Types
 
@@ -255,12 +257,20 @@ The generator creates the following structure:
 Generated/
 ├── Models/
 │   ├── Pet.cs
-│   ├── User.cs
-│   └── Order.cs
-├── [ApiName]Client.cs
+│   ├── NewPet.cs
+│   └── PetStatus.cs
+├── Builders/
+│   ├── PetsBuilder.cs
+│   ├── PetsIdBuilder.cs
+│   ├── PhotosBuilder.cs
+│   └── PhotosIdBuilder.cs
+├── IBuilder.cs
+├── IClient.cs
 ├── JsonConfiguration.cs
 └── .openapidotnet.json
 ```
+
+Each API path segment gets its own builder class. Static segments (e.g., `/pets`) produce a `PetsBuilder`, while parameterized segments (e.g., `/{petId}`) produce a `PetsIdBuilder`. When the same segment name appears at different tree positions (e.g., `/pets` and `/owners/{ownerId}/pets`), the generator resolves collisions by prefixing with ancestor context (e.g., `OwnersIdPetsBuilder`).
 
 The `.openapidotnet.json` file stores the generation parameters so the client can be re-generated with the `update` command:
 
@@ -369,77 +379,121 @@ public enum PetStatus
 }
 ```
 
-### Example Generated Client
+### Example Generated IClient Interface
+
+```csharp
+using System.Text.Json;
+
+namespace PetStoreClient;
+
+/// <summary>
+/// A simple pet store API
+/// </summary>
+public interface IClient : IBuilder
+{
+    HttpClient HttpClient { get; }
+    JsonSerializerOptions JsonOptions { get; }
+    PetsBuilder Pets { get => new(this); }
+
+    IClient IBuilder.Client => this;
+    string IBuilder.GetPath() => "";
+}
+```
+
+### Example Generated Builder
 
 ```csharp
 using System.Net.Http.Json;
-using System.Text.Json;
 using PetStoreClient.Models;
 
 namespace PetStoreClient;
 
-public class PetStoreAPIClient
+public class PetsBuilder : IBuilder
 {
-    private readonly HttpClient _httpClient;
-    private readonly JsonSerializerOptions _jsonOptions;
+    private readonly IBuilder _parentBuilder;
 
-    public PetStoreAPIClient(HttpClient httpClient)
+#pragma warning disable CS8618
+    protected PetsBuilder() { }
+#pragma warning restore CS8618
+
+    public PetsBuilder(IBuilder parentBuilder)
     {
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _jsonOptions = JsonConfiguration.CreateOptions();
+        _parentBuilder = parentBuilder;
+    }
+
+    public IClient Client => _parentBuilder.Client;
+    public string GetPath() => $"{_parentBuilder.GetPath()}/pets";
+
+    public virtual PetsIdBuilder this[long petId]
+    {
+        get => new(this, petId);
     }
 
     /// <summary>
     /// List all pets
     /// </summary>
-    public async Task<List<Pet>> ListPetsAsync(int? limit, CancellationToken cancellationToken = default)
+    public virtual async Task<List<Pet>> ListPets(
+        int? limit = default, CancellationToken cancellationToken = default)
     {
-        var url = "/pets";
+        var url = GetPath();
 
-        // Build query string with URL-encoded parameters
         var queryString = new List<string>();
         if (limit != null)
             queryString.Add($"limit={Uri.EscapeDataString(limit.ToString())}");
-        if (queryString.Any())
+        if (queryString.Count > 0)
             url += "?" + string.Join("&", queryString);
 
-        var response = await _httpClient.GetAsync(url, cancellationToken);
+        var response = await Client.HttpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<List<Pet>>(_jsonOptions, cancellationToken) 
-            ?? throw new InvalidOperationException("Response was null");
-    }
-
-    /// <summary>
-    /// Get a pet by ID
-    /// </summary>
-    public async Task<Pet> GetPetByIdAsync(long petId, CancellationToken cancellationToken = default)
-    {
-        // Build path with URL-encoded parameters
-        var url = $"/pets/{Uri.EscapeDataString(petId.ToString())}";
-
-        var response = await _httpClient.GetAsync(url, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<Pet>(_jsonOptions, cancellationToken) 
+        return await response.Content.ReadFromJsonAsync<List<Pet>>(Client.JsonOptions, cancellationToken)
             ?? throw new InvalidOperationException("Response was null");
     }
 }
 ```
 
-## URL Encoding & Path Parameters
+## Fluent Builder Pattern
 
-The generator automatically handles URL encoding for:
-- **Path Parameters**: All path parameters are properly URL-encoded to handle special characters
-- **Query Parameters**: Query string values are URL-encoded for safe transmission
-- **Special Characters**: Spaces, ampersands, and other special characters are properly escaped
+The generator produces a **fluent builder API** where each URL segment maps to its own builder class. Path parameters are captured by the builder chain via indexers, and operations are invoked on the terminal builder:
 
-Example with special characters:
 ```csharp
-// Path parameter encoding
-await client.GetOwnerPetAsync("john doe", 123);
-// Generates: /owners/john%20doe/pets/123
+// GET /pets?limit=10
+var pets = await client.Pets.ListPets(limit: 10);
 
+// GET /pets/123
+var pet = await client.Pets[123].GetPetById();
+
+// GET /pets/123/photos/{photoId}
+var photo = await client.Pets[123].Photos[photoId].GetPetPhoto();
+
+// DELETE /pets/123
+await client.Pets[123].DeletePet();
+```
+
+Path building is handled automatically by chaining `GetPath()` through the builder hierarchy — no manual URL construction needed.
+
+### Mocking Support
+
+All builder classes are designed for easy mocking with frameworks like [Moq](https://github.com/devlooped/moq):
+
+- **`virtual` methods** on all operations and indexers
+- **`protected` parameterless constructors** so Moq can create subclass proxies
+- **`IClient` interface** as the entry point for mock setup
+
+```csharp
+var mock = new Mock<IClient>();
+mock.Setup(c => c.Pets[123].ListPets(It.IsAny<CancellationToken>()))
+    .ReturnsAsync(new List<Pet> { new Pet() });
+
+var result = await mock.Object.Pets[123].ListPets(default);
+```
+
+## URL Encoding & Query Parameters
+
+Query string values are automatically URL-encoded for safe transmission:
+
+```csharp
 // Query parameter encoding
-await client.ListPetsAsync(limit: 10, status: "available & active");
+var pets = await client.Pets.ListPets(limit: 10, status: "available & active");
 // Generates: /pets?limit=10&status=available%20%26%20active
 ```
 
@@ -454,39 +508,55 @@ Add these packages to your project:
 <PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.3.0" />
 ```
 
-### 2. Register HttpClient
+### 2. Implement IClient
+
+Create a concrete class that implements the generated `IClient` interface:
 
 ```csharp
-// Using HttpClientFactory (recommended)
-builder.Services.AddHttpClient<PetStoreAPIClient>(client =>
+public class PetStoreClient : IClient
+{
+    public HttpClient HttpClient { get; }
+    public JsonSerializerOptions JsonOptions { get; }
+
+    public PetStoreClient(HttpClient httpClient)
+    {
+        HttpClient = httpClient;
+        JsonOptions = JsonConfiguration.CreateOptions();
+    }
+}
+```
+
+Register it with dependency injection:
+
+```csharp
+builder.Services.AddHttpClient<PetStoreClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.petstore.example.com");
 });
-
-// Or create manually
-var httpClient = new HttpClient
-{
-    BaseAddress = new Uri("https://api.petstore.example.com")
-};
-var client = new PetStoreAPIClient(httpClient);
 ```
 
 ### 3. Use the Client
 
 ```csharp
-// List pets
-var pets = await client.ListPetsAsync(limit: 10);
+// List pets with query parameters
+var pets = await client.Pets.ListPets(limit: 10);
 
 // Create a pet
-var newPet = new NewPet 
-{ 
+var newPet = new NewPet
+{
     Name = "Fluffy",
     BirthDate = LocalDate.FromDateTime(DateTime.Now.AddYears(-2))
 };
-var createdPet = await client.CreatePetAsync(newPet);
+var createdPet = await client.Pets.CreatePet(newPet);
 
-// Get specific pet
-var pet = await client.GetPetByIdAsync(123);
+// Get specific pet by ID
+var pet = await client.Pets[123].GetPetById();
+
+// Navigate nested resources
+var photo = await client.Pets[123].Photos[photoId].GetPetPhoto();
+
+// Delete a pet
+await client.Pets[123].DeletePet();
 
 // Check timestamps with NodaTime
 if (pet.CreatedAt.HasValue)
@@ -519,20 +589,44 @@ The project includes comprehensive test coverage:
 
 ### Test Coverage
 
-- **45 tests** covering all major functionality
+- **107 tests** covering all major functionality
 - **100% pass rate**
 - Unit tests for type mapping and naming conventions
 - Integration tests with real OpenAPI specifications
+- Builder generation and path tree construction tests
 
 ## Architecture
 
 ### Core Components
 
-1. **ClientGenerator**: Main orchestrator that generates all code
-2. **TypeMappingConfig**: Configurable OpenAPI-to-.NET type mappings with defaults and user overrides
-3. **Model Generator**: Creates C# classes from OpenAPI schemas
-4. **Client Generator**: Generates HTTP client with operation methods
-5. **JSON Configuration**: Sets up System.Text.Json with NodaTime converters
+1. **ClientGenerator**: Main orchestrator that generates all code — models, builder classes, interfaces, and JSON configuration
+2. **PathTreeBuilder**: Parses OpenAPI paths into a tree of `PathSegmentNode` objects, where each node represents a URL segment (static or parameterized), and resolves unique builder class names with collision detection
+3. **TypeMappingConfig**: Configurable OpenAPI-to-.NET type mappings with defaults and user overrides
+4. **Model Generator**: Creates C# classes and enums from OpenAPI component schemas
+5. **Builder Generator**: For each path tree node, emits a builder class (`IBuilder` implementation) with navigation properties, indexers, and HTTP operation methods
+6. **JSON Configuration**: Sets up System.Text.Json with NodaTime converters
+
+### Builder Generation Pipeline
+
+```
+OpenAPI Paths → PathTreeBuilder.Build() → Path Tree → Builder Classes
+                                                    → IBuilder.cs
+                                                    → IClient.cs
+
+OpenAPI Schemas → Model Generator → Models/*.cs
+```
+
+The path tree maps URL structure to builder hierarchy:
+
+```
+/pets                          → PetsBuilder (operations: listPets, createPet)
+/pets/{petId}                  → PetsIdBuilder (operations: getPetById, deletePet)
+/pets/{petId}/photos/{photoId} → PhotosBuilder + PhotosIdBuilder (operation: getPetPhoto)
+/owners/{ownerId}/pets/{petId} → OwnersBuilder + OwnersIdBuilder
+                                 + OwnersIdPetsBuilder + OwnersIdPetsIdBuilder
+```
+
+When the same segment name appears at multiple tree positions, context-prefixed names are assigned automatically to avoid collisions.
 
 ### Type Mapping Logic
 
@@ -587,9 +681,12 @@ Other types
 
 - ✅ OpenAPI 3.0 specifications
 - ✅ JSON and YAML input formats
-- ✅ Path parameters with URL encoding
+- ✅ Fluent builder-style API with path segment navigation
+- ✅ Path parameters captured via builder indexers
 - ✅ Query parameters with URL encoding
 - ✅ Multiple path parameters (e.g., `/owners/{ownerId}/pets/{petId}`)
+- ✅ Automatic builder name collision resolution for shared segment names
+- ✅ Mock-friendly design (`virtual` methods, `protected` constructors, `IClient` interface)
 - ✅ Request bodies
 - ✅ Response models
 - ✅ Schema references (`$ref`)
@@ -599,7 +696,6 @@ Other types
 - ✅ HTTP methods: GET, POST, PUT, PATCH, DELETE
 - ✅ Operation IDs for method naming
 - ✅ Descriptions and summaries
-- ✅ Special character encoding in URLs
 - ✅ [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) type mappings
 - ✅ Configurable type mappings via `.openapidotnet.json`
 - ✅ Specification conversion between OpenAPI versions and formats
@@ -610,7 +706,9 @@ Other types
 
 The generator follows standard .NET naming conventions:
 
-- **Classes**: PascalCase (e.g., `PetStoreClient`, `Pet`)
+- **Model Classes**: PascalCase (e.g., `Pet`, `NewPet`)
+- **Builder Classes**: `{Segment}Builder` / `{Segment}IdBuilder` (e.g., `PetsBuilder`, `PetsIdBuilder`)
+- **Collision Resolution**: Context-prefixed names when the same segment appears at multiple tree positions (e.g., `OwnersIdPetsBuilder` for `/owners/{ownerId}/pets`)
 - **Properties**: PascalCase (e.g., `BirthDate`, `CreatedAt`)
 - **Method Parameters**: camelCase (e.g., `petId`, `limit`)
 - **JSON Properties**: Preserved from OpenAPI spec (typically camelCase)
@@ -657,6 +755,8 @@ Future enhancements being considered:
 
 - [x] Enum types with `JsonStringEnumConverter` support
 - [x] Configurable type mappings via configuration file
+- [x] Fluent builder-style API with path segment navigation
+- [x] Mock-friendly design for unit testing
 - [ ] Support for authentication schemes (Bearer, API Key, OAuth2)
 - [ ] Polymorphic types with discriminators
 - [ ] `allOf`, `oneOf`, `anyOf` schema composition

@@ -28,12 +28,17 @@ public class ClientGenerator
     }
 
     /// <summary>
-    /// Generates all client code including models, client class, and JSON configuration
+    /// Generates all client code including models, builder classes, and JSON configuration
     /// </summary>
     public void Generate()
     {
         GenerateModels();
-        GenerateClient();
+
+        var pathTree = PathTreeBuilder.Build(_document.Paths);
+        GenerateIBuilderInterface();
+        GenerateIClientInterface(pathTree);
+        GenerateBuilders(pathTree);
+
         GenerateJsonConfiguration();
     }
 
@@ -186,19 +191,29 @@ public class ClientGenerator
         Console.WriteLine($"  Generated enum: {name}");
     }
 
-    private void GenerateClient()
+    private void GenerateIBuilderInterface()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("using System.Net.Http.Json;");
+        sb.AppendLine($"namespace {_namespace};");
+        sb.AppendLine();
+        sb.AppendLine("/// <summary>");
+        sb.AppendLine("/// Base interface for all fluent API builders");
+        sb.AppendLine("/// </summary>");
+        sb.AppendLine("public interface IBuilder");
+        sb.AppendLine("{");
+        sb.AppendLine("    IClient Client { get; }");
+        sb.AppendLine("    string GetPath();");
+        sb.AppendLine("}");
+
+        var filePath = Path.Combine(_outputDirectory, "IBuilder.cs");
+        File.WriteAllText(filePath, sb.ToString());
+        Console.WriteLine("  Generated IBuilder interface");
+    }
+
+    private void GenerateIClientInterface(PathSegmentNode pathTree)
+    {
+        var sb = new StringBuilder();
         sb.AppendLine("using System.Text.Json;");
-        sb.AppendLine($"using {_namespace}.Models;");
-
-        // Add using statements for all model sub-namespaces
-        foreach (var subNs in _subNamespaces.OrderBy(s => s))
-        {
-            sb.AppendLine($"using {_namespace}.Models.{subNs};");
-        }
-
         sb.AppendLine();
         sb.AppendLine($"namespace {_namespace};");
         sb.AppendLine();
@@ -208,39 +223,196 @@ public class ClientGenerator
         sb.AppendLine("/// <summary>");
         sb.AppendLine($"/// {EscapeXmlComment(_document.Info.Description ?? _document.Info.Title ?? "API Client")}");
         sb.AppendLine("/// </summary>");
-        sb.AppendLine($"public class {clientName}");
+        sb.AppendLine("public interface IClient : IBuilder");
         sb.AppendLine("{");
-        sb.AppendLine("    private readonly HttpClient _httpClient;");
-        sb.AppendLine("    private readonly JsonSerializerOptions _jsonOptions;");
-        sb.AppendLine();
-        sb.AppendLine($"    public {clientName}(HttpClient httpClient)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));");
-        sb.AppendLine("        _jsonOptions = JsonConfiguration.CreateOptions();");
-        sb.AppendLine("    }");
-        sb.AppendLine();
+        sb.AppendLine("    HttpClient HttpClient { get; }");
+        sb.AppendLine("    JsonSerializerOptions JsonOptions { get; }");
 
-        if (_document.Paths != null)
+        // Add navigation properties for top-level static segments
+        foreach (var (_, child) in pathTree.Children.OrderBy(c => c.Key))
         {
-            foreach (var path in _document.Paths)
+            if (!child.IsParameter)
             {
-                foreach (var operation in path.Value.Operations)
-                {
-                    GenerateOperation(sb, path.Key, operation.Key, operation.Value);
-                }
+                sb.AppendLine($"    {child.BuilderName} {ToPascalCase(child.SegmentName)} {{ get => new(this); }}");
             }
         }
 
+        sb.AppendLine();
+        sb.AppendLine($"    IClient IBuilder.Client => this;");
+        sb.AppendLine($"    string IBuilder.GetPath() => \"\";");
         sb.AppendLine("}");
 
-        var filePath = Path.Combine(_outputDirectory, $"{clientName}.cs");
+        var filePath = Path.Combine(_outputDirectory, "IClient.cs");
         File.WriteAllText(filePath, sb.ToString());
-        Console.WriteLine($"  Generated client: {clientName}");
+        Console.WriteLine("  Generated IClient interface");
     }
 
-    private void GenerateOperation(StringBuilder sb, string path, HttpMethod httpMethod, OpenApiOperation operation)
+    private void GenerateBuilders(PathSegmentNode root)
     {
-        var methodName = operation.OperationId ?? $"{httpMethod}{path.Replace("/", "").Replace("{", "").Replace("}", "")}";
+        var buildersDirectory = Path.Combine(_outputDirectory, "Builders");
+        Directory.CreateDirectory(buildersDirectory);
+
+        foreach (var node in PathTreeBuilder.GetAllNodes(root))
+        {
+            GenerateBuilderClass(node, buildersDirectory);
+        }
+    }
+
+    private void GenerateBuilderClass(PathSegmentNode node, string directory)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("using System.Net.Http.Json;");
+        sb.AppendLine("using System.Text.Json;");
+        sb.AppendLine($"using {_namespace}.Models;");
+
+        foreach (var subNs in _subNamespaces.OrderBy(s => s))
+        {
+            sb.AppendLine($"using {_namespace}.Models.{subNs};");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine($"namespace {_namespace};");
+        sb.AppendLine();
+
+        var builderName = node.BuilderName;
+
+        if (node.IsParameter)
+        {
+            GenerateParameterBuilderBody(sb, node, builderName);
+        }
+        else
+        {
+            GenerateStaticBuilderBody(sb, node, builderName);
+        }
+
+        var filePath = Path.Combine(directory, $"{builderName}.cs");
+        File.WriteAllText(filePath, sb.ToString());
+        Console.WriteLine($"  Generated builder: {builderName}");
+    }
+
+    private void GenerateStaticBuilderBody(StringBuilder sb, PathSegmentNode node, string builderName)
+    {
+        sb.AppendLine($"public class {builderName} : IBuilder");
+        sb.AppendLine("{");
+        sb.AppendLine("    private readonly IBuilder _parentBuilder;");
+        sb.AppendLine();
+
+        // Protected parameterless constructor for mocking
+        sb.AppendLine("#pragma warning disable CS8618");
+        sb.AppendLine($"    protected {builderName}() {{ }}");
+        sb.AppendLine("#pragma warning restore CS8618");
+        sb.AppendLine();
+
+        sb.AppendLine($"    public {builderName}(IBuilder parentBuilder)");
+        sb.AppendLine("    {");
+        sb.AppendLine("        _parentBuilder = parentBuilder;");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+
+        sb.AppendLine("    public IClient Client => _parentBuilder.Client;");
+        sb.AppendLine($"    public string GetPath() => $\"{{_parentBuilder.GetPath()}}/{node.SegmentName}\";");
+        sb.AppendLine();
+
+        // Indexer for parameterized child
+        foreach (var (_, child) in node.Children)
+        {
+            if (child.IsParameter)
+            {
+                var paramType = child.ParameterSchema != null ? GetCSharpType(child.ParameterSchema) : "string";
+                var paramName = ToCamelCase(child.ParameterName ?? "id");
+                sb.AppendLine($"    public virtual {child.BuilderName} this[{paramType} {paramName}]");
+                sb.AppendLine("    {");
+                sb.AppendLine($"        get => new(this, {paramName});");
+                sb.AppendLine("    }");
+                sb.AppendLine();
+            }
+        }
+
+        // Navigation properties for static children
+        foreach (var (_, child) in node.Children.OrderBy(c => c.Key))
+        {
+            if (!child.IsParameter)
+            {
+                sb.AppendLine($"    public {child.BuilderName} {ToPascalCase(child.SegmentName)} => new(this);");
+                sb.AppendLine();
+            }
+        }
+
+        // Operations
+        foreach (var (method, operation) in node.Operations)
+        {
+            GenerateBuilderOperation(sb, method, operation);
+        }
+
+        sb.AppendLine("}");
+    }
+
+    private void GenerateParameterBuilderBody(StringBuilder sb, PathSegmentNode node, string builderName)
+    {
+        var paramType = node.ParameterSchema != null ? GetCSharpType(node.ParameterSchema) : "string";
+        var paramName = ToCamelCase(node.ParameterName ?? "id");
+        var fieldName = $"_{paramName}";
+
+        sb.AppendLine($"public class {builderName} : IBuilder");
+        sb.AppendLine("{");
+        sb.AppendLine("    private readonly IBuilder _parentBuilder;");
+        sb.AppendLine($"    private readonly {paramType} {fieldName};");
+        sb.AppendLine();
+
+        // Protected parameterless constructor for mocking
+        sb.AppendLine("#pragma warning disable CS8618");
+        sb.AppendLine($"    protected {builderName}() {{ }}");
+        sb.AppendLine("#pragma warning restore CS8618");
+        sb.AppendLine();
+
+        sb.AppendLine($"    public {builderName}(IBuilder parentBuilder, {paramType} {paramName})");
+        sb.AppendLine("    {");
+        sb.AppendLine("        _parentBuilder = parentBuilder;");
+        sb.AppendLine($"        {fieldName} = {paramName};");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+
+        sb.AppendLine("    public IClient Client => _parentBuilder.Client;");
+        sb.AppendLine($"    public string GetPath() => $\"{{_parentBuilder.GetPath()}}/{{{fieldName}}}\";");
+        sb.AppendLine();
+
+        // Indexer for parameterized child
+        foreach (var (_, child) in node.Children)
+        {
+            if (child.IsParameter)
+            {
+                var childParamType = child.ParameterSchema != null ? GetCSharpType(child.ParameterSchema) : "string";
+                var childParamName = ToCamelCase(child.ParameterName ?? "id");
+                sb.AppendLine($"    public virtual {child.BuilderName} this[{childParamType} {childParamName}]");
+                sb.AppendLine("    {");
+                sb.AppendLine($"        get => new(this, {childParamName});");
+                sb.AppendLine("    }");
+                sb.AppendLine();
+            }
+        }
+
+        // Navigation properties for static children
+        foreach (var (_, child) in node.Children.OrderBy(c => c.Key))
+        {
+            if (!child.IsParameter)
+            {
+                sb.AppendLine($"    public {child.BuilderName} {ToPascalCase(child.SegmentName)} => new(this);");
+                sb.AppendLine();
+            }
+        }
+
+        // Operations
+        foreach (var (method, operation) in node.Operations)
+        {
+            GenerateBuilderOperation(sb, method, operation);
+        }
+
+        sb.AppendLine("}");
+    }
+
+    private void GenerateBuilderOperation(StringBuilder sb, HttpMethod httpMethod, OpenApiOperation operation)
+    {
+        var methodName = operation.OperationId ?? $"{httpMethod}";
         methodName = ToPascalCase(methodName);
 
         sb.AppendLine("    /// <summary>");
@@ -248,26 +420,20 @@ public class ClientGenerator
         sb.AppendLine("    /// </summary>");
 
         var parameters = new List<string>();
-        var pathParams = new List<(string name, string paramName, string paramType)>();
         var queryParams = new List<(string name, string paramName, string paramType, bool required)>();
         string? requestBodyType = null;
 
+        // Only include query parameters (path params are handled by the builder chain)
         if (operation.Parameters != null)
         {
             foreach (var parameter in operation.Parameters)
             {
-                var paramName = ToCamelCase(parameter.Name);
-                var paramType = GetCSharpType(parameter.Schema);
-                var isRequired = parameter.Required;
-
-                parameters.Add($"{paramType}{(isRequired ? "" : "?")} {paramName}");
-
-                if (parameter.In == ParameterLocation.Path)
+                if (parameter.In == ParameterLocation.Query)
                 {
-                    pathParams.Add((parameter.Name, paramName, paramType));
-                }
-                else if (parameter.In == ParameterLocation.Query)
-                {
+                    var paramName = ToCamelCase(parameter.Name);
+                    var paramType = GetCSharpType(parameter.Schema);
+                    var isRequired = parameter.Required;
+                    parameters.Add($"{paramType}{(isRequired ? "" : "?")} {paramName} = default");
                     queryParams.Add((parameter.Name, paramName, paramType, isRequired));
                 }
             }
@@ -288,138 +454,109 @@ public class ClientGenerator
 
         parameters.Add("CancellationToken cancellationToken = default");
 
-        sb.AppendLine($"    public async Task{(responseType == "void" ? "" : $"<{responseType}>")} {methodName}({string.Join(", ", parameters)})");
+        sb.AppendLine($"    public virtual async Task{(responseType == "void" ? "" : $"<{responseType}>")} {methodName}({string.Join(", ", parameters)})");
         sb.AppendLine("    {");
 
-        // Generate URL building code with proper encoding
-        GenerateUrlBuilding(sb, path, pathParams, queryParams);
+        // URL building: start from GetPath(), add query string if needed
+        if (queryParams.Count > 0)
+        {
+            sb.AppendLine("        var url = GetPath();");
+            sb.AppendLine();
+            sb.AppendLine("        var queryString = new List<string>();");
+
+            foreach (var param in queryParams)
+            {
+                if (param.required)
+                {
+                    sb.AppendLine($"        queryString.Add($\"{param.name}={{Uri.EscapeDataString({param.paramName}.ToString())}}\");");
+                }
+                else
+                {
+                    sb.AppendLine($"        if ({param.paramName} != null)");
+                    sb.AppendLine($"            queryString.Add($\"{param.name}={{Uri.EscapeDataString({param.paramName}.ToString())}}\");");
+                }
+            }
+
+            sb.AppendLine("        if (queryString.Count > 0)");
+            sb.AppendLine("            url += \"?\" + string.Join(\"&\", queryString);");
+        }
+        else
+        {
+            sb.AppendLine("        var url = GetPath();");
+        }
 
         sb.AppendLine();
 
-        GenerateHttpCall(sb, httpMethod, responseType, requestBodyType != null);
+        // HTTP call
+        GenerateBuilderHttpCall(sb, httpMethod, responseType, requestBodyType != null);
 
         sb.AppendLine("    }");
         sb.AppendLine();
     }
 
-    private void GenerateUrlBuilding(StringBuilder sb, string path,
-        List<(string name, string paramName, string paramType)> pathParams,
-        List<(string name, string paramName, string paramType, bool required)> queryParams)
-    {
-        if (pathParams.Any() || queryParams.Any())
-        {
-            // Build path with proper encoding
-            if (pathParams.Any())
-            {
-                sb.AppendLine("        // Build path with URL-encoded parameters");
-                sb.Append("        var url = $\"");
-                var urlPath = path;
-                foreach (var param in pathParams)
-                {
-                    // Replace {paramName} with {Uri.EscapeDataString(paramName.ToString())}
-                    urlPath = urlPath.Replace($"{{{param.name}}}", $"{{Uri.EscapeDataString({param.paramName}.ToString())}}");
-                }
-                sb.Append(urlPath);
-                sb.AppendLine("\";");
-            }
-            else
-            {
-                sb.AppendLine($"        var url = \"{path}\";");
-            }
-
-            // Add query parameters with proper encoding
-            if (queryParams.Any())
-            {
-                sb.AppendLine();
-                sb.AppendLine("        // Build query string with URL-encoded parameters");
-                sb.AppendLine("        var queryString = new List<string>();");
-
-                foreach (var param in queryParams)
-                {
-                    if (param.required)
-                    {
-                        sb.AppendLine($"        queryString.Add($\"{param.name}={{Uri.EscapeDataString({param.paramName}.ToString())}}\");");
-                    }
-                    else
-                    {
-                        sb.AppendLine($"        if ({param.paramName} != null)");
-                        sb.AppendLine($"            queryString.Add($\"{param.name}={{Uri.EscapeDataString({param.paramName}.ToString())}}\");");
-                    }
-                }
-
-                sb.AppendLine("        if (queryString.Any())");
-                sb.AppendLine("            url += \"?\" + string.Join(\"&\", queryString);");
-            }
-        }
-        else
-        {
-            sb.AppendLine($"        var url = \"{path}\";");
-        }
-    }
-
-    private void GenerateHttpCall(StringBuilder sb, HttpMethod operationType, string responseType, bool hasRequestBody)
+    private static void GenerateBuilderHttpCall(StringBuilder sb, HttpMethod operationType, string responseType, bool hasRequestBody)
     {
         if (operationType == HttpMethod.Get)
         {
-            sb.AppendLine("        var response = await _httpClient.GetAsync(url, cancellationToken);");
+            sb.AppendLine("        var response = await Client.HttpClient.GetAsync(url, cancellationToken);");
             sb.AppendLine("        response.EnsureSuccessStatusCode();");
             if (responseType != "void")
             {
-                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
             }
         }
         else if (operationType == HttpMethod.Post)
         {
             if (hasRequestBody)
             {
-                sb.AppendLine("        var response = await _httpClient.PostAsJsonAsync(url, request, _jsonOptions, cancellationToken);");
+                sb.AppendLine("        var response = await Client.HttpClient.PostAsJsonAsync(url, request, Client.JsonOptions, cancellationToken);");
             }
             else
             {
-                sb.AppendLine("        var response = await _httpClient.PostAsync(url, null, cancellationToken);");
+                sb.AppendLine("        var response = await Client.HttpClient.PostAsync(url, null, cancellationToken);");
             }
             sb.AppendLine("        response.EnsureSuccessStatusCode();");
             if (responseType != "void")
             {
-                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
             }
         }
         else if (operationType == HttpMethod.Put)
         {
             if (hasRequestBody)
             {
-                sb.AppendLine("        var response = await _httpClient.PutAsJsonAsync(url, request, _jsonOptions, cancellationToken);");
+                sb.AppendLine("        var response = await Client.HttpClient.PutAsJsonAsync(url, request, Client.JsonOptions, cancellationToken);");
             }
             else
             {
-                sb.AppendLine("        var response = await _httpClient.PutAsync(url, null, cancellationToken);");
+                sb.AppendLine("        var response = await Client.HttpClient.PutAsync(url, null, cancellationToken);");
             }
             sb.AppendLine("        response.EnsureSuccessStatusCode();");
             if (responseType != "void")
             {
-                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
             }
         }
         else if (operationType == HttpMethod.Delete)
         {
-            sb.AppendLine("        var response = await _httpClient.DeleteAsync(url, cancellationToken);");
+            sb.AppendLine("        var response = await Client.HttpClient.DeleteAsync(url, cancellationToken);");
             sb.AppendLine("        response.EnsureSuccessStatusCode();");
         }
         else if (operationType == HttpMethod.Patch)
         {
             if (hasRequestBody)
             {
-                sb.AppendLine("        var content = JsonContent.Create(request, options: _jsonOptions);");
-                sb.AppendLine("        var response = await _httpClient.PatchAsync(url, content, cancellationToken);");
+                sb.AppendLine("        var content = JsonContent.Create(request, options: Client.JsonOptions);");
+                sb.AppendLine("        var response = await Client.HttpClient.PatchAsync(url, content, cancellationToken);");
             }
             else
             {
-                sb.AppendLine("        var response = await _httpClient.PatchAsync(url, null, cancellationToken);");
+                sb.AppendLine("        var response = await Client.HttpClient.PatchAsync(url, null, cancellationToken);");
             }
             sb.AppendLine("        response.EnsureSuccessStatusCode();");
             if (responseType != "void")
             {
-                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(_jsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
             }
         }
     }
