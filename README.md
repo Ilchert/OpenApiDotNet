@@ -269,7 +269,6 @@ Generated/
 ├── IOpenApiBuilder.cs
 ├── IOpenApiClient.cs
 ├── IPetStoreClient.cs
-├── JsonConfiguration.cs
 └── .openapidotnet.json
 ```
 
@@ -594,6 +593,9 @@ Add these packages to your project:
 Create a concrete class that implements the generated named client interface (e.g., `IPetStoreClient`):
 
 ```csharp
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 public class PetStoreClient : IPetStoreClient
 {
     public HttpClient HttpClient { get; }
@@ -602,7 +604,13 @@ public class PetStoreClient : IPetStoreClient
     public PetStoreClient(HttpClient httpClient)
     {
         HttpClient = httpClient;
-        JsonOptions = JsonConfiguration.CreateOptions();
+        JsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            PropertyNameCaseInsensitive = true,
+            Converters = { new JsonStringEnumConverter() }
+        };
     }
 }
 ```
@@ -680,12 +688,11 @@ The project includes comprehensive test coverage:
 
 ### Core Components
 
-1. **ClientGenerator**: Main orchestrator that generates all code — models, builder classes, interfaces, and JSON configuration
+1. **ClientGenerator**: Main orchestrator that generates all code — models, builder classes, and interfaces
 2. **PathTreeBuilder**: Parses OpenAPI paths into a tree of `PathSegmentNode` objects, where each node represents a URL segment (static or parameterized), and resolves unique builder class names with collision detection
 3. **TypeMappingConfig**: Configurable OpenAPI-to-.NET type mappings with defaults and user overrides
 4. **Model Generator**: Creates C# classes and enums from OpenAPI component schemas
 5. **Builder Generator**: For each path tree node, emits a builder class (`IBuilder` implementation) with navigation properties, indexers, and HTTP operation methods
-6. **JSON Configuration**: Sets up System.Text.Json with NodaTime converters
 
 ### Builder Generation Pipeline
 

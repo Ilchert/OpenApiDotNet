@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace PetStore;
 
@@ -13,6 +14,12 @@ public class PetStoreApiClient : IPetStoreApi
     public PetStoreApiClient(HttpClient httpClient)
     {
         HttpClient = httpClient;
-        JsonOptions = JsonConfiguration.CreateOptions();
+        JsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            PropertyNameCaseInsensitive = true,
+            Converters = { new JsonStringEnumConverter() }
+        };
     }
 }

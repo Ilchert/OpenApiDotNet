@@ -58,7 +58,6 @@ public class ClientGenerationTests : IDisposable
         File.Exists(Path.Combine(_outputDirectory, "IPetStoreAPIClient.cs")).Should().BeTrue();
         Directory.Exists(Path.Combine(_outputDirectory, "Builders")).Should().BeTrue();
         File.Exists(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "JsonConfiguration.cs")).Should().BeTrue();
     }
 
     [Fact]
@@ -179,30 +178,6 @@ public class ClientGenerationTests : IDisposable
         petsIdContent.Should().Contain("public virtual async Task<PetStore.Client.Models.Pet> Get");
         petsIdContent.Should().Contain("public virtual async Task Delete");
         petsIdContent.Should().Contain("Client.HttpClient.DeleteAsync");
-    }
-
-    [Fact]
-    public void Generate_JsonConfiguration_ContainsNodaTimeSetupAsync()
-    {
-        var spec = """
-            {
-              "openapi": "3.0.0",
-              "info": { "title": "Test", "version": "1.0.0" },
-              "paths": {}
-            }
-            """;
-        var generator = CreateGenerator(spec);
-
-        generator.Generate();
-
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "JsonConfiguration.cs"));
-        content.Should().NotContain("using NodaTime;");
-        content.Should().Contain("using NodaTime.Serialization.SystemTextJson;");
-        content.Should().Contain("ConfigureForNodaTime");
-        content.Should().Contain("NodaTime.DateTimeZoneProviders.Tzdb");
-        content.Should().Contain("JsonSerializerOptions");
-        content.Should().Contain("PropertyNamingPolicy = JsonNamingPolicy.CamelCase");
-        content.Should().Contain("DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull");
     }
 
     [Fact]
@@ -647,24 +622,6 @@ public class ClientGenerationTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Pet.cs"));
         content.Should().Contain("public Test.Client.Models.PetStatus? Status");
         content.Should().Contain("public Test.Client.Models.PetSize? Size");
-    }
-
-    [Fact]
-    public void Generate_JsonConfiguration_ContainsStringEnumConverterAsync()
-    {
-        var spec = """
-            {
-              "openapi": "3.0.0",
-              "info": { "title": "Test", "version": "1.0.0" },
-              "paths": {}
-            }
-            """;
-        var generator = CreateGenerator(spec);
-
-        generator.Generate();
-
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "JsonConfiguration.cs"));
-        content.Should().Contain("JsonStringEnumConverter");
     }
 
     [Fact]

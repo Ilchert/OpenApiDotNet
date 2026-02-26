@@ -27,7 +27,7 @@ public class ClientGenerator
     }
 
     /// <summary>
-    /// Generates all client code including models, builder classes, and JSON configuration
+    /// Generates all client code including models and builder classes
     /// </summary>
     public void Generate()
     {
@@ -38,8 +38,6 @@ public class ClientGenerator
         GenerateIOpenApiClientInterface();
         GenerateNamedClientInterface(pathTree);
         GenerateBuilders(pathTree);
-
-        GenerateJsonConfiguration();
     }
 
     private void GenerateModels()
@@ -590,44 +588,6 @@ public class ClientGenerator
                 sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
             }
         }
-    }
-
-    private void GenerateJsonConfiguration()
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("using System.Text.Json;");
-        sb.AppendLine("using System.Text.Json.Serialization;");
-        sb.AppendLine("using NodaTime.Serialization.SystemTextJson;");
-        sb.AppendLine();
-        sb.AppendLine($"namespace {_namespace};");
-        sb.AppendLine();
-        sb.AppendLine("/// <summary>");
-        sb.AppendLine("/// JSON serialization configuration with NodaTime support");
-        sb.AppendLine("/// </summary>");
-        sb.AppendLine("public static class JsonConfiguration");
-        sb.AppendLine("{");
-        sb.AppendLine("    public static JsonSerializerOptions CreateOptions()");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var options = new JsonSerializerOptions");
-        sb.AppendLine("        {");
-        sb.AppendLine("            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,");
-        sb.AppendLine("            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,");
-        sb.AppendLine("            PropertyNameCaseInsensitive = true");
-        sb.AppendLine("        };");
-        sb.AppendLine();
-        sb.AppendLine("        // Add string enum converter for enum serialization");
-        sb.AppendLine("        options.Converters.Add(new JsonStringEnumConverter());");
-        sb.AppendLine();
-        sb.AppendLine("        // Configure NodaTime converters for date/time types");
-        sb.AppendLine("        options.ConfigureForNodaTime(NodaTime.DateTimeZoneProviders.Tzdb);");
-        sb.AppendLine();
-        sb.AppendLine("        return options;");
-        sb.AppendLine("    }");
-        sb.AppendLine("}");
-
-        var filePath = Path.Combine(_outputDirectory, "JsonConfiguration.cs");
-        File.WriteAllText(filePath, sb.ToString());
-        Console.WriteLine("  Generated JSON configuration");
     }
 
     private string GetResponseType(OpenApiOperation operation)
