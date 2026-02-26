@@ -559,6 +559,50 @@ public class ClientGenerationTests : IDisposable
     }
 
     [Fact]
+    public void Generate_WithBooleanResponseType_GeneratesCorrectDeserializationCode()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items/{id}": {
+                  "get": {
+                    "operationId": "checkItem",
+                    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+                    "responses": {
+                      "200": {
+                        "description": "OK",
+                        "content": {
+                          "application/json": {
+                            "schema": { "type": "boolean" }
+                          },
+                          "text/json": {
+                            "schema": { "type": "boolean" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsIdBuilder.cs"));
+
+        // Return type should be bool
+        content.Should().Contain("Task<bool>");
+
+        // Should use a variable for deserialization
+        content.Should().Contain("var deserializedResponse = await response.Content.ReadFromJsonAsync<bool>(Client.JsonOptions, cancellationToken);");
+        content.Should().Contain("return deserializedResponse ?? throw new InvalidOperationException(\"Response was null\");");
+    }
+
+    [Fact]
     public void Constructor_WithNullDocument_ThrowsArgumentNullException()
     {
         // Act
