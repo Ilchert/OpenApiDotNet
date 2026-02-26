@@ -597,9 +597,9 @@ public class ClientGenerationTests : IDisposable
         // Return type should be bool
         content.Should().Contain("Task<bool>");
 
-        // Should use a variable for deserialization
-        content.Should().Contain("var deserializedResponse = await response.Content.ReadFromJsonAsync<bool>(Client.JsonOptions, cancellationToken);");
-        content.Should().Contain("return deserializedResponse ?? throw new InvalidOperationException(\"Response was null\");");
+        // Value types are returned directly without an intermediate variable or null check,
+        // because ReadFromJsonAsync<bool> returns Task<bool> (not Task<bool?>).
+        content.Should().Contain("return await response.Content.ReadFromJsonAsync<bool>(Client.JsonOptions, cancellationToken);");
     }
 
     [Fact]
