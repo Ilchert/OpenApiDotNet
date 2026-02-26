@@ -325,7 +325,7 @@ public class ClientGenerator
         {
             if (!child.IsParameter)
             {
-                sb.AppendLine($"    public {child.BuilderName} {ToPascalCase(child.SegmentName)} => new(this);");
+                sb.AppendLine($"    public virtual {child.BuilderName} {ToPascalCase(child.SegmentName)} => new(this);");
                 sb.AppendLine();
             }
         }
@@ -388,7 +388,7 @@ public class ClientGenerator
         {
             if (!child.IsParameter)
             {
-                sb.AppendLine($"    public {child.BuilderName} {ToPascalCase(child.SegmentName)} => new(this);");
+                sb.AppendLine($"    public virtual {child.BuilderName} {ToPascalCase(child.SegmentName)} => new(this);");
                 sb.AppendLine();
             }
         }

@@ -65,7 +65,7 @@ public class PetsIdBuilder : IBuilder
 
     public string GetPath() => $"{_builder.GetPath()}/{_petId}";
 
-    public PhotosBuilder Photos => new PhotosBuilder(this);
+    public virtual PhotosBuilder Photos => new PhotosBuilder(this);
 
     public virtual async Task<List<Pet>> ListPets(CancellationToken cancellationToken) // Get
     {
