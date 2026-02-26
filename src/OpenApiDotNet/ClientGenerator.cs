@@ -16,14 +16,6 @@ public class ClientGenerator
     private readonly string? _clientName;
     private readonly TypeMappingConfig _typeMappingConfig;
 
-    private static readonly HashSet<string> s_csharpValueTypes =
-    [
-        "bool", "byte", "sbyte", "char", "short", "ushort", "int", "uint",
-        "long", "ulong", "float", "double", "decimal", "Guid",
-        "NodaTime.Instant", "NodaTime.LocalDate", "NodaTime.LocalTime",
-        "NodaTime.LocalDateTime", "NodaTime.Duration",
-    ];
-
     public ClientGenerator(OpenApiDocument document, string namespaceName, string outputDirectory, string? namespacePrefix = null, string? clientName = null, TypeMappingConfig? typeMappingConfig = null)
     {
         _document = document ?? throw new ArgumentNullException(nameof(document));
@@ -604,15 +596,10 @@ public class ClientGenerator
 
     private static void AppendDeserializationReturn(StringBuilder sb, string responseType)
     {
-        if (s_csharpValueTypes.Contains(responseType))
-        {
-            sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken);");
-        }
-        else
-        {
-            sb.AppendLine($"        var deserializedResponse = await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken);");
-            sb.AppendLine("        return deserializedResponse ?? throw new InvalidOperationException(\"Response was null\");");
-        }
+        sb.AppendLine($"        var deserializedResponse = await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken);");
+        sb.AppendLine("        if (deserializedResponse is { } deserializedResponseValue)");
+        sb.AppendLine("            return deserializedResponseValue;");
+        sb.AppendLine("        throw new InvalidOperationException($\"Response from {url} is null\");");
     }
 
     private string GetResponseType(OpenApiOperation operation)
