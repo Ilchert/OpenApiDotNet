@@ -266,8 +266,9 @@ Generated/
 │   ├── PetsIdBuilder.cs
 │   ├── PhotosBuilder.cs
 │   └── PhotosIdBuilder.cs
-├── IBuilder.cs
-├── IClient.cs
+├── IOpenApiBuilder.cs
+├── IOpenApiClient.cs
+├── IPetStoreClient.cs
 ├── JsonConfiguration.cs
 └── .openapidotnet.json
 ```
@@ -383,22 +384,37 @@ public enum PetStatus
 
 ### Example Generated IOpenApiClient Interface
 
+`IOpenApiClient` is a base interface containing the HTTP infrastructure. A separate named interface (derived from the `--client-name` option or the API title) inherits from it and exposes the top-level navigation properties:
+
 ```csharp
 using System.Text.Json;
 
 namespace PetStoreClient;
 
 /// <summary>
-/// A simple pet store API
+/// Base interface for all OpenAPI clients
 /// </summary>
 public interface IOpenApiClient : IOpenApiBuilder
 {
     HttpClient HttpClient { get; }
     JsonSerializerOptions JsonOptions { get; }
-    PetsBuilder Pets { get => new(this); }
 
     IOpenApiClient IOpenApiBuilder.Client => this;
     string IOpenApiBuilder.GetPath() => "";
+}
+```
+
+### Example Generated Named Client Interface
+
+```csharp
+namespace PetStoreClient;
+
+/// <summary>
+/// A simple pet store API
+/// </summary>
+public interface IPetStoreClient : IOpenApiClient
+{
+    PetsBuilder Pets { get => new(this); }
 }
 ```
 
@@ -542,10 +558,10 @@ All builder classes are designed for easy mocking with frameworks like [Moq](htt
 
 - **`virtual` methods** on all operations and indexers
 - **`protected` parameterless constructors** so Moq can create subclass proxies
-- **`IOpenApiClient` interface** as the entry point for mock setup
+- **Named client interface** (e.g., `IPetStoreClient`) as the entry point for mock setup
 
 ```csharp
-var mock = new Mock<IOpenApiClient>();
+var mock = new Mock<IPetStoreClient>();
 mock.Setup(c => c.Pets[123].Get(It.IsAny<CancellationToken>()))
     .ReturnsAsync(new List<Pet> { new Pet() });
 
@@ -573,12 +589,12 @@ Add these packages to your project:
 <PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.3.0" />
 ```
 
-### 2. Implement IOpenApiClient
+### 2. Implement the Named Client Interface
 
-Create a concrete class that implements the generated `IOpenApiClient` interface:
+Create a concrete class that implements the generated named client interface (e.g., `IPetStoreClient`):
 
 ```csharp
-public class PetStoreClient : IOpenApiClient
+public class PetStoreClient : IPetStoreClient
 {
     public HttpClient HttpClient { get; }
     public JsonSerializerOptions JsonOptions { get; }
@@ -675,8 +691,9 @@ The project includes comprehensive test coverage:
 
 ```
 OpenAPI Paths → PathTreeBuilder.Build() → Path Tree → Builder Classes
-                                                    → IBuilder.cs
-                                                    → IClient.cs
+                                                    → IOpenApiBuilder.cs
+                                                    → IOpenApiClient.cs
+                                                    → I{ClientName}.cs
 
 OpenAPI Schemas → Model Generator → Models/*.cs
 ```
@@ -752,7 +769,8 @@ Other types
 - ✅ Query parameters with URL encoding
 - ✅ Multiple path parameters (e.g., `/owners/{ownerId}/pets/{petId}`)
 - ✅ Automatic builder name collision resolution for shared segment names
-- ✅ Mock-friendly design (`virtual` methods, `protected` constructors, `IClient` interface)
+- ✅ Named client interface (e.g., `IPetStoreClient`) derived from `IOpenApiClient`
+- ✅ Mock-friendly design (`virtual` methods, `protected` constructors, named client interface)
 - ✅ Request bodies
 - ✅ Response models
 - ✅ Schema references (`$ref`)

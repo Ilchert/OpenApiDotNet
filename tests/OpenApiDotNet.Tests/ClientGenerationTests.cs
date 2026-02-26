@@ -55,6 +55,7 @@ public class ClientGenerationTests : IDisposable
         File.Exists(Path.Combine(_outputDirectory, "Models", "NewPet.cs")).Should().BeTrue();
         File.Exists(Path.Combine(_outputDirectory, "IOpenApiBuilder.cs")).Should().BeTrue();
         File.Exists(Path.Combine(_outputDirectory, "IOpenApiClient.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "IPetStoreAPIClient.cs")).Should().BeTrue();
         Directory.Exists(Path.Combine(_outputDirectory, "Builders")).Should().BeTrue();
         File.Exists(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs")).Should().BeTrue();
         File.Exists(Path.Combine(_outputDirectory, "JsonConfiguration.cs")).Should().BeTrue();
@@ -151,11 +152,16 @@ public class ClientGenerationTests : IDisposable
 
         generator.Generate();
 
-        // IClient should have navigation property for Pets
+        // IOpenApiClient should have HttpClient and JsonOptions but no navigation properties
         var clientContent = File.ReadAllText(Path.Combine(_outputDirectory, "IOpenApiClient.cs"));
-        clientContent.Should().Contain("PetsBuilder Pets");
         clientContent.Should().Contain("HttpClient HttpClient");
         clientContent.Should().Contain("JsonSerializerOptions JsonOptions");
+        clientContent.Should().NotContain("PetsBuilder Pets");
+
+        // Named client interface should have navigation property for Pets
+        var namedClientContent = File.ReadAllText(Path.Combine(_outputDirectory, "IPetStoreAPIClient.cs"));
+        namedClientContent.Should().Contain("PetsBuilder Pets");
+        namedClientContent.Should().Contain(": IOpenApiClient");
 
         // PetsBuilder should have Get and Post operations
         var petsContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs"));

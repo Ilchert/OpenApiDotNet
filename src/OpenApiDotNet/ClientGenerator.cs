@@ -35,7 +35,8 @@ public class ClientGenerator
 
         var pathTree = PathTreeBuilder.Build(_document.Paths);
         GenerateIOpenApiBuilderInterface();
-        GenerateIOpenApiClientInterface(pathTree);
+        GenerateIOpenApiClientInterface();
+        GenerateNamedClientInterface(pathTree);
         GenerateBuilders(pathTree);
 
         GenerateJsonConfiguration();
@@ -192,23 +193,43 @@ public class ClientGenerator
         Console.WriteLine("  Generated IOpenApiBuilder interface");
     }
 
-    private void GenerateIOpenApiClientInterface(PathSegmentNode pathTree)
+    private void GenerateIOpenApiClientInterface()
     {
         var sb = new StringBuilder();
         sb.AppendLine("using System.Text.Json;");
         sb.AppendLine();
         sb.AppendLine($"namespace {_namespace};");
         sb.AppendLine();
-
-        var clientName = GetClientName();
-
         sb.AppendLine("/// <summary>");
-        sb.AppendLine($"/// {EscapeXmlComment(_document.Info.Description ?? _document.Info.Title ?? "API Client")}");
+        sb.AppendLine("/// Base interface for all OpenAPI clients");
         sb.AppendLine("/// </summary>");
         sb.AppendLine("public interface IOpenApiClient : IOpenApiBuilder");
         sb.AppendLine("{");
         sb.AppendLine("    HttpClient HttpClient { get; }");
         sb.AppendLine("    JsonSerializerOptions JsonOptions { get; }");
+        sb.AppendLine();
+        sb.AppendLine($"    IOpenApiClient IOpenApiBuilder.Client => this;");
+        sb.AppendLine($"    string IOpenApiBuilder.GetPath() => \"\";");
+        sb.AppendLine("}");
+
+        var filePath = Path.Combine(_outputDirectory, "IOpenApiClient.cs");
+        File.WriteAllText(filePath, sb.ToString());
+        Console.WriteLine("  Generated IOpenApiClient interface");
+    }
+
+    private void GenerateNamedClientInterface(PathSegmentNode pathTree)
+    {
+        var clientName = GetClientName();
+        var interfaceName = $"I{clientName}";
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"namespace {_namespace};");
+        sb.AppendLine();
+        sb.AppendLine("/// <summary>");
+        sb.AppendLine($"/// {EscapeXmlComment(_document.Info.Description ?? _document.Info.Title ?? "API Client")}");
+        sb.AppendLine("/// </summary>");
+        sb.AppendLine($"public interface {interfaceName} : IOpenApiClient");
+        sb.AppendLine("{");
 
         // Add navigation properties for top-level static segments
         foreach (var (_, child) in pathTree.Children.OrderBy(c => c.Key))
@@ -219,14 +240,11 @@ public class ClientGenerator
             }
         }
 
-        sb.AppendLine();
-        sb.AppendLine($"    IOpenApiClient IOpenApiBuilder.Client => this;");
-        sb.AppendLine($"    string IOpenApiBuilder.GetPath() => \"\";");
         sb.AppendLine("}");
 
-        var filePath = Path.Combine(_outputDirectory, "IOpenApiClient.cs");
+        var filePath = Path.Combine(_outputDirectory, $"{interfaceName}.cs");
         File.WriteAllText(filePath, sb.ToString());
-        Console.WriteLine("  Generated IOpenApiClient interface");
+        Console.WriteLine($"  Generated {interfaceName} interface");
     }
 
     private void GenerateBuilders(PathSegmentNode root)

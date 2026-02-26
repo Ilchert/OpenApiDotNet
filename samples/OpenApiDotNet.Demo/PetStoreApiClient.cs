@@ -5,7 +5,7 @@ namespace PetStore;
 /// <summary>
 /// Concrete implementation of the generated IOpenApiClient interface for the Pet Store API.
 /// </summary>
-public class PetStoreApiClient : IOpenApiClient
+public class PetStoreApiClient : IPetStoreApi
 {
     public HttpClient HttpClient { get; }
     public JsonSerializerOptions JsonOptions { get; }

@@ -3,7 +3,7 @@ using PetStore.Models;
 
 // Create the HTTP client pointing at a pet store API
 var httpClient = new HttpClient { BaseAddress = new Uri("https://petstore.example.com") };
-IOpenApiClient client = new PetStoreApiClient(httpClient);
+IPetStoreApi client = new PetStoreApiClient(httpClient);
 
 // ── List all pets (GET /pets?limit=10) ───────────────────────────
 Console.WriteLine("=== List pets (limit 10) ===");
