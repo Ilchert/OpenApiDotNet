@@ -22,7 +22,7 @@ public class PetsIdBuilder : IOpenApiBuilder
     public IOpenApiClient Client => _parentBuilder.Client;
     public string GetPath() => $"{_parentBuilder.GetPath()}/{_petId}";
 
-    public PhotosBuilder Photos => new(this);
+    public virtual PhotosBuilder Photos => new(this);
 
     /// <summary>
     /// Get a pet by ID

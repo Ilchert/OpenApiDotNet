@@ -9,7 +9,7 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 - ⚡ **System.Text.Json**: Native JSON serialization with optimal performance
 - 🛡️ **Type-Safe**: Generates strongly-typed models and client methods
 - 🧱 **Fluent Builder API**: Navigate resources naturally — `client.Pets[123].Photos[photoId].Get()`
-- 🧪 **Mockable by Design**: All builders use `virtual` methods and `protected` constructors for seamless Moq integration
+- 🧪 **Mockable by Design**: All builders use `virtual` methods, navigation properties, and `protected` constructors for seamless Moq integration
 - ♻️ **Async First**: All HTTP operations are async with proper cancellation support
 - 📖 **Well Documented**: Preserves OpenAPI descriptions as XML documentation comments
 - 📋 **Format Registry**: Comprehensive [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) support — integers, URIs, binary, decimals, and more
@@ -466,6 +466,42 @@ public class PetsBuilder : IOpenApiBuilder
             ?? throw new InvalidOperationException("Response was null");
     }
 }
+
+public class PetsIdBuilder : IOpenApiBuilder
+{
+    private readonly IOpenApiBuilder _parentBuilder;
+    private readonly long _petId;
+
+#pragma warning disable CS8618
+    protected PetsIdBuilder() { }
+#pragma warning restore CS8618
+
+    public PetsIdBuilder(IOpenApiBuilder parentBuilder, long petId)
+    {
+        _parentBuilder = parentBuilder;
+        _petId = petId;
+    }
+
+    public IOpenApiClient Client => _parentBuilder.Client;
+    public string GetPath() => $"{_parentBuilder.GetPath()}/{_petId}";
+
+    // Navigation properties are virtual so they can be overridden in mocks
+    public virtual PhotosBuilder Photos => new(this);
+
+    /// <summary>
+    /// Get a pet by ID
+    /// </summary>
+    public virtual async Task<PetStoreClient.Models.Pet> Get(
+        CancellationToken cancellationToken = default)
+    {
+        var url = GetPath();
+
+        var response = await Client.HttpClient.GetAsync(url, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<PetStoreClient.Models.Pet>(Client.JsonOptions, cancellationToken)
+            ?? throw new InvalidOperationException("Response was null");
+    }
+}
 ```
 
 ### Example Generated Inline Response
@@ -555,7 +591,7 @@ Path building is handled automatically by chaining `GetPath()` through the build
 
 All builder classes are designed for easy mocking with frameworks like [Moq](https://github.com/devlooped/moq):
 
-- **`virtual` methods** on all operations and indexers
+- **`virtual` methods** on all operations, indexers, and navigation properties
 - **`protected` parameterless constructors** so Moq can create subclass proxies
 - **Named client interface** (e.g., `IPetStoreClient`) as the entry point for mock setup
 
@@ -777,7 +813,7 @@ Other types
 - ✅ Multiple path parameters (e.g., `/owners/{ownerId}/pets/{petId}`)
 - ✅ Automatic builder name collision resolution for shared segment names
 - ✅ Named client interface (e.g., `IPetStoreClient`) derived from `IOpenApiClient`
-- ✅ Mock-friendly design (`virtual` methods, `protected` constructors, named client interface)
+- ✅ Mock-friendly design (`virtual` methods, navigation properties, and `protected` constructors, and named client interface)
 - ✅ Request bodies
 - ✅ Response models
 - ✅ Schema references (`$ref`)
