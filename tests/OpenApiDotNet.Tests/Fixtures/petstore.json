@@ -115,6 +115,45 @@
           }
         }
       },
+      "put": {
+        "operationId": "updatePet",
+        "summary": "Update a pet",
+        "parameters": [
+          {
+            "name": "petId",
+            "in": "path",
+            "required": true,
+            "description": "The id of the pet",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "x-bodyName": "updatedPet",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewPet"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated pet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pet"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "operationId": "deletePet",
         "summary": "Delete a pet",
@@ -175,6 +214,105 @@
                     },
                     "caption": {
                       "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pets/count": {
+      "get": {
+        "operationId": "countPets",
+        "summary": "Count pets matching criteria",
+        "parameters": [
+          {
+            "name": "species",
+            "in": "query",
+            "description": "Species to count",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "minAge",
+            "in": "query",
+            "description": "Minimum age in months",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "vaccinated",
+            "in": "query",
+            "description": "Filter by vaccination status",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Count of matching pets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports": {
+      "post": {
+        "operationId": "createReport",
+        "summary": "Create a pet report",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "description": "Report title"
+                  },
+                  "severity": {
+                    "type": "string",
+                    "description": "Severity level",
+                    "enum": ["low", "medium", "high"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Report created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Report ID"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Report status"
                     }
                   }
                 }
@@ -310,6 +448,36 @@
             "type": "string",
             "format": "date",
             "description": "Birth date of the pet"
+          }
+        }
+      },
+      "PetReport": {
+        "type": "object",
+        "description": "A report about a pet",
+        "properties": {
+          "petId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID of the reported pet"
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority level of the report",
+            "enum": ["low", "medium", "high"]
+          },
+          "location": {
+            "type": "object",
+            "description": "Location where the pet was found",
+            "properties": {
+              "latitude": {
+                "type": "number",
+                "format": "double"
+              },
+              "longitude": {
+                "type": "number",
+                "format": "double"
+              }
+            }
           }
         }
       }
