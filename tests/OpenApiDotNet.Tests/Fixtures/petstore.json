@@ -3,13 +3,13 @@
   "info": {
     "title": "Pet Store API",
     "version": "1.0.0",
-    "description": "A simple pet store API for testing"
+    "description": "Fixture used by CompilationVerificationTests to exercise every code-generator feature: object models with required/optional properties, all scalar types, component-level enums (plain and hyphenated member names), GET/POST/PUT/DELETE operations, single/multiple/nested path parameters, optional and required query parameters of both value types and reference types, $ref request and response bodies, x-bodyName extension, value-type return, inline object request/response schemas generating nested builder classes, and inline enum/object properties in component schemas generating nested types."
   },
   "paths": {
     "/pets": {
       "get": {
         "operationId": "listPets",
-        "summary": "List all pets",
+        "summary": "Tests: GET operation; optional query params of type int32, string array, and enum $ref; array of $ref response body",
         "parameters": [
           {
             "name": "limit",
@@ -61,7 +61,7 @@
       },
       "post": {
         "operationId": "createPet",
-        "summary": "Create a pet",
+        "summary": "Tests: POST operation; required $ref request body with default body param name; $ref response body",
         "requestBody": {
           "required": true,
           "content": {
@@ -89,7 +89,7 @@
     "/pets/{petId}": {
       "get": {
         "operationId": "getPetById",
-        "summary": "Get a pet by ID",
+        "summary": "Tests: GET operation; single int64 path parameter; $ref response body",
         "parameters": [
           {
             "name": "petId",
@@ -115,9 +115,48 @@
           }
         }
       },
+      "put": {
+        "operationId": "updatePet",
+        "summary": "Tests: PUT operation; x-bodyName extension overriding default body parameter name; $ref request and response bodies",
+        "parameters": [
+          {
+            "name": "petId",
+            "in": "path",
+            "required": true,
+            "description": "The id of the pet",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "x-bodyName": "updatedPet",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewPet"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated pet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pet"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "operationId": "deletePet",
-        "summary": "Delete a pet",
+        "summary": "Tests: DELETE operation; single int64 path parameter; void return (no response body)",
         "parameters": [
           {
             "name": "petId",
@@ -139,7 +178,7 @@
     "/pets/{petId}/photos/{photoId}": {
       "get": {
         "operationId": "getPetPhoto",
-        "summary": "Get a specific photo of a pet",
+        "summary": "Tests: multiple path parameters (int64 + uuid); inline object response schema generating a nested class inside the builder",
         "parameters": [
           {
             "name": "petId",
@@ -184,10 +223,109 @@
         }
       }
     },
+    "/pets/count": {
+      "get": {
+        "operationId": "countPets",
+        "summary": "Tests: value-type return (int32); required reference-type query param (string); required value-type query param (int32); optional value-type query param (bool)",
+        "parameters": [
+          {
+            "name": "species",
+            "in": "query",
+            "description": "Species to count",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "minAge",
+            "in": "query",
+            "description": "Minimum age in months",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "vaccinated",
+            "in": "query",
+            "description": "Filter by vaccination status",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Count of matching pets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports": {
+      "post": {
+        "operationId": "createReport",
+        "summary": "Tests: inline object request body (with required property and inline enum property) generating a nested request class inside the builder; inline object response body generating a nested response class inside the builder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "description": "Report title"
+                  },
+                  "severity": {
+                    "type": "string",
+                    "description": "Severity level",
+                    "enum": ["low", "medium", "high"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Report created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Report ID"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Report status"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/owners/{ownerId}/pets/{petId}": {
       "get": {
         "operationId": "getOwnerPet",
-        "summary": "Get a specific pet for an owner",
+        "summary": "Tests: nested resource path with two path parameters of different types (string ownerId, int64 petId); $ref response body",
         "parameters": [
           {
             "name": "ownerId",
@@ -228,6 +366,7 @@
     "schemas": {
       "Pet": {
         "type": "object",
+        "description": "Tests: component object schema; required properties (id: int64, name: string); optional properties of all scalar types (string, date, date-time, bool, double); optional enum $ref properties (PetStatus, PetSize)",
         "required": [
           "id",
           "name"
@@ -275,7 +414,7 @@
       },
       "PetStatus": {
         "type": "string",
-        "description": "The status of a pet in the store",
+        "description": "Tests: component-level string enum; all member names map directly to PascalCase without JsonStringEnumMemberName (available, pending, sold)",
         "enum": [
           "available",
           "pending",
@@ -284,7 +423,7 @@
       },
       "PetSize": {
         "type": "string",
-        "description": "The size category of a pet",
+        "description": "Tests: component-level string enum with a hyphenated member name (extra-large) that requires JsonStringEnumMemberName to preserve the wire value",
         "enum": [
           "small",
           "medium",
@@ -294,6 +433,7 @@
       },
       "NewPet": {
         "type": "object",
+        "description": "Tests: component object schema used as a $ref request body; one required string property; optional string and date properties",
         "required": [
           "name"
         ],
@@ -310,6 +450,36 @@
             "type": "string",
             "format": "date",
             "description": "Birth date of the pet"
+          }
+        }
+      },
+      "PetReport": {
+        "type": "object",
+        "description": "Tests: component object schema with an inline enum property (priority) generating a nested enum type inside the model class; inline object property (location) generating a nested class inside the model class",
+        "properties": {
+          "petId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID of the reported pet"
+          },
+          "priority": {
+            "type": "string",
+            "description": "Priority level of the report",
+            "enum": ["low", "medium", "high"]
+          },
+          "location": {
+            "type": "object",
+            "description": "Location where the pet was found",
+            "properties": {
+              "latitude": {
+                "type": "number",
+                "format": "double"
+              },
+              "longitude": {
+                "type": "number",
+                "format": "double"
+              }
+            }
           }
         }
       }

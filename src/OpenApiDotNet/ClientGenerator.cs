@@ -196,6 +196,7 @@ public class ClientGenerator
     private void GenerateIOpenApiClientInterface()
     {
         var sb = new StringBuilder();
+        sb.AppendLine("using System.Net.Http;");
         sb.AppendLine("using System.Text.Json;");
         sb.AppendLine();
         sb.AppendLine($"namespace {_namespace};");
@@ -261,9 +262,14 @@ public class ClientGenerator
     private void GenerateBuilderClass(PathSegmentNode node, string directory)
     {
         var sb = new StringBuilder();
+        sb.AppendLine("using System;");
+        sb.AppendLine("using System.Collections.Generic;");
+        sb.AppendLine("using System.Net.Http;");
         sb.AppendLine("using System.Net.Http.Json;");
         sb.AppendLine("using System.Text.Json;");
         sb.AppendLine("using System.Text.Json.Serialization;");
+        sb.AppendLine("using System.Threading;");
+        sb.AppendLine("using System.Threading.Tasks;");
         sb.AppendLine();
         sb.AppendLine($"namespace {_namespace};");
         sb.AppendLine();
