@@ -89,12 +89,13 @@ public class ClientGenerator
         sb.AppendLine($"public class {typeName}");
         sb.AppendLine("{");
 
+        var nestedTypes = new StringBuilder();
         if (schema.Properties != null)
         {
             foreach (var property in schema.Properties)
             {
                 var propertyName = ToPascalCase(property.Key);
-                var propertyType = GetCSharpType(property.Value);
+                var propertyType = GetModelPropertyType(property.Value, propertyName, nestedTypes);
                 var isRequired = schema.Required?.Contains(property.Key) ?? false;
 
                 if (!string.IsNullOrEmpty(property.Value.Description))
@@ -110,6 +111,7 @@ public class ClientGenerator
             }
         }
 
+        sb.Append(nestedTypes);
         sb.AppendLine("}");
 
         var targetDirectory = string.IsNullOrEmpty(additionalNamespace)
@@ -655,6 +657,49 @@ public class ClientGenerator
                 sb.AppendLine($"        public {(isRequired ? "required " : "")}{propertyType}{(isRequired ? "" : "?")} {propertyName} {{ get; set; }}");
                 sb.AppendLine();
             }
+        }
+
+        sb.AppendLine("    }");
+        sb.AppendLine();
+    }
+
+    private string GetModelPropertyType(IOpenApiSchema schema, string propertyName, StringBuilder nestedTypes)
+    {
+        if (GetSchemaName(schema) != null)
+            return GetCSharpType(schema);
+
+        if (schema.Enum != null && schema.Enum.Count > 0)
+        {
+            GenerateNestedEnum(nestedTypes, propertyName, schema);
+            return propertyName;
+        }
+
+        if (IsInlineObjectSchema(schema))
+        {
+            GenerateNestedClass(nestedTypes, propertyName, schema);
+            return propertyName;
+        }
+
+        return GetCSharpType(schema);
+    }
+
+    private static void GenerateNestedEnum(StringBuilder sb, string enumName, IOpenApiSchema schema)
+    {
+        sb.AppendLine($"    [JsonConverter(typeof(JsonStringEnumConverter))]");
+        sb.AppendLine($"    public enum {enumName}");
+        sb.AppendLine("    {");
+
+        foreach (var enumValue in schema.Enum)
+        {
+            var stringValue = enumValue.ToString();
+            var memberName = ToPascalCase(stringValue);
+
+            if (memberName != stringValue)
+            {
+                sb.AppendLine($"        [JsonStringEnumMemberName(\"{stringValue}\")]");
+            }
+            sb.AppendLine($"        {memberName},");
+            sb.AppendLine();
         }
 
         sb.AppendLine("    }");
