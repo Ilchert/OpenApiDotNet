@@ -459,7 +459,15 @@ public class ClientGenerator
             }
 
             if (requestBodyType != null)
-                requiredParameters.Add($"{requestBodyType} request");
+            {
+                var bodyParamName = operation.RequestBody.Extensions?.TryGetValue("x-bodyName", out var bodyNameExt) == true
+                    && bodyNameExt is JsonNodeExtension { Node: { } bodyNameNode }
+                    ? bodyNameNode.GetValue<string>()
+                    : null;
+                if (string.IsNullOrWhiteSpace(bodyParamName))
+                    bodyParamName = "request";
+                requiredParameters.Add($"{requestBodyType} {bodyParamName}");
+            }
         }
 
         var responseType = GetResponseType(operation);
