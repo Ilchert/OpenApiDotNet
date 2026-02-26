@@ -464,6 +464,46 @@ public class ClientGenerationTests : IDisposable
     }
 
     [Fact]
+    public void Generate_WithArraySchemaInRequestBody_GeneratesListParameter()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/numbers": {
+                  "post": {
+                    "operationId": "submitNumbers",
+                    "requestBody": {
+                      "required": true,
+                      "content": {
+                        "application/json": {
+                          "schema": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "format": "int32"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "responses": { "204": { "description": "ok" } }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "NumbersBuilder.cs"));
+
+        content.Should().Contain("List<int> request");
+    }
+
+    [Fact]
     public void Generate_DeleteWithResponseBody_GeneratesReturnStatement()
     {
         var spec = """
