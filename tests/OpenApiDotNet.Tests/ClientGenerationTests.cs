@@ -1038,8 +1038,8 @@ public class ClientGenerationTests : IDisposable
 
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Order.cs"));
 
-        content.Should().Contain("public Address? Address");
-        content.Should().Contain("public class Address");
+        content.Should().Contain("public OrderAddress? Address");
+        content.Should().Contain("public class OrderAddress");
         content.Should().Contain("[JsonPropertyName(\"street\")]");
         content.Should().Contain("public string? Street");
         content.Should().Contain("[JsonPropertyName(\"city\")]");
@@ -1076,11 +1076,46 @@ public class ClientGenerationTests : IDisposable
 
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Pet.cs"));
 
-        content.Should().Contain("public Status? Status");
+        content.Should().Contain("public PetStatus? Status");
         content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
-        content.Should().Contain("public enum Status");
+        content.Should().Contain("public enum PetStatus");
         content.Should().Contain("Available,");
         content.Should().Contain("Pending,");
         content.Should().Contain("Sold,");
+    }
+
+    [Fact]
+    public void Generate_OrderWithInlineEnumType_GeneratesEnumNamedOrderType()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "Order": {
+                    "type": "object",
+                    "properties": {
+                      "Type": {
+                        "type": "string",
+                        "enum": ["Buy", "Sell"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Order.cs"));
+
+        content.Should().Contain("public OrderType? Type");
+        content.Should().Contain("public enum OrderType");
+        content.Should().Contain("Buy,");
+        content.Should().Contain("Sell,");
     }
 }
