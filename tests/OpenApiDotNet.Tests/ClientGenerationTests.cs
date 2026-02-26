@@ -464,6 +464,87 @@ public class ClientGenerationTests : IDisposable
     }
 
     [Fact]
+    public void Generate_WithArraySchemaInRequestBody_GeneratesListParameter()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/numbers": {
+                  "post": {
+                    "operationId": "submitNumbers",
+                    "requestBody": {
+                      "required": true,
+                      "content": {
+                        "application/json": {
+                          "schema": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "format": "int32"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "responses": { "204": { "description": "ok" } }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "NumbersBuilder.cs"));
+
+        content.Should().Contain("List<int> request");
+    }
+
+    [Fact]
+    public void Generate_WithXBodyNameExtension_UsesCustomParameterName()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/pets": {
+                  "post": {
+                    "operationId": "createPet",
+                    "requestBody": {
+                      "x-bodyName": "newPet",
+                      "required": true,
+                      "content": {
+                        "application/json": {
+                          "schema": { "$ref": "#/components/schemas/Pet" }
+                        }
+                      }
+                    },
+                    "responses": { "204": { "description": "ok" } }
+                  }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "Pet": { "type": "object", "properties": { "name": { "type": "string" } } }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs"));
+
+        content.Should().Contain("newPet");
+        content.Should().NotContain("Pet request");
+    }
+
+    [Fact]
     public void Generate_DeleteWithResponseBody_GeneratesReturnStatement()
     {
         var spec = """

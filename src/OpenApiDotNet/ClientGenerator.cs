@@ -446,14 +446,27 @@ public class ClientGenerator
             if (bodySchemaName != null)
             {
                 requestBodyType = GetFullyQualifiedTypeName(bodySchemaName);
-                requiredParameters.Add($"{requestBodyType} request");
             }
             else if (IsInlineObjectSchema(content.Value?.Schema))
             {
                 var nestedClassName = $"{methodName}Request";
                 requestBodyType = nestedClassName;
                 GenerateNestedClass(nestedClasses, nestedClassName, content.Value!.Schema!);
-                requiredParameters.Add($"{requestBodyType} request");
+            }
+            else if (content.Value?.Schema != null)
+            {
+                requestBodyType = GetCSharpType(content.Value.Schema);
+            }
+
+            if (requestBodyType != null)
+            {
+                var bodyParamName = operation.RequestBody.Extensions?.TryGetValue("x-bodyName", out var bodyNameExt) == true
+                    && bodyNameExt is JsonNodeExtension { Node: { } bodyNameNode }
+                    ? bodyNameNode.GetValue<string>()
+                    : null;
+                if (string.IsNullOrWhiteSpace(bodyParamName))
+                    bodyParamName = "request";
+                requiredParameters.Add($"{requestBodyType} {bodyParamName}");
             }
         }
 
