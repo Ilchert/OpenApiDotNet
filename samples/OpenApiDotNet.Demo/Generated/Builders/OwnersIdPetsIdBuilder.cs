@@ -4,22 +4,22 @@ using System.Text.Json.Serialization;
 
 namespace PetStore;
 
-public class OwnersIdPetsIdBuilder : IBuilder
+public class OwnersIdPetsIdBuilder : IOpenApiBuilder
 {
-    private readonly IBuilder _parentBuilder;
+    private readonly IOpenApiBuilder _parentBuilder;
     private readonly long _petId;
 
 #pragma warning disable CS8618
     protected OwnersIdPetsIdBuilder() { }
 #pragma warning restore CS8618
 
-    public OwnersIdPetsIdBuilder(IBuilder parentBuilder, long petId)
+    public OwnersIdPetsIdBuilder(IOpenApiBuilder parentBuilder, long petId)
     {
         _parentBuilder = parentBuilder;
         _petId = petId;
     }
 
-    public IClient Client => _parentBuilder.Client;
+    public IOpenApiClient Client => _parentBuilder.Client;
     public string GetPath() => $"{_parentBuilder.GetPath()}/{_petId}";
 
     /// <summary>

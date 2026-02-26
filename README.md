@@ -381,7 +381,7 @@ public enum PetStatus
 }
 ```
 
-### Example Generated IClient Interface
+### Example Generated IOpenApiClient Interface
 
 ```csharp
 using System.Text.Json;
@@ -391,14 +391,14 @@ namespace PetStoreClient;
 /// <summary>
 /// A simple pet store API
 /// </summary>
-public interface IClient : IBuilder
+public interface IOpenApiClient : IOpenApiBuilder
 {
     HttpClient HttpClient { get; }
     JsonSerializerOptions JsonOptions { get; }
     PetsBuilder Pets { get => new(this); }
 
-    IClient IBuilder.Client => this;
-    string IBuilder.GetPath() => "";
+    IOpenApiClient IOpenApiBuilder.Client => this;
+    string IOpenApiBuilder.GetPath() => "";
 }
 ```
 
@@ -410,20 +410,20 @@ using System.Text.Json.Serialization;
 
 namespace PetStoreClient;
 
-public class PetsBuilder : IBuilder
+public class PetsBuilder : IOpenApiBuilder
 {
-    private readonly IBuilder _parentBuilder;
+    private readonly IOpenApiBuilder _parentBuilder;
 
 #pragma warning disable CS8618
     protected PetsBuilder() { }
 #pragma warning restore CS8618
 
-    public PetsBuilder(IBuilder parentBuilder)
+    public PetsBuilder(IOpenApiBuilder parentBuilder)
     {
         _parentBuilder = parentBuilder;
     }
 
-    public IClient Client => _parentBuilder.Client;
+    public IOpenApiClient Client => _parentBuilder.Client;
     public string GetPath() => $"{_parentBuilder.GetPath()}/pets";
 
     public virtual PetsIdBuilder this[long petId]
@@ -481,7 +481,7 @@ When a response schema is defined inline (not via `$ref`), the generator creates
 
 ```csharp
 // Generated StatsBuilder.cs
-public class StatsBuilder : IBuilder
+public class StatsBuilder : IOpenApiBuilder
 {
     // ... builder infrastructure ...
 
@@ -542,10 +542,10 @@ All builder classes are designed for easy mocking with frameworks like [Moq](htt
 
 - **`virtual` methods** on all operations and indexers
 - **`protected` parameterless constructors** so Moq can create subclass proxies
-- **`IClient` interface** as the entry point for mock setup
+- **`IOpenApiClient` interface** as the entry point for mock setup
 
 ```csharp
-var mock = new Mock<IClient>();
+var mock = new Mock<IOpenApiClient>();
 mock.Setup(c => c.Pets[123].Get(It.IsAny<CancellationToken>()))
     .ReturnsAsync(new List<Pet> { new Pet() });
 
@@ -573,12 +573,12 @@ Add these packages to your project:
 <PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.3.0" />
 ```
 
-### 2. Implement IClient
+### 2. Implement IOpenApiClient
 
-Create a concrete class that implements the generated `IClient` interface:
+Create a concrete class that implements the generated `IOpenApiClient` interface:
 
 ```csharp
-public class PetStoreClient : IClient
+public class PetStoreClient : IOpenApiClient
 {
     public HttpClient HttpClient { get; }
     public JsonSerializerOptions JsonOptions { get; }

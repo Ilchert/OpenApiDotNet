@@ -4,20 +4,20 @@ using System.Text.Json.Serialization;
 
 namespace PetStore;
 
-public class PetsBuilder : IBuilder
+public class PetsBuilder : IOpenApiBuilder
 {
-    private readonly IBuilder _parentBuilder;
+    private readonly IOpenApiBuilder _parentBuilder;
 
 #pragma warning disable CS8618
     protected PetsBuilder() { }
 #pragma warning restore CS8618
 
-    public PetsBuilder(IBuilder parentBuilder)
+    public PetsBuilder(IOpenApiBuilder parentBuilder)
     {
         _parentBuilder = parentBuilder;
     }
 
-    public IClient Client => _parentBuilder.Client;
+    public IOpenApiClient Client => _parentBuilder.Client;
     public string GetPath() => $"{_parentBuilder.GetPath()}/pets";
 
     public virtual PetsIdBuilder this[long petId]

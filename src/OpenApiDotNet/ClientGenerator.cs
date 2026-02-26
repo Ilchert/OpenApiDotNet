@@ -34,8 +34,8 @@ public class ClientGenerator
         GenerateModels();
 
         var pathTree = PathTreeBuilder.Build(_document.Paths);
-        GenerateIBuilderInterface();
-        GenerateIClientInterface(pathTree);
+        GenerateIOpenApiBuilderInterface();
+        GenerateIOpenApiClientInterface(pathTree);
         GenerateBuilders(pathTree);
 
         GenerateJsonConfiguration();
@@ -173,7 +173,7 @@ public class ClientGenerator
         Console.WriteLine($"  Generated enum: {name}");
     }
 
-    private void GenerateIBuilderInterface()
+    private void GenerateIOpenApiBuilderInterface()
     {
         var sb = new StringBuilder();
         sb.AppendLine($"namespace {_namespace};");
@@ -181,18 +181,18 @@ public class ClientGenerator
         sb.AppendLine("/// <summary>");
         sb.AppendLine("/// Base interface for all fluent API builders");
         sb.AppendLine("/// </summary>");
-        sb.AppendLine("public interface IBuilder");
+        sb.AppendLine("public interface IOpenApiBuilder");
         sb.AppendLine("{");
-        sb.AppendLine("    IClient Client { get; }");
+        sb.AppendLine("    IOpenApiClient Client { get; }");
         sb.AppendLine("    string GetPath();");
         sb.AppendLine("}");
 
-        var filePath = Path.Combine(_outputDirectory, "IBuilder.cs");
+        var filePath = Path.Combine(_outputDirectory, "IOpenApiBuilder.cs");
         File.WriteAllText(filePath, sb.ToString());
-        Console.WriteLine("  Generated IBuilder interface");
+        Console.WriteLine("  Generated IOpenApiBuilder interface");
     }
 
-    private void GenerateIClientInterface(PathSegmentNode pathTree)
+    private void GenerateIOpenApiClientInterface(PathSegmentNode pathTree)
     {
         var sb = new StringBuilder();
         sb.AppendLine("using System.Text.Json;");
@@ -205,7 +205,7 @@ public class ClientGenerator
         sb.AppendLine("/// <summary>");
         sb.AppendLine($"/// {EscapeXmlComment(_document.Info.Description ?? _document.Info.Title ?? "API Client")}");
         sb.AppendLine("/// </summary>");
-        sb.AppendLine("public interface IClient : IBuilder");
+        sb.AppendLine("public interface IOpenApiClient : IOpenApiBuilder");
         sb.AppendLine("{");
         sb.AppendLine("    HttpClient HttpClient { get; }");
         sb.AppendLine("    JsonSerializerOptions JsonOptions { get; }");
@@ -220,13 +220,13 @@ public class ClientGenerator
         }
 
         sb.AppendLine();
-        sb.AppendLine($"    IClient IBuilder.Client => this;");
-        sb.AppendLine($"    string IBuilder.GetPath() => \"\";");
+        sb.AppendLine($"    IOpenApiClient IOpenApiBuilder.Client => this;");
+        sb.AppendLine($"    string IOpenApiBuilder.GetPath() => \"\";");
         sb.AppendLine("}");
 
-        var filePath = Path.Combine(_outputDirectory, "IClient.cs");
+        var filePath = Path.Combine(_outputDirectory, "IOpenApiClient.cs");
         File.WriteAllText(filePath, sb.ToString());
-        Console.WriteLine("  Generated IClient interface");
+        Console.WriteLine("  Generated IOpenApiClient interface");
     }
 
     private void GenerateBuilders(PathSegmentNode root)
@@ -268,9 +268,9 @@ public class ClientGenerator
 
     private void GenerateStaticBuilderBody(StringBuilder sb, PathSegmentNode node, string builderName)
     {
-        sb.AppendLine($"public class {builderName} : IBuilder");
+        sb.AppendLine($"public class {builderName} : IOpenApiBuilder");
         sb.AppendLine("{");
-        sb.AppendLine("    private readonly IBuilder _parentBuilder;");
+        sb.AppendLine("    private readonly IOpenApiBuilder _parentBuilder;");
         sb.AppendLine();
 
         // Protected parameterless constructor for mocking
@@ -279,13 +279,13 @@ public class ClientGenerator
         sb.AppendLine("#pragma warning restore CS8618");
         sb.AppendLine();
 
-        sb.AppendLine($"    public {builderName}(IBuilder parentBuilder)");
+        sb.AppendLine($"    public {builderName}(IOpenApiBuilder parentBuilder)");
         sb.AppendLine("    {");
         sb.AppendLine("        _parentBuilder = parentBuilder;");
         sb.AppendLine("    }");
         sb.AppendLine();
 
-        sb.AppendLine("    public IClient Client => _parentBuilder.Client;");
+        sb.AppendLine("    public IOpenApiClient Client => _parentBuilder.Client;");
         sb.AppendLine($"    public string GetPath() => $\"{{_parentBuilder.GetPath()}}/{node.SegmentName}\";");
         sb.AppendLine();
 
@@ -329,9 +329,9 @@ public class ClientGenerator
         var paramName = ToCamelCase(node.ParameterName ?? "id");
         var fieldName = $"_{paramName}";
 
-        sb.AppendLine($"public class {builderName} : IBuilder");
+        sb.AppendLine($"public class {builderName} : IOpenApiBuilder");
         sb.AppendLine("{");
-        sb.AppendLine("    private readonly IBuilder _parentBuilder;");
+        sb.AppendLine("    private readonly IOpenApiBuilder _parentBuilder;");
         sb.AppendLine($"    private readonly {paramType} {fieldName};");
         sb.AppendLine();
 
@@ -341,14 +341,14 @@ public class ClientGenerator
         sb.AppendLine("#pragma warning restore CS8618");
         sb.AppendLine();
 
-        sb.AppendLine($"    public {builderName}(IBuilder parentBuilder, {paramType} {paramName})");
+        sb.AppendLine($"    public {builderName}(IOpenApiBuilder parentBuilder, {paramType} {paramName})");
         sb.AppendLine("    {");
         sb.AppendLine("        _parentBuilder = parentBuilder;");
         sb.AppendLine($"        {fieldName} = {paramName};");
         sb.AppendLine("    }");
         sb.AppendLine();
 
-        sb.AppendLine("    public IClient Client => _parentBuilder.Client;");
+        sb.AppendLine("    public IOpenApiClient Client => _parentBuilder.Client;");
         sb.AppendLine($"    public string GetPath() => $\"{{_parentBuilder.GetPath()}}/{{{fieldName}}}\";");
         sb.AppendLine();
 

@@ -53,8 +53,8 @@ public class ClientGenerationTests : IDisposable
         Directory.Exists(Path.Combine(_outputDirectory, "Models")).Should().BeTrue();
         File.Exists(Path.Combine(_outputDirectory, "Models", "Pet.cs")).Should().BeTrue();
         File.Exists(Path.Combine(_outputDirectory, "Models", "NewPet.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "IBuilder.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "IClient.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "IOpenApiBuilder.cs")).Should().BeTrue();
+        File.Exists(Path.Combine(_outputDirectory, "IOpenApiClient.cs")).Should().BeTrue();
         Directory.Exists(Path.Combine(_outputDirectory, "Builders")).Should().BeTrue();
         File.Exists(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs")).Should().BeTrue();
         File.Exists(Path.Combine(_outputDirectory, "JsonConfiguration.cs")).Should().BeTrue();
@@ -152,7 +152,7 @@ public class ClientGenerationTests : IDisposable
         generator.Generate();
 
         // IClient should have navigation property for Pets
-        var clientContent = File.ReadAllText(Path.Combine(_outputDirectory, "IClient.cs"));
+        var clientContent = File.ReadAllText(Path.Combine(_outputDirectory, "IOpenApiClient.cs"));
         clientContent.Should().Contain("PetsBuilder Pets");
         clientContent.Should().Contain("HttpClient HttpClient");
         clientContent.Should().Contain("JsonSerializerOptions JsonOptions");
