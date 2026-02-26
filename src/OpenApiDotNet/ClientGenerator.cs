@@ -418,6 +418,7 @@ public class ClientGenerator
         var optionalParameters = new List<string>();
         var queryParams = new List<(string name, string paramName, string paramType, bool required, bool isCollection)>();
         string? requestBodyType = null;
+        string? bodyParamName = null;
 
         // Only include query parameters (path params are handled by the builder chain)
         if (operation.Parameters != null)
@@ -460,7 +461,7 @@ public class ClientGenerator
 
             if (requestBodyType != null)
             {
-                var bodyParamName = operation.RequestBody.Extensions?.TryGetValue("x-bodyName", out var bodyNameExt) == true
+                bodyParamName = operation.RequestBody.Extensions?.TryGetValue("x-bodyName", out var bodyNameExt) == true
                     && bodyNameExt is JsonNodeExtension { Node: { } bodyNameNode }
                     ? bodyNameNode.GetValue<string>()
                     : null;
@@ -531,15 +532,16 @@ public class ClientGenerator
         sb.AppendLine();
 
         // HTTP call
-        GenerateBuilderHttpCall(sb, httpMethod, responseType, requestBodyType != null);
+        GenerateBuilderHttpCall(sb, httpMethod, responseType, requestBodyType != null ? bodyParamName : null);
 
         sb.AppendLine("    }");
         sb.AppendLine();
         sb.Append(nestedClasses);
     }
 
-    private static void GenerateBuilderHttpCall(StringBuilder sb, HttpMethod operationType, string responseType, bool hasRequestBody)
+    private static void GenerateBuilderHttpCall(StringBuilder sb, HttpMethod operationType, string responseType, string? bodyParamName)
     {
+        bool hasRequestBody = bodyParamName != null;
         if (operationType == HttpMethod.Get)
         {
             sb.AppendLine("        var response = await Client.HttpClient.GetAsync(url, cancellationToken);");
@@ -553,7 +555,7 @@ public class ClientGenerator
         {
             if (hasRequestBody)
             {
-                sb.AppendLine("        var response = await Client.HttpClient.PostAsJsonAsync(url, request, Client.JsonOptions, cancellationToken);");
+                sb.AppendLine($"        var response = await Client.HttpClient.PostAsJsonAsync(url, {bodyParamName}, Client.JsonOptions, cancellationToken);");
             }
             else
             {
@@ -569,7 +571,7 @@ public class ClientGenerator
         {
             if (hasRequestBody)
             {
-                sb.AppendLine("        var response = await Client.HttpClient.PutAsJsonAsync(url, request, Client.JsonOptions, cancellationToken);");
+                sb.AppendLine($"        var response = await Client.HttpClient.PutAsJsonAsync(url, {bodyParamName}, Client.JsonOptions, cancellationToken);");
             }
             else
             {
@@ -594,7 +596,7 @@ public class ClientGenerator
         {
             if (hasRequestBody)
             {
-                sb.AppendLine("        var content = JsonContent.Create(request, options: Client.JsonOptions);");
+                sb.AppendLine($"        var content = JsonContent.Create({bodyParamName}, options: Client.JsonOptions);");
                 sb.AppendLine("        var response = await Client.HttpClient.PatchAsync(url, content, cancellationToken);");
             }
             else

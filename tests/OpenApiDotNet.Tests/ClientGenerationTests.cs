@@ -542,6 +542,7 @@ public class ClientGenerationTests : IDisposable
 
         content.Should().Contain("newPet");
         content.Should().NotContain("Pet request");
+        content.Should().Contain("PostAsJsonAsync(url, newPet,");
     }
 
     [Fact]
