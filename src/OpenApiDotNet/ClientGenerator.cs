@@ -95,7 +95,7 @@ public class ClientGenerator
             foreach (var property in schema.Properties)
             {
                 var propertyName = ToPascalCase(property.Key);
-                var propertyType = GetModelPropertyType(property.Value, propertyName, nestedTypes);
+                var propertyType = GetModelPropertyType(property.Value, propertyName, nestedTypes, $"{typeName}{propertyName}");
                 var isRequired = schema.Required?.Contains(property.Key) ?? false;
 
                 if (!string.IsNullOrEmpty(property.Value.Description))
@@ -663,21 +663,23 @@ public class ClientGenerator
         sb.AppendLine();
     }
 
-    private string GetModelPropertyType(IOpenApiSchema schema, string propertyName, StringBuilder nestedTypes)
+    private string GetModelPropertyType(IOpenApiSchema schema, string propertyName, StringBuilder nestedTypes, string? nestedTypeName = null)
     {
         if (GetSchemaName(schema) != null)
             return GetCSharpType(schema);
 
+        var typeName = nestedTypeName ?? propertyName;
+
         if (schema.Enum != null && schema.Enum.Count > 0)
         {
-            GenerateNestedEnum(nestedTypes, propertyName, schema);
-            return propertyName;
+            GenerateNestedEnum(nestedTypes, typeName, schema);
+            return typeName;
         }
 
         if (IsInlineObjectSchema(schema))
         {
-            GenerateNestedClass(nestedTypes, propertyName, schema);
-            return propertyName;
+            GenerateNestedClass(nestedTypes, typeName, schema);
+            return typeName;
         }
 
         return GetCSharpType(schema);
