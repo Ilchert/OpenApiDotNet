@@ -1,0 +1,28 @@
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace PetStore;
+
+public class OwnersBuilder : IBuilder
+{
+    private readonly IBuilder _parentBuilder;
+
+#pragma warning disable CS8618
+    protected OwnersBuilder() { }
+#pragma warning restore CS8618
+
+    public OwnersBuilder(IBuilder parentBuilder)
+    {
+        _parentBuilder = parentBuilder;
+    }
+
+    public IClient Client => _parentBuilder.Client;
+    public string GetPath() => $"{_parentBuilder.GetPath()}/owners";
+
+    public virtual OwnersIdBuilder this[string ownerId]
+    {
+        get => new(this, ownerId);
+    }
+
+}

@@ -1,0 +1,9 @@
+{
+  "openApiFile": "..\\..\\..\\tests\\OpenApiDotNet.Tests\\Fixtures\\petstore.json",
+  "outputDirectory": ".",
+  "namespace": "PetStore",
+  "overlayFiles": [],
+  "namespacePrefix": null,
+  "clientName": "PetStoreApi",
+  "typeMappings": null
+}
