@@ -570,6 +570,10 @@ public class ClientGenerator
         {
             sb.AppendLine("        var response = await Client.HttpClient.DeleteAsync(url, cancellationToken);");
             sb.AppendLine("        response.EnsureSuccessStatusCode();");
+            if (responseType != "void")
+            {
+                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+            }
         }
         else if (operationType == HttpMethod.Patch)
         {

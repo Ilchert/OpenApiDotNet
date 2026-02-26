@@ -464,6 +464,52 @@ public class ClientGenerationTests : IDisposable
     }
 
     [Fact]
+    public void Generate_DeleteWithResponseBody_GeneratesReturnStatement()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items/{id}": {
+                  "delete": {
+                    "operationId": "deleteItem",
+                    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+                    "responses": {
+                      "200": {
+                        "description": "OK",
+                        "content": {
+                          "application/json": {
+                            "schema": { "$ref": "#/components/schemas/Item" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "Item": { "type": "object", "properties": { "id": { "type": "integer", "format": "int64" } } }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsIdBuilder.cs"));
+
+        // Return type should be the referenced model
+        content.Should().Contain("Task<Test.Client.Models.Item>");
+
+        // Should read from JSON and return the result
+        content.Should().Contain("ReadFromJsonAsync<Test.Client.Models.Item>");
+        content.Should().Contain("Client.HttpClient.DeleteAsync");
+    }
+
+    [Fact]
     public void Generate_WithObjectReturnType_GeneratesTaskOfObject()
     {
         var spec = """
