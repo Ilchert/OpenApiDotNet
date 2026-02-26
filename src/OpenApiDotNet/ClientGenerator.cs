@@ -531,7 +531,7 @@ public class ClientGenerator
             sb.AppendLine("        response.EnsureSuccessStatusCode();");
             if (responseType != "void")
             {
-                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+                AppendDeserializationReturn(sb, responseType);
             }
         }
         else if (operationType == HttpMethod.Post)
@@ -547,7 +547,7 @@ public class ClientGenerator
             sb.AppendLine("        response.EnsureSuccessStatusCode();");
             if (responseType != "void")
             {
-                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+                AppendDeserializationReturn(sb, responseType);
             }
         }
         else if (operationType == HttpMethod.Put)
@@ -563,7 +563,7 @@ public class ClientGenerator
             sb.AppendLine("        response.EnsureSuccessStatusCode();");
             if (responseType != "void")
             {
-                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+                AppendDeserializationReturn(sb, responseType);
             }
         }
         else if (operationType == HttpMethod.Delete)
@@ -572,7 +572,7 @@ public class ClientGenerator
             sb.AppendLine("        response.EnsureSuccessStatusCode();");
             if (responseType != "void")
             {
-                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+                AppendDeserializationReturn(sb, responseType);
             }
         }
         else if (operationType == HttpMethod.Patch)
@@ -589,9 +589,17 @@ public class ClientGenerator
             sb.AppendLine("        response.EnsureSuccessStatusCode();");
             if (responseType != "void")
             {
-                sb.AppendLine($"        return await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken) ?? throw new InvalidOperationException(\"Response was null\");");
+                AppendDeserializationReturn(sb, responseType);
             }
         }
+    }
+
+    private static void AppendDeserializationReturn(StringBuilder sb, string responseType)
+    {
+        sb.AppendLine($"        var deserializedResponse = await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken);");
+        sb.AppendLine("        if (deserializedResponse is { } deserializedResponseValue)");
+        sb.AppendLine("            return deserializedResponseValue;");
+        sb.AppendLine("        throw new InvalidOperationException($\"Response from {url} is null\");");
     }
 
     private string GetResponseType(OpenApiOperation operation)
