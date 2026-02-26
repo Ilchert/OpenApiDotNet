@@ -204,7 +204,7 @@ public class ClientGenerationTests : IDisposable
 
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
         content.Should().Contain("var queryString = new List<string>();");
-        content.Should().Contain("if (limit != null)");
+        content.Should().Contain("if (limit is {} limitValue)");
         content.Should().Contain("Uri.EscapeDataString");
     }
 
@@ -247,8 +247,8 @@ public class ClientGenerationTests : IDisposable
         content.Should().Contain("Uri.EscapeDataString(category.ToString())");
         content.Should().NotContain("if (category != null)");
 
-        // Optional parameter should have null check
-        content.Should().Contain("if (limit != null)");
+        // Optional parameter should have null check using pattern matching (avoids CS8604)
+        content.Should().Contain("if (limit is {} limitValue)");
     }
 
     [Fact]
@@ -296,9 +296,9 @@ public class ClientGenerationTests : IDisposable
         // Each item should be individually escaped and added with the parameter name
         content.Should().Contain("Uri.EscapeDataString(item.ToString())");
 
-        // Scalar parameter should still use direct .ToString()
-        content.Should().Contain("if (limit != null)");
-        content.Should().Contain("Uri.EscapeDataString(limit.ToString())");
+        // Scalar parameter should use pattern matching to avoid CS8604
+        content.Should().Contain("if (limit is {} limitValue)");
+        content.Should().Contain("Uri.EscapeDataString(limitValue.ToString())");
     }
 
     [Fact]

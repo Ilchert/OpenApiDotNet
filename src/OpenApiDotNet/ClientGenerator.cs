@@ -500,8 +500,8 @@ public class ClientGenerator
                 }
                 else
                 {
-                    sb.AppendLine($"        if ({param.paramName} != null)");
-                    sb.AppendLine($"            queryString.Add($\"{param.name}={{Uri.EscapeDataString({param.paramName}.ToString())}}\");");
+                    sb.AppendLine($"        if ({param.paramName} is {{}} {param.paramName}Value)");
+                    sb.AppendLine($"            queryString.Add($\"{param.name}={{Uri.EscapeDataString({param.paramName}Value.ToString())}}\");");
                 }
             }
 
