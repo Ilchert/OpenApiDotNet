@@ -464,6 +464,55 @@ public class ClientGenerationTests : IDisposable
     }
 
     [Fact]
+    public void Generate_WithObjectReturnType_GeneratesTaskOfObject()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/data": {
+                  "get": {
+                    "operationId": "getData",
+                    "summary": "Get data",
+                    "responses": {
+                      "200": {
+                        "description": "OK",
+                        "content": {
+                          "application/json": {
+                            "schema": {
+                              "type": "object"
+                            }
+                          },
+                          "text/json": {
+                            "schema": {
+                              "type": "object"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "DataBuilder.cs"));
+
+        // Return type should be object (not void, not a nested class)
+        content.Should().Contain("Task<object>");
+        content.Should().NotContain("Task<GetResponse>");
+        content.Should().NotContain("public class GetResponse");
+
+        // Should read from JSON as object
+        content.Should().Contain("ReadFromJsonAsync<object>");
+    }
+
+    [Fact]
     public void Constructor_WithNullDocument_ThrowsArgumentNullException()
     {
         // Act
