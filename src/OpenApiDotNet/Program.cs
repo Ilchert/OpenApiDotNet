@@ -1,4 +1,5 @@
-﻿using System.CommandLine;
+﻿using System.Buffers;
+using System.CommandLine;
 using System.CommandLine.Completions;
 using System.Text.Json;
 using BinkyLabs.OpenApi.Overlays;
@@ -6,74 +7,41 @@ using Microsoft.OpenApi;
 using Microsoft.OpenApi.Reader;
 using OpenApiDotNet;
 
+// default generate command
 var openApiFileArgument = new Argument<FileInfo>("openapi-file")
 {
-    Description = "Path to the OpenAPI specification file (JSON or YAML)"
-};
-openApiFileArgument.CompletionSources.Add(ctx =>
-{
-    var pattern = ctx.WordToComplete;
-    var directory = Path.GetDirectoryName(pattern);
-    if (string.IsNullOrEmpty(directory))
-        directory = ".";
+    Description = "Path to the OpenAPI specification file (JSON or YAML)",
+    CompletionSources = { JsonYamlCompletion }
+}.AcceptExistingOnly();
 
-    if (!Directory.Exists(directory))
-        return [];
-
-    return Directory.EnumerateFiles(directory, "*.*", SearchOption.TopDirectoryOnly)
-        .Where(f => f.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
-                  || f.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase)
-                  || f.EndsWith(".yml", StringComparison.OrdinalIgnoreCase))
-        .Select(f => new CompletionItem(f));
-});
-
-var outputOption = new Option<DirectoryInfo>("--output")
+var outputOption = new Option<DirectoryInfo>("--output", "-o")
 {
     Description = "Directory where generated code will be placed",
-    DefaultValueFactory = _ => new DirectoryInfo("./Generated")
-};
-outputOption.Aliases.Add("-o");
+    DefaultValueFactory = _ => new DirectoryInfo("./Generated"),
+}.AcceptLegalFilePathsOnly();
 
-var namespaceOption = new Option<string>("--namespace")
+var namespaceOption = new Option<string>("--namespace", "-n")
 {
     Description = "Namespace for generated code",
     DefaultValueFactory = _ => "GeneratedClient"
 };
-namespaceOption.Aliases.Add("-n");
 
-var namespacePrefixOption = new Option<string?>("--namespace-prefix")
+var namespacePrefixOption = new Option<string?>("--namespace-prefix", "-p")
 {
     Description = "Strip this dotted prefix from schema names when generating namespaces (e.g. 'Commerce' turns 'Commerce.Order' into 'Order')"
 };
-namespacePrefixOption.Aliases.Add("-p");
 
-var clientNameOption = new Option<string?>("--client-name")
+var clientNameOption = new Option<string?>("--client-name", "-c")
 {
     Description = "Custom name for the generated client class (default: derived from API title)"
 };
-clientNameOption.Aliases.Add("-c");
 
 var overlayOption = new Option<FileInfo[]>("--overlay")
 {
     Description = "Path to overlay file(s) to apply before generation. Can be specified multiple times.",
-    Arity = ArgumentArity.ZeroOrMore
-};
-overlayOption.CompletionSources.Add(ctx =>
-{
-    var pattern = ctx.WordToComplete;
-    var directory = Path.GetDirectoryName(pattern);
-    if (string.IsNullOrEmpty(directory))
-        directory = ".";
-
-    if (!Directory.Exists(directory))
-        return [];
-
-    return Directory.EnumerateFiles(directory, "*.*", SearchOption.TopDirectoryOnly)
-        .Where(f => f.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
-                  || f.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase)
-                  || f.EndsWith(".yml", StringComparison.OrdinalIgnoreCase))
-        .Select(f => new CompletionItem(f));
-});
+    Arity = ArgumentArity.ZeroOrMore,
+    CompletionSources = { JsonYamlCompletion }
+}.AcceptExistingOnly();
 
 var rootCommand = new RootCommand
 {
@@ -96,21 +64,23 @@ rootCommand.SetAction(async parseResult =>
     await Generate(openApiFile, outputDirectory, namespaceName, namespacePrefix, clientName, overlayFiles, null);
 });
 
+
+// update comand config
 var updateConfigArgument = new Argument<FileInfo>("config-file")
 {
-    Description = $"Path to the {GenerationConfig.FileName} configuration file"
-};
-updateConfigArgument.DefaultValueFactory = _ => new FileInfo(GenerationConfig.FileName);
+    Description = $"Path to the {GenerationConfig.FileName} configuration file",
+    DefaultValueFactory = _ => new FileInfo(GenerationConfig.FileName)
+}.AcceptExistingOnly();
 
 var updateCommand = new Command("update", "Re-generate client code using a previously saved configuration file")
 {
     updateConfigArgument
 };
 
-updateCommand.SetAction(parseResult =>
+updateCommand.SetAction(async parseResult =>
 {
     var configFile = parseResult.GetValue(updateConfigArgument)!;
-    Update(configFile);
+    await Update(configFile);
 });
 
 rootCommand.Subcommands.Add(updateCommand);
@@ -118,23 +88,19 @@ rootCommand.Subcommands.Add(updateCommand);
 var convertOutputArgument = new Argument<FileInfo>("output-file")
 {
     Description = "Path for the converted output file"
-};
+}.AcceptLegalFileNamesOnly();
 
-var versionOption = new Option<string>("--version")
+var versionOption = new Option<string>("--version", "-v")
 {
-    Description = "Target OpenAPI specification version"
-};
-versionOption.Aliases.Add("-v");
-versionOption.DefaultValueFactory = _ => "3.2";
-versionOption.AcceptOnlyFromAmong("2.0", "3.0", "3.1", "3.2");
+    Description = "Target OpenAPI specification version",
+    DefaultValueFactory = _ => "3.2"
+}.AcceptOnlyFromAmong("2.0", "3.0", "3.1", "3.2");
 
-var formatOption = new Option<string>("--format")
+var formatOption = new Option<string>("--format", "-f")
 {
-    Description = "Output format"
-};
-formatOption.Aliases.Add("-f");
-formatOption.DefaultValueFactory = _ => "json";
-formatOption.AcceptOnlyFromAmong("json", "yaml");
+    Description = "Output format",
+    DefaultValueFactory = _ => "json"
+}.AcceptOnlyFromAmong("json", "yaml");
 
 var convertCommand = new Command("convert", "Convert an OpenAPI specification to a specific version and format")
 {
@@ -157,159 +123,82 @@ rootCommand.Subcommands.Add(convertCommand);
 
 return rootCommand.Parse(args).Invoke();
 
-static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, string? clientName, FileInfo[] overlayFiles, Dictionary<string, string>? typeMappings)
+static IEnumerable<string> JsonYamlCompletion(CompletionContext ctx)
 {
-    if (!openApiFile.Exists)
-    {
-        Console.Error.WriteLine($"Error: File '{openApiFile.FullName}' not found.");
-        return;
-    }
+    var pattern = ctx.WordToComplete;
+    var directory = Path.GetDirectoryName(pattern);
+    if (string.IsNullOrEmpty(directory))
+        directory = ".";
 
-    try
-    {
-        Console.WriteLine($"Reading OpenAPI specification from: {openApiFile.FullName}");
-        Console.WriteLine();
+    if (!Directory.Exists(directory))
+        return [];
 
-        OpenApiDocument openApiDocument;
-        var settings = new OpenApiReaderSettings();
-        settings.AddYamlReader();
-
-        if (overlayFiles.Length > 0)
-        {
-            foreach (var overlayFile in overlayFiles)
-            {
-                if (!overlayFile.Exists)
-                {
-                    Console.Error.WriteLine($"Error: Overlay file '{overlayFile.FullName}' not found.");
-                    return;
-                }
-                Console.WriteLine($"Applying overlay: {overlayFile.FullName}");
-            }
-
-            var (firstOverlay, _) = await OverlayDocument.LoadFromUrlAsync(overlayFiles[0].FullName);
-            for (int i = 1; i < overlayFiles.Length; i++)
-            {
-                var (nextOverlay, _) = await OverlayDocument.LoadFromUrlAsync(overlayFiles[i].FullName);
-                firstOverlay = firstOverlay.CombineWith(nextOverlay);
-            }
-
-            var (result, overlayDiagnostic) = await firstOverlay.ApplyToDocumentAndLoadAsync(openApiFile.FullName, readerSettings: new OverlayReaderSettings() { OpenApiSettings = settings });
-            openApiDocument = result;
-
-            if (overlayDiagnostic?.Errors.Count > 0)
-            {
-                Console.Error.WriteLine("Errors found after applying overlays:");
-                foreach (var error in overlayDiagnostic.Errors)
-                {
-                    Console.Error.WriteLine($"  - {error.Message}");
-                }
-            }
-
-            if (overlayDiagnostic?.Warnings.Count > 0)
-            {
-                Console.WriteLine("Warnings:");
-                foreach (var warning in overlayDiagnostic.Warnings)
-                {
-                    Console.WriteLine($"  - {warning.Message}");
-                }
-                Console.WriteLine();
-            }
-        }
-        else
-        {
-            using var stream = openApiFile.OpenRead();
-
-            var (result, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: settings);
-            openApiDocument = result;
-
-            if (diagnostic?.Errors.Count > 0)
-            {
-                Console.Error.WriteLine("Errors found in OpenAPI document:");
-                foreach (var error in diagnostic.Errors)
-                {
-                    Console.Error.WriteLine($"  - {error.Message}");
-                }
-            }
-
-            if (diagnostic?.Warnings.Count > 0)
-            {
-                Console.WriteLine("Warnings:");
-                foreach (var warning in diagnostic.Warnings)
-                {
-                    Console.WriteLine($"  - {warning.Message}");
-                }
-                Console.WriteLine();
-            }
-        }
-
-        Console.WriteLine($"Title: {openApiDocument.Info.Title}");
-        Console.WriteLine($"Version: {openApiDocument.Info.Version}");
-        Console.WriteLine($"Output: {outputDirectory.FullName}");
-        Console.WriteLine($"Namespace: {namespaceName}");
-        if (namespacePrefix != null)
-            Console.WriteLine($"Namespace prefix: {namespacePrefix}");
-        if (clientName != null)
-            Console.WriteLine($"Client name: {clientName}");
-        Console.WriteLine();
-
-        Console.WriteLine("Generating client code...");
-        Console.WriteLine();
-
-        var generator = new ClientGenerator(openApiDocument, namespaceName, outputDirectory.FullName, namespacePrefix, clientName, new TypeMappingConfig(typeMappings));
-        generator.Generate();
-
-        SaveConfig(openApiFile, outputDirectory, namespaceName, namespacePrefix, clientName, overlayFiles, typeMappings);
-
-        Console.WriteLine();
-        Console.WriteLine("✓ Client generation complete!");
-    }
-    catch (Exception ex)
-    {
-        Console.Error.WriteLine($"Error: {ex.Message}");
-        Console.Error.WriteLine(ex.StackTrace);
-    }
+    return Directory.EnumerateFiles(directory, "*.*", SearchOption.TopDirectoryOnly)
+        .Where(f => f.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                  || f.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase)
+                  || f.EndsWith(".yml", StringComparison.OrdinalIgnoreCase));
 }
 
-static void Update(FileInfo configFile)
+static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, string? clientName, FileInfo[] overlayFiles, Dictionary<string, string>? typeMappings)
 {
-    if (!configFile.Exists)
+    Console.WriteLine($"Reading OpenAPI specification from: {openApiFile.FullName}");
+    Console.WriteLine();
+
+    var settings = new OpenApiReaderSettings();
+    settings.AddYamlReader();
+
+    var openApiDocument = overlayFiles.Length > 0
+         ? await ApplyOverlays(openApiFile, overlayFiles, settings)
+         : await OpenApiDocument(openApiFile, settings);
+
+    Console.WriteLine($"Title: {openApiDocument.Info.Title}");
+    Console.WriteLine($"Version: {openApiDocument.Info.Version}");
+    Console.WriteLine($"Output: {outputDirectory.FullName}");
+    Console.WriteLine($"Namespace: {namespaceName}");
+    if (namespacePrefix != null)
+        Console.WriteLine($"Namespace prefix: {namespacePrefix}");
+    if (clientName != null)
+        Console.WriteLine($"Client name: {clientName}");
+    Console.WriteLine();
+
+    Console.WriteLine("Generating client code...");
+    Console.WriteLine();
+
+    var generator = new ClientGenerator(openApiDocument, namespaceName, outputDirectory.FullName, namespacePrefix, clientName, new TypeMappingConfig(typeMappings));
+    generator.Generate();
+
+    SaveConfig(openApiFile, outputDirectory, namespaceName, namespacePrefix, clientName, overlayFiles, typeMappings);
+
+    Console.WriteLine();
+    Console.WriteLine("✓ Client generation complete!");
+}
+
+static async Task Update(FileInfo configFile)
+{
+    var json = File.ReadAllText(configFile.FullName);
+    var config = JsonSerializer.Deserialize<GenerationConfig>(json);
+
+    if (config is null)
     {
-        Console.Error.WriteLine($"Error: Configuration file '{configFile.FullName}' not found.");
-        Console.Error.WriteLine($"Run the generate command first to create a {GenerationConfig.FileName} file.");
+        Console.Error.WriteLine("Error: Failed to read configuration file.");
         return;
     }
 
-    try
-    {
-        var json = File.ReadAllText(configFile.FullName);
-        var config = JsonSerializer.Deserialize<GenerationConfig>(json);
+    var baseDirectory = Path.GetDirectoryName(configFile.FullName) ?? ".";
+    var openApiFilePath = Path.IsPathRooted(config.OpenApiFile)
+        ? config.OpenApiFile
+        : Path.GetFullPath(Path.Combine(baseDirectory, config.OpenApiFile));
+    var outputDirectoryPath = Path.IsPathRooted(config.OutputDirectory)
+        ? config.OutputDirectory
+        : Path.GetFullPath(Path.Combine(baseDirectory, config.OutputDirectory));
 
-        if (config is null)
-        {
-            Console.Error.WriteLine("Error: Failed to read configuration file.");
-            return;
-        }
+    var overlayFiles = config.OverlayFiles
+        .Select(o => Path.IsPathRooted(o) ? o : Path.GetFullPath(Path.Combine(baseDirectory, o)))
+        .Select(o => new FileInfo(o))
+        .ToArray();
 
-        var baseDirectory = Path.GetDirectoryName(configFile.FullName) ?? ".";
-        var openApiFilePath = Path.IsPathRooted(config.OpenApiFile)
-            ? config.OpenApiFile
-            : Path.GetFullPath(Path.Combine(baseDirectory, config.OpenApiFile));
-        var outputDirectoryPath = Path.IsPathRooted(config.OutputDirectory)
-            ? config.OutputDirectory
-            : Path.GetFullPath(Path.Combine(baseDirectory, config.OutputDirectory));
-
-        var overlayFiles = config.OverlayFiles
-            .Select(o => Path.IsPathRooted(o) ? o : Path.GetFullPath(Path.Combine(baseDirectory, o)))
-            .Select(o => new FileInfo(o))
-            .ToArray();
-
-        Console.WriteLine($"Updating from configuration: {configFile.FullName}");
-        Generate(new FileInfo(openApiFilePath), new DirectoryInfo(outputDirectoryPath), config.Namespace, config.NamespacePrefix, config.ClientName, overlayFiles, config.TypeMappings);
-    }
-    catch (JsonException ex)
-    {
-        Console.Error.WriteLine($"Error: Invalid configuration file — {ex.Message}");
-    }
+    Console.WriteLine($"Updating from configuration: {configFile.FullName}");
+    await Generate(new FileInfo(openApiFilePath), new DirectoryInfo(outputDirectoryPath), config.Namespace, config.NamespacePrefix, config.ClientName, overlayFiles, config.TypeMappings);
 }
 
 static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, string? clientName, FileInfo[] overlayFiles, Dictionary<string, string>? typeMappings)
@@ -334,60 +223,98 @@ static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, stri
 
 static async Task Convert(FileInfo inputFile, FileInfo outputFile, string version, string format)
 {
-    if (!inputFile.Exists)
+    Console.WriteLine($"Reading OpenAPI specification from: {inputFile.FullName}");
+
+    var settings = new OpenApiReaderSettings();
+    settings.AddYamlReader();
+
+    var openApiDocument = await OpenApiDocument(inputFile, settings);
+
+    var specVersion = version switch
     {
-        Console.Error.WriteLine($"Error: File '{inputFile.FullName}' not found.");
-        return;
-    }
+        "2.0" => OpenApiSpecVersion.OpenApi2_0,
+        "3.0" => OpenApiSpecVersion.OpenApi3_0,
+        "3.1" => OpenApiSpecVersion.OpenApi3_1,
+        "3.2" => OpenApiSpecVersion.OpenApi3_2,
+        _ => throw new ArgumentException($"Unsupported OpenAPI version: {version}")
+    };
 
-    try
-    {
-        Console.WriteLine($"Reading OpenAPI specification from: {inputFile.FullName}");
+    var outputDirectory = Path.GetDirectoryName(outputFile.FullName);
+    if (!string.IsNullOrEmpty(outputDirectory))
+        Directory.CreateDirectory(outputDirectory);
 
-        using var stream = inputFile.OpenRead();
-        var settings = new OpenApiReaderSettings();
-        settings.AddYamlReader();
-        var (openApiDocument, diagnostic) = await OpenApiDocument.LoadAsync(stream, settings: settings);
+    await using var outStream = outputFile.Create();
+    await openApiDocument.SerializeAsync(outStream, specVersion, format, default);
 
-        if (diagnostic?.Errors.Count > 0)
-        {
-            Console.Error.WriteLine("Errors found in OpenAPI document:");
-            foreach (var error in diagnostic.Errors)
-            {
-                Console.Error.WriteLine($"  - {error.Message}");
-            }
-        }
-
-        var specVersion = version switch
-        {
-            "2.0" => OpenApiSpecVersion.OpenApi2_0,
-            "3.0" => OpenApiSpecVersion.OpenApi3_0,
-            "3.1" => OpenApiSpecVersion.OpenApi3_1,
-            "3.2" => OpenApiSpecVersion.OpenApi3_2,
-            _ => throw new ArgumentException($"Unsupported OpenAPI version: {version}")
-        };
-
-        var outputDirectory = Path.GetDirectoryName(outputFile.FullName);
-        if (!string.IsNullOrEmpty(outputDirectory))
-            Directory.CreateDirectory(outputDirectory);
-
-        using var fileStream = File.Create(outputFile.FullName);
-        using var textWriter = new StreamWriter(fileStream);
-
-        IOpenApiWriter writer = format switch
-        {
-            "yaml" => new OpenApiYamlWriter(textWriter),
-            _ => new OpenApiJsonWriter(textWriter),
-        };
-
-        openApiDocument.SerializeAs(specVersion, writer);
-
-        Console.WriteLine($"✓ Converted to OpenAPI {version} ({format}): {outputFile.FullName}");
-    }
-    catch (Exception ex)
-    {
-        Console.Error.WriteLine($"Error: {ex.Message}");
-        Console.Error.WriteLine(ex.StackTrace);
-    }
+    Console.WriteLine($"✓ Converted to OpenAPI {version} ({format}): {outputFile.FullName}");
 }
 
+static async Task<OpenApiDocument> ApplyOverlays(FileInfo openApiFile, FileInfo[] overlayFiles, OpenApiReaderSettings settings)
+{
+    var readerSettings = new OverlayReaderSettings() { OpenApiSettings = settings };
+
+    var overlayDocument = new OverlayDocument();
+
+    foreach (var overlayFile in overlayFiles)
+    {
+        var (overlay, diagnostic) = await OverlayDocument.LoadFromUrlAsync(overlayFile.FullName, readerSettings);
+        if (diagnostic?.Errors.Count > 0)
+        {
+            Console.Error.WriteLine($"Errors found in overlay '{overlayFile.FullName}':");
+            foreach (var error in diagnostic.Errors)
+                Console.Error.WriteLine($"  - {error.Message}");
+        }
+
+        if (diagnostic?.Warnings.Count > 0)
+        {
+            Console.WriteLine($"Warnings found in overlay '{overlayFile.FullName}':");
+            foreach (var warning in diagnostic.Warnings)
+                Console.WriteLine($"  - {warning.Message}");
+        }
+
+        Console.WriteLine();
+        if (overlay != null)
+            overlayDocument = overlayDocument.CombineWith(overlay);
+    }
+
+    var (result, overlayDiagnostic) = await overlayDocument.ApplyToDocumentAndLoadAsync(openApiFile.FullName, readerSettings: new OverlayReaderSettings() { OpenApiSettings = settings });
+
+    if (overlayDiagnostic?.Errors.Count > 0)
+    {
+        Console.Error.WriteLine("Errors found after applying overlays:");
+        foreach (var error in overlayDiagnostic.Errors)
+            Console.Error.WriteLine($"  - {error.Message}");
+    }
+
+    if (overlayDiagnostic?.Warnings.Count > 0)
+    {
+        Console.WriteLine("Warnings:");
+        foreach (var warning in overlayDiagnostic.Warnings)
+            Console.WriteLine($"  - {warning.Message}");
+        Console.WriteLine();
+    }
+
+    return result ?? throw new InvalidOperationException("Can not load document after applying overlays");
+}
+
+static async Task<OpenApiDocument> OpenApiDocument(FileInfo openApiFile, OpenApiReaderSettings settings)
+{
+    var (document, diagnostic) = await Microsoft.OpenApi.OpenApiDocument.LoadAsync(openApiFile.FullName, settings: settings);
+
+    if (diagnostic?.Errors.Count > 0)
+    {
+        Console.Error.WriteLine("Errors found in OpenAPI document:");
+        foreach (var error in diagnostic.Errors)
+            Console.Error.WriteLine($"  - {error.Message}");
+    }
+
+    if (diagnostic?.Warnings.Count > 0)
+    {
+        Console.WriteLine("Warnings:");
+        foreach (var warning in diagnostic.Warnings)
+            Console.WriteLine($"  - {warning.Message}");
+        Console.WriteLine();
+    }
+    return document ?? throw new InvalidOperationException($"Can not load document from file {openApiFile.FullName}");
+
+}

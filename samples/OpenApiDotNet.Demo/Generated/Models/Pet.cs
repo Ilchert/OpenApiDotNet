@@ -2,6 +2,9 @@ using System.Text.Json.Serialization;
 
 namespace PetStore.Models;
 
+/// <summary>
+/// Tests: component object schema; required properties (id: int64, name: string); optional properties of all scalar types (string, date, date-time, bool, double); optional enum $ref properties (PetStatus, PetSize)
+/// </summary>
 public class Pet
 {
     /// <summary>
@@ -47,13 +50,13 @@ public class Pet
     public double? Weight { get; set; }
 
     /// <summary>
-    /// The status of a pet in the store
+    /// Tests: component-level string enum; all member names map directly to PascalCase without JsonStringEnumMemberName (available, pending, sold)
     /// </summary>
     [JsonPropertyName("status")]
     public PetStore.Models.PetStatus? Status { get; set; }
 
     /// <summary>
-    /// The size category of a pet
+    /// Tests: component-level string enum with a hyphenated member name (extra-large) that requires JsonStringEnumMemberName to preserve the wire value
     /// </summary>
     [JsonPropertyName("size")]
     public PetStore.Models.PetSize? Size { get; set; }

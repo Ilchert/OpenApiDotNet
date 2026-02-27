@@ -2,6 +2,9 @@ using System.Text.Json.Serialization;
 
 namespace PetStore.Models;
 
+/// <summary>
+/// Tests: component object schema used as a $ref request body; one required string property; optional string and date properties
+/// </summary>
 public class NewPet
 {
     /// <summary>

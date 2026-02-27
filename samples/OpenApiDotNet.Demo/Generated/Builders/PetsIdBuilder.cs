@@ -1,6 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace PetStore;
 
@@ -25,7 +30,7 @@ public class PetsIdBuilder : IOpenApiBuilder
     public virtual PhotosBuilder Photos => new(this);
 
     /// <summary>
-    /// Get a pet by ID
+    /// Tests: GET operation; single int64 path parameter; $ref response body
     /// </summary>
     public virtual async Task<PetStore.Models.Pet> Get(CancellationToken cancellationToken = default)
     {
@@ -33,11 +38,29 @@ public class PetsIdBuilder : IOpenApiBuilder
 
         var response = await Client.HttpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<PetStore.Models.Pet>(Client.JsonOptions, cancellationToken) ?? throw new InvalidOperationException("Response was null");
+        var deserializedResponse = await response.Content.ReadFromJsonAsync<PetStore.Models.Pet>(Client.JsonOptions, cancellationToken);
+        if (deserializedResponse is { } deserializedResponseValue)
+            return deserializedResponseValue;
+        throw new InvalidOperationException($"Response from {url} is null");
     }
 
     /// <summary>
-    /// Delete a pet
+    /// Tests: PUT operation; x-bodyName extension overriding default body parameter name; $ref request and response bodies
+    /// </summary>
+    public virtual async Task<PetStore.Models.Pet> Put(PetStore.Models.NewPet updatedPet, CancellationToken cancellationToken = default)
+    {
+        var url = GetPath();
+
+        var response = await Client.HttpClient.PutAsJsonAsync(url, updatedPet, Client.JsonOptions, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var deserializedResponse = await response.Content.ReadFromJsonAsync<PetStore.Models.Pet>(Client.JsonOptions, cancellationToken);
+        if (deserializedResponse is { } deserializedResponseValue)
+            return deserializedResponseValue;
+        throw new InvalidOperationException($"Response from {url} is null");
+    }
+
+    /// <summary>
+    /// Tests: DELETE operation; single int64 path parameter; void return (no response body)
     /// </summary>
     public virtual async Task Delete(CancellationToken cancellationToken = default)
     {

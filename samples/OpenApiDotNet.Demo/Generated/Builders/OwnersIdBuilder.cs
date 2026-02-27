@@ -1,6 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace PetStore;
 
@@ -22,6 +27,6 @@ public class OwnersIdBuilder : IOpenApiBuilder
     public IOpenApiClient Client => _parentBuilder.Client;
     public string GetPath() => $"{_parentBuilder.GetPath()}/{_ownerId}";
 
-    public OwnersIdPetsBuilder Pets => new(this);
+    public virtual OwnersIdPetsBuilder Pets => new(this);
 
 }

@@ -1,6 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace PetStore;
 
@@ -23,7 +28,7 @@ public class OwnersIdPetsIdBuilder : IOpenApiBuilder
     public string GetPath() => $"{_parentBuilder.GetPath()}/{_petId}";
 
     /// <summary>
-    /// Get a specific pet for an owner
+    /// Tests: nested resource path with two path parameters of different types (string ownerId, int64 petId); $ref response body
     /// </summary>
     public virtual async Task<PetStore.Models.Pet> Get(CancellationToken cancellationToken = default)
     {
@@ -31,7 +36,10 @@ public class OwnersIdPetsIdBuilder : IOpenApiBuilder
 
         var response = await Client.HttpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<PetStore.Models.Pet>(Client.JsonOptions, cancellationToken) ?? throw new InvalidOperationException("Response was null");
+        var deserializedResponse = await response.Content.ReadFromJsonAsync<PetStore.Models.Pet>(Client.JsonOptions, cancellationToken);
+        if (deserializedResponse is { } deserializedResponseValue)
+            return deserializedResponseValue;
+        throw new InvalidOperationException($"Response from {url} is null");
     }
 
 }

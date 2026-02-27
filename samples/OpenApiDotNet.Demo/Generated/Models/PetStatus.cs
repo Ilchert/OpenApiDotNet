@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace PetStore.Models;
 
 /// <summary>
-/// The status of a pet in the store
+/// Tests: component-level string enum; all member names map directly to PascalCase without JsonStringEnumMemberName (available, pending, sold)
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum PetStatus
