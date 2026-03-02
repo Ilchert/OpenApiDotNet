@@ -3,6 +3,7 @@
     <Project Path="samples/OpenApiDotNet.Demo/OpenApiDotNet.Demo.csproj" />
   </Folder>
   <Folder Name="/SolutionItems/">
+    <File Path=".editorconfig" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
     <File Path="IMPLEMENTATION_SUMMARY.md" />
