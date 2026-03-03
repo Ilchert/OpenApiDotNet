@@ -24,7 +24,7 @@ internal abstract class BaseGenerator
         Write(writer);
     }
 
-    protected static void WriteSummary(CodeWriter writer, string? summary)
+    public static void WriteSummary(CodeWriter writer, string? summary)
     {
         if (!string.IsNullOrEmpty(summary))
         {

@@ -1,0 +1,53 @@
+using Microsoft.OpenApi;
+
+namespace OpenApiDotNet.Generators;
+
+internal class ObjectProperty
+{
+    public string Name { get; set; }
+    public GeneratorContext Context { get; }
+    public string PropertyName { get; set; }
+    public string TypeName { get; set; }
+    public string? Description { get; }
+    public bool IsRequired { get; }
+    public BaseGenerator? NestedPropertyTypeGenerator { get; set; }
+
+    public ObjectProperty(string name, IOpenApiSchema schema, string parentName, GeneratorContext context)
+    {
+        Name = name;
+        Context = context;
+        PropertyName = GeneratorContext.ToPascalCase(name);
+        Description = schema.Description;
+        IsRequired = schema.Required?.Contains(name) ?? false;
+
+        (TypeName, NestedPropertyTypeGenerator) = GetPropertyType(schema, parentName);
+    }
+
+    private (string TypeName, BaseGenerator? NestedPropertyTypeGenerator) GetPropertyType(IOpenApiSchema schema, string parentName)
+    {
+        if (GeneratorContext.GetSchemaName(schema) != null)
+            return (Context.GetCSharpType(schema), null);
+
+        var nestedTypeName = $"{parentName}{PropertyName}";
+
+        if (schema.Enum != null && schema.Enum.Count > 0)
+            return (nestedTypeName, new EnumGenerator(nestedTypeName, schema, Context));
+
+        if (GeneratorContext.IsInlineObjectSchema(schema))
+            return (nestedTypeName, new ObjectGenerator(nestedTypeName, schema, Context));
+
+        return (Context.GetCSharpType(schema), null);
+    }
+
+    public void Write(CodeWriter writer)
+    {
+        BaseGenerator.WriteSummary(writer, Description);
+        writer.WriteLine($$"""
+[System.Text.Json.Serialization.JsonConverter.JsonPropertyName("{{Name}}")]
+public {{(IsRequired ? "required " : "")}}{{TypeName}}{{(IsRequired ? "" : "?")}} {{PropertyName}} { get; set; }
+""");
+        writer.WriteLine();
+
+        NestedPropertyTypeGenerator?.Write(writer);
+    }
+}

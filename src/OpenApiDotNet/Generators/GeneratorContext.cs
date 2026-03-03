@@ -1,15 +1,19 @@
+using Microsoft.OpenApi;
+
 namespace OpenApiDotNet.Generators;
 
 internal class GeneratorContext
 {
     public string DefaultNamespace { get; }
     public string? StripNamespacePefix { get; }
+    public TypeMappingConfig TypeMappingConfig { get; }
 
     private static readonly char[] s_namespaceSeparators = ['.'];
 
-    public GeneratorContext(string defaultNamespace, string? stripNamespacePefix)
+    public GeneratorContext(string defaultNamespace, string? stripNamespacePefix, TypeMappingConfig? typeMappingConfig = null)
     {
         DefaultNamespace = defaultNamespace;
+        TypeMappingConfig = typeMappingConfig ?? new TypeMappingConfig();
         if (stripNamespacePefix != null)
             StripNamespacePefix = stripNamespacePefix.EndsWith('.') ? stripNamespacePefix : stripNamespacePefix + ".";
         else
@@ -53,5 +57,44 @@ internal class GeneratorContext
     {
         var words = input.Split(['-', '_', ' ', '.'], StringSplitOptions.RemoveEmptyEntries);
         return string.Concat(words.Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
+    }
+
+    public string GetCSharpType(IOpenApiSchema schema)
+    {
+        var schemaName = GetSchemaName(schema);
+        if (schemaName != null)
+        {
+            var (ns, name) = GetNameAndNamespace(schemaName, GeneratorCategory.Model);
+            return $"{ns}.{name}";
+        }
+
+        var resolved = TypeMappingConfig.Resolve(schema.Type, schema.Format);
+        if (resolved != null)
+            return resolved;
+
+        return schema.Type switch
+        {
+            JsonSchemaType.Array when schema.Items != null => $"List<{GetCSharpType(schema.Items)}>",
+            JsonSchemaType.Array => "List<object>",
+            _ => "object"
+        };
+    }
+
+    public static string? GetSchemaName(IOpenApiSchema schema)
+    {
+        if (!string.IsNullOrEmpty(schema.Id))
+            return schema.Id;
+
+        if (schema is OpenApiSchemaReference schemaRef)
+            return schemaRef.Reference.Id;
+
+        return null;
+    }
+
+    public static bool IsInlineObjectSchema(IOpenApiSchema? schema)
+    {
+        if (schema == null) return false;
+        if (GetSchemaName(schema) != null) return false;
+        return schema.Type == JsonSchemaType.Object && schema.Properties?.Count > 0;
     }
 }
