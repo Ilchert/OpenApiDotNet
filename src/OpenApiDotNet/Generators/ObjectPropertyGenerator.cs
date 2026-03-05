@@ -2,7 +2,7 @@ using Microsoft.OpenApi;
 
 namespace OpenApiDotNet.Generators;
 
-internal class ObjectProperty
+internal class ObjectPropertyGenerator
 {
     public string Name { get; set; }
     public GeneratorContext Context { get; }
@@ -12,7 +12,7 @@ internal class ObjectProperty
     public bool IsRequired { get; }
     public BaseGenerator? NestedPropertyTypeGenerator { get; set; }
 
-    public ObjectProperty(string name, IOpenApiSchema schema, string parentName, GeneratorContext context)
+    public ObjectPropertyGenerator(string name, IOpenApiSchema schema, string parentName, GeneratorContext context)
     {
         Name = name;
         Context = context;

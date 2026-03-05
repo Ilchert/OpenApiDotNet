@@ -12,7 +12,7 @@ internal class ObjectGenerator : BaseGenerator
 
     public string? Description { get; }
 
-    public List<ObjectProperty> Properties { get; }
+    public List<ObjectPropertyGenerator> Properties { get; }
 
     public ObjectGenerator(string name, IOpenApiSchema schema, GeneratorContext context) : base(context)
     {
@@ -22,7 +22,7 @@ internal class ObjectGenerator : BaseGenerator
             throw new InvalidOperationException("Schema is not of type Object.");
 
         Description = _schema.Description;
-        Properties = _schema.Properties?.Select(p => new ObjectProperty(p.Key, p.Value, TypeName, Context)).ToList() ?? [];
+        Properties = _schema.Properties?.Select(p => new ObjectPropertyGenerator(p.Key, p.Value, TypeName, Context)).ToList() ?? [];
     }
 
     public override void Write(CodeWriter writer)
