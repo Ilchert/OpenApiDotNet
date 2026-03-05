@@ -5,14 +5,16 @@ namespace OpenApiDotNet.Generators;
 internal class GeneratorContext
 {
     public string DefaultNamespace { get; }
+    public string ClinetName { get; }
     public string? StripNamespacePefix { get; }
     public TypeMappingConfig TypeMappingConfig { get; }
 
     private static readonly char[] s_namespaceSeparators = ['.'];
 
-    public GeneratorContext(string defaultNamespace, string? stripNamespacePefix, TypeMappingConfig? typeMappingConfig = null)
+    public GeneratorContext(string defaultNamespace, string clinetName, string? stripNamespacePefix, TypeMappingConfig? typeMappingConfig = null)
     {
         DefaultNamespace = defaultNamespace;
+        ClinetName = clinetName;
         TypeMappingConfig = typeMappingConfig ?? new TypeMappingConfig();
         if (stripNamespacePefix != null)
             StripNamespacePefix = stripNamespacePefix.EndsWith('.') ? stripNamespacePefix : stripNamespacePefix + ".";
@@ -57,6 +59,13 @@ internal class GeneratorContext
     {
         var words = input.Split(['-', '_', ' ', '.'], StringSplitOptions.RemoveEmptyEntries);
         return string.Concat(words.Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
+    }
+
+    public static string ToCamelCase(string input)
+    {
+        var pascal = ToPascalCase(input);
+        if (string.IsNullOrEmpty(pascal)) return pascal;
+        return char.ToLowerInvariant(pascal[0]) + pascal[1..];
     }
 
     public string GetCSharpType(IOpenApiSchema schema)
