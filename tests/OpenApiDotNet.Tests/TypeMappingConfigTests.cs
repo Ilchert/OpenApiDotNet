@@ -120,7 +120,7 @@ public class TypeMappingConfigTests
 
         // Other string format mappings should remain unchanged
         config.Resolve(JsonSchemaType.String, "date").Should().Be("NodaTime.LocalDate");
-        config.Resolve(JsonSchemaType.String, "uuid").Should().Be("Guid");
+        config.Resolve(JsonSchemaType.String, "uuid").Should().Be("System.Guid");
         config.Resolve(JsonSchemaType.String, null).Should().Be("string");
     }
 
@@ -131,7 +131,7 @@ public class TypeMappingConfigTests
 
         defaults.Should().ContainKey("string").WhoseValue.Should().Be("string");
         defaults.Should().ContainKey("string:date-time").WhoseValue.Should().Be("NodaTime.Instant");
-        defaults.Should().ContainKey("string:uuid").WhoseValue.Should().Be("Guid");
+        defaults.Should().ContainKey("string:uuid").WhoseValue.Should().Be("System.Guid");
         defaults.Should().ContainKey("integer").WhoseValue.Should().Be("int");
         defaults.Should().ContainKey("integer:int64").WhoseValue.Should().Be("long");
         defaults.Should().ContainKey("number").WhoseValue.Should().Be("double");
@@ -167,6 +167,6 @@ public class TypeMappingConfigTests
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" };
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("Guid");
+        result.Should().Be("System.Guid");
     }
 }

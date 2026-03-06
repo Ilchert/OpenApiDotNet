@@ -80,8 +80,8 @@ internal class GeneratorContext
 
         return schema.Type switch
         {
-            JsonSchemaType.Array when schema.Items != null => $"List<{GetCSharpType(schema.Items)}>",
-            JsonSchemaType.Array => "List<object>",
+            JsonSchemaType.Array when schema.Items != null => $"System.Collections.Generic.List<{GetCSharpType(schema.Items)}>",
+            JsonSchemaType.Array => "System.Collections.Generic.List<object>",
             _ => "object"
         };
     }

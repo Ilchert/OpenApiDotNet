@@ -104,9 +104,6 @@ public class OpenApiGenerator
     private void GenerateIOpenApiClientInterface()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("using System.Net.Http;");
-        sb.AppendLine("using System.Text.Json;");
-        sb.AppendLine();
         sb.AppendLine($"namespace {_namespace};");
         sb.AppendLine();
         sb.AppendLine("/// <summary>");
@@ -114,8 +111,8 @@ public class OpenApiGenerator
         sb.AppendLine("/// </summary>");
         sb.AppendLine("public interface IOpenApiClient : IOpenApiBuilder");
         sb.AppendLine("{");
-        sb.AppendLine("    HttpClient HttpClient { get; }");
-        sb.AppendLine("    JsonSerializerOptions JsonOptions { get; }");
+        sb.AppendLine("    System.Net.Http.HttpClient HttpClient { get; }");
+        sb.AppendLine("    System.Text.Json.JsonSerializerOptions JsonOptions { get; }");
         sb.AppendLine();
         sb.AppendLine($"    IOpenApiClient IOpenApiBuilder.Client => this;");
         sb.AppendLine($"    string IOpenApiBuilder.GetPath() => \"\";");
@@ -136,15 +133,6 @@ public class OpenApiGenerator
     private static void WriteBuilderToFile(BuilderGenerator builder, string filePath)
     {
         var writer = new CodeWriter();
-        writer.WriteLine("using System;");
-        writer.WriteLine("using System.Collections.Generic;");
-        writer.WriteLine("using System.Net.Http;");
-        writer.WriteLine("using System.Net.Http.Json;");
-        writer.WriteLine("using System.Text.Json;");
-        writer.WriteLine("using System.Text.Json.Serialization;");
-        writer.WriteLine("using System.Threading;");
-        writer.WriteLine("using System.Threading.Tasks;");
-        writer.WriteLine();
         builder.WriteWithNamespace(writer);
         File.WriteAllText(filePath, writer.ToString());
     }

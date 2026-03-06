@@ -75,7 +75,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("Guid");
+        result.Should().Be("System.Guid");
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("List<string>");
+        result.Should().Be("System.Collections.Generic.List<string>");
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("List<object>");
+        result.Should().Be("System.Collections.Generic.List<object>");
     }
 
     [Fact]
@@ -256,7 +256,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("Uri");
+        result.Should().Be("System.Uri");
     }
 
     [Fact]
@@ -267,7 +267,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("Uri");
+        result.Should().Be("System.Uri");
     }
 
     [Fact]
@@ -278,7 +278,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("Uri");
+        result.Should().Be("System.Uri");
     }
 
     [Fact]
@@ -289,7 +289,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("Uri");
+        result.Should().Be("System.Uri");
     }
 
     [Fact]

@@ -164,19 +164,19 @@ public class OpenApiGeneratorTests : IDisposable
 
         // PetsBuilder should have Get and Post operations
         var petsContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs"));
-        petsContent.Should().Contain("public virtual async Task<List<PetStore.Client.Models.Pet>> Get");
-        petsContent.Should().Contain("public virtual async Task<PetStore.Client.Models.Pet> Post");
+        petsContent.Should().Contain("public virtual async System.Threading.Tasks.Task<System.Collections.Generic.List<PetStore.Client.Models.Pet>> Get");
+        petsContent.Should().Contain("public virtual async System.Threading.Tasks.Task<PetStore.Client.Models.Pet> Post");
         petsContent.Should().Contain("int? limit");
         petsContent.Should().Contain("PetStore.Client.Models.NewPet request");
-        petsContent.Should().Contain("CancellationToken cancellationToken = default");
+        petsContent.Should().Contain("System.Threading.CancellationToken cancellationToken = default");
         petsContent.Should().Contain("Client.HttpClient.GetAsync");
-        petsContent.Should().Contain("Client.HttpClient.PostAsJsonAsync");
+        petsContent.Should().Contain("HttpClientJsonExtensions.PostAsJsonAsync");
         petsContent.Should().Contain("PetsIdBuilder this[long petId]");
 
         // PetsIdBuilder should have Get and Delete operations
         var petsIdContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsIdBuilder.cs"));
-        petsIdContent.Should().Contain("public virtual async Task<PetStore.Client.Models.Pet> Get");
-        petsIdContent.Should().Contain("public virtual async Task Delete");
+        petsIdContent.Should().Contain("public virtual async System.Threading.Tasks.Task<PetStore.Client.Models.Pet> Get");
+        petsIdContent.Should().Contain("public virtual async System.Threading.Tasks.Task Delete");
         petsIdContent.Should().Contain("Client.HttpClient.DeleteAsync");
     }
 
@@ -203,9 +203,9 @@ public class OpenApiGeneratorTests : IDisposable
         generator.Generate();
 
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
-        content.Should().Contain("var queryString = new List<string>();");
+        content.Should().Contain("var queryString = new System.Collections.Generic.List<string>();");
         content.Should().Contain("if (limit is {} limitValue)");
-        content.Should().Contain("Uri.EscapeDataString");
+        content.Should().Contain("System.Uri.EscapeDataString");
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public class OpenApiGeneratorTests : IDisposable
         content.Should().Contain("int? limit");
 
         // Required parameter should always be added to query string (no null check)
-        content.Should().Contain("Uri.EscapeDataString(category.ToString())");
+        content.Should().Contain("System.Uri.EscapeDataString(category.ToString())");
         content.Should().NotContain("if (category != null)");
 
         // Optional parameter should have null check using pattern matching (avoids CS8604)
@@ -280,11 +280,11 @@ public class OpenApiGeneratorTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
 
         // Optional list parameter should be nullable
-        content.Should().Contain("List<string>? tags");
+        content.Should().Contain("System.Collections.Generic.List<string>? tags");
 
         // Required list parameter should be non-nullable
-        content.Should().Contain("List<string> statuses");
-        content.Should().NotContain("List<string>? statuses");
+        content.Should().Contain("System.Collections.Generic.List<string> statuses");
+        content.Should().NotContain("System.Collections.Generic.List<string>? statuses");
 
         // Optional list parameter should have null check before foreach
         content.Should().Contain("if (tags != null)");
@@ -294,11 +294,11 @@ public class OpenApiGeneratorTests : IDisposable
         content.Should().Contain("foreach (var item in statuses)");
 
         // Each item should be individually escaped and added with the parameter name
-        content.Should().Contain("Uri.EscapeDataString(item.ToString())");
+        content.Should().Contain("System.Uri.EscapeDataString(item.ToString())");
 
         // Scalar parameter should use pattern matching to avoid CS8604
         content.Should().Contain("if (limit is {} limitValue)");
-        content.Should().Contain("Uri.EscapeDataString(limitValue.ToString())");
+        content.Should().Contain("System.Uri.EscapeDataString(limitValue.ToString())");
     }
 
     [Fact]
@@ -344,7 +344,7 @@ public class OpenApiGeneratorTests : IDisposable
         var requestPos = signature.IndexOf("Test.Client.Models.SearchRequest request");
         var limitPos = signature.IndexOf("int? limit");
         var offsetPos = signature.IndexOf("int? offset");
-        var ctPos = signature.IndexOf("CancellationToken cancellationToken");
+        var ctPos = signature.IndexOf("System.Threading.CancellationToken cancellationToken");
 
         categoryPos.Should().BePositive();
         requestPos.Should().BePositive();
@@ -401,7 +401,7 @@ public class OpenApiGeneratorTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "StatsBuilder.cs"));
 
         // Return type should reference the nested class
-        content.Should().Contain("Task<GetResponse>");
+        content.Should().Contain("System.Threading.Tasks.Task<GetResponse>");
         content.Should().Contain("Get");
 
         // Nested class should be generated with properties
@@ -500,7 +500,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "NumbersBuilder.cs"));
 
-        content.Should().Contain("List<int> request");
+        content.Should().Contain("System.Collections.Generic.List<int> request");
     }
 
     [Fact]
@@ -542,7 +542,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         content.Should().Contain("newPet");
         content.Should().NotContain("Pet request");
-        content.Should().Contain("PostAsJsonAsync(url, newPet,");
+        content.Should().Contain("PostAsJsonAsync(Client.HttpClient, url, newPet,");
     }
 
     [Fact]
@@ -584,7 +584,7 @@ public class OpenApiGeneratorTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsIdBuilder.cs"));
 
         // Return type should be the referenced model
-        content.Should().Contain("Task<Test.Client.Models.Item>");
+        content.Should().Contain("System.Threading.Tasks.Task<Test.Client.Models.Item>");
 
         // Should read from JSON and return the result
         content.Should().Contain("ReadFromJsonAsync<Test.Client.Models.Item>");
@@ -632,8 +632,8 @@ public class OpenApiGeneratorTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "DataBuilder.cs"));
 
         // Return type should be object (not void, not a nested class)
-        content.Should().Contain("Task<object>");
-        content.Should().NotContain("Task<GetResponse>");
+        content.Should().Contain("System.Threading.Tasks.Task<object>");
+        content.Should().NotContain("System.Threading.Tasks.Task<GetResponse>");
         content.Should().NotContain("public class GetResponse");
 
         // Should read from JSON as object
@@ -677,13 +677,13 @@ public class OpenApiGeneratorTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsIdBuilder.cs"));
 
         // Return type should be bool
-        content.Should().Contain("Task<bool>");
+        content.Should().Contain("System.Threading.Tasks.Task<bool>");
 
         // Uses is {} pattern which works uniformly for both value types and reference types
-        content.Should().Contain("var deserializedResponse = await response.Content.ReadFromJsonAsync<bool>(Client.JsonOptions, cancellationToken);");
+        content.Should().Contain("var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<bool>(response.Content, Client.JsonOptions, cancellationToken);");
         content.Should().Contain("if (deserializedResponse is { } deserializedResponseValue)");
         content.Should().Contain("    return deserializedResponseValue;");
-        content.Should().Contain("throw new InvalidOperationException($\"Response from {url} is null\");");
+        content.Should().Contain("throw new System.InvalidOperationException($\"Response from {url} is null\");");
     }
 
     [Fact]
@@ -1014,8 +1014,8 @@ public class OpenApiGeneratorTests : IDisposable
 
         var builderContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "OrdersBuilder.cs"));
         builderContent.Should().NotContain("using DottedNames.Client.Models");
-        builderContent.Should().Contain("Task<List<DottedNames.Client.Models.Commerce.Order>>");
-        builderContent.Should().Contain("Task<DottedNames.Client.Models.Commerce.Order>");
+        builderContent.Should().Contain("System.Threading.Tasks.Task<System.Collections.Generic.List<DottedNames.Client.Models.Commerce.Order>>");
+        builderContent.Should().Contain("System.Threading.Tasks.Task<DottedNames.Client.Models.Commerce.Order>");
         builderContent.Should().Contain("DottedNames.Client.Models.Commerce.NewOrder request");
     }
 

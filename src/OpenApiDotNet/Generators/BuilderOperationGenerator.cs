@@ -27,7 +27,7 @@ internal class BuilderOperationGenerator
         ProcessQueryParameters();
         ProcessRequestBody();
         ResponseType = ResolveResponseType();
-        _optionalParameters.Add("CancellationToken cancellationToken = default");
+        _optionalParameters.Add("System.Threading.CancellationToken cancellationToken = default");
     }
 
     private void ProcessQueryParameters()
@@ -41,7 +41,7 @@ internal class BuilderOperationGenerator
                 var paramName = GeneratorContext.ToCamelCase(parameter.Name);
                 var paramType = _context.GetCSharpType(parameter.Schema);
                 var isRequired = parameter.Required;
-                var isCollection = paramType.StartsWith("List<");
+                var isCollection = paramType.StartsWith("System.Collections.Generic.List<");
 
                 if (isRequired)
                     _requiredParameters.Add($"{paramType} {paramName}");
@@ -111,7 +111,7 @@ internal class BuilderOperationGenerator
         BaseGenerator.WriteSummary(writer, _operation.Summary ?? _operation.Description);
 
         var parameters = _requiredParameters.Concat(_optionalParameters);
-        var returnType = ResponseType == "void" ? "Task" : $"Task<{ResponseType}>";
+        var returnType = ResponseType == "void" ? "System.Threading.Tasks.Task" : $"System.Threading.Tasks.Task<{ResponseType}>";
 
         writer.WriteLine($"public virtual async {returnType} {MethodName}({string.Join(", ", parameters)})");
         writer.WriteLine("{");
@@ -134,7 +134,7 @@ internal class BuilderOperationGenerator
         {
             writer.WriteLine("var url = GetPath();");
             writer.WriteLine();
-            writer.WriteLine("var queryString = new List<string>();");
+            writer.WriteLine("var queryString = new System.Collections.Generic.List<string>();");
 
             foreach (var param in _queryParams)
             {
@@ -146,7 +146,7 @@ internal class BuilderOperationGenerator
                         writer.Indent();
                         writer.WriteLine($"foreach (var item in {param.ParamName})");
                         writer.Indent();
-                        writer.WriteLine($"queryString.Add($\"{param.Name}={{Uri.EscapeDataString(item.ToString())}}\");");
+                        writer.WriteLine($"queryString.Add($\"{param.Name}={{System.Uri.EscapeDataString(item.ToString())}}\");");
                         writer.Unindent();
                         writer.Unindent();
                     }
@@ -154,19 +154,19 @@ internal class BuilderOperationGenerator
                     {
                         writer.WriteLine($"foreach (var item in {param.ParamName})");
                         writer.Indent();
-                        writer.WriteLine($"queryString.Add($\"{param.Name}={{Uri.EscapeDataString(item.ToString())}}\");");
+                        writer.WriteLine($"queryString.Add($\"{param.Name}={{System.Uri.EscapeDataString(item.ToString())}}\");");
                         writer.Unindent();
                     }
                 }
                 else if (param.Required)
                 {
-                    writer.WriteLine($"queryString.Add($\"{param.Name}={{Uri.EscapeDataString({param.ParamName}.ToString())}}\");");
+                    writer.WriteLine($"queryString.Add($\"{param.Name}={{System.Uri.EscapeDataString({param.ParamName}.ToString())}}\");");
                 }
                 else
                 {
                     writer.WriteLine($"if ({param.ParamName} is {{}} {param.ParamName}Value)");
                     writer.Indent();
-                    writer.WriteLine($"queryString.Add($\"{param.Name}={{Uri.EscapeDataString({param.ParamName}Value.ToString())}}\");");
+                    writer.WriteLine($"queryString.Add($\"{param.Name}={{System.Uri.EscapeDataString({param.ParamName}Value.ToString())}}\");");
                     writer.Unindent();
                 }
             }
@@ -193,13 +193,13 @@ internal class BuilderOperationGenerator
         else if (_httpMethod == HttpMethod.Post)
         {
             writer.WriteLine(hasBody
-                ? $"var response = await Client.HttpClient.PostAsJsonAsync(url, {_bodyParamName}, Client.JsonOptions, cancellationToken);"
+                ? $"var response = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(Client.HttpClient, url, {_bodyParamName}, Client.JsonOptions, cancellationToken);"
                 : "var response = await Client.HttpClient.PostAsync(url, null, cancellationToken);");
         }
         else if (_httpMethod == HttpMethod.Put)
         {
             writer.WriteLine(hasBody
-                ? $"var response = await Client.HttpClient.PutAsJsonAsync(url, {_bodyParamName}, Client.JsonOptions, cancellationToken);"
+                ? $"var response = await System.Net.Http.Json.HttpClientJsonExtensions.PutAsJsonAsync(Client.HttpClient, url, {_bodyParamName}, Client.JsonOptions, cancellationToken);"
                 : "var response = await Client.HttpClient.PutAsync(url, null, cancellationToken);");
         }
         else if (_httpMethod == HttpMethod.Delete)
@@ -210,7 +210,7 @@ internal class BuilderOperationGenerator
         {
             if (hasBody)
             {
-                writer.WriteLine($"var content = JsonContent.Create({_bodyParamName}, options: Client.JsonOptions);");
+                writer.WriteLine($"var content = System.Net.Http.Json.JsonContent.Create({_bodyParamName}, options: Client.JsonOptions);");
                 writer.WriteLine("var response = await Client.HttpClient.PatchAsync(url, content, cancellationToken);");
             }
             else
@@ -223,12 +223,12 @@ internal class BuilderOperationGenerator
 
         if (ResponseType != "void")
         {
-            writer.WriteLine($"var deserializedResponse = await response.Content.ReadFromJsonAsync<{ResponseType}>(Client.JsonOptions, cancellationToken);");
+            writer.WriteLine($"var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<{ResponseType}>(response.Content, Client.JsonOptions, cancellationToken);");
             writer.WriteLine("if (deserializedResponse is { } deserializedResponseValue)");
             writer.Indent();
             writer.WriteLine("return deserializedResponseValue;");
             writer.Unindent();
-            writer.WriteLine("throw new InvalidOperationException($\"Response from {url} is null\");");
+            writer.WriteLine("throw new System.InvalidOperationException($\"Response from {url} is null\");");
         }
     }
 
