@@ -43,7 +43,7 @@ public static class PathTreeBuilder
                 var segment = segments[i];
                 if (!current.Children.TryGetValue(segment, out var child))
                 {
-                    var isParam = segment.StartsWith('{') && segment.EndsWith('}');
+                    var isParam = segment is ['{', .., '}'];
                     child = new PathSegmentNode
                     {
                         SegmentName = segment,
@@ -83,17 +83,13 @@ public static class PathTreeBuilder
                 continue;
 
             foreach (var param in operation.Parameters)
-            {
                 if (param.In == ParameterLocation.Path && param.Schema != null)
-                {
                     pathParams.TryAdd(param.Name, param.Schema);
-                }
-            }
         }
 
         // Walk ancestor chain is not needed here since we only have the terminal;
         // instead, the tree builder resolves schemas during the Build pass by re-walking.
-        if (terminal.IsParameter && terminal.ParameterName != null && terminal.ParameterSchema == null)
+        if (terminal is { IsParameter: true, ParameterName: not null, ParameterSchema: null })
         {
             if (pathParams.TryGetValue(terminal.ParameterName, out var schema))
                 terminal.ParameterSchema = schema;
