@@ -4,11 +4,11 @@ using Microsoft.OpenApi;
 
 namespace OpenApiDotNet.Tests;
 
-public class ClientGenerationTests : IDisposable
+public class OpenApiGeneratorTests : IDisposable
 {
     private string _outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 
-    private ClientGenerator CreateGenerator(
+    private OpenApiGenerator CreateGenerator(
         string specJson,
         string namespaceName = "Test.Client",
         string? namespacePrefix = null)
@@ -16,7 +16,7 @@ public class ClientGenerationTests : IDisposable
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(specJson));
         var (document, diagnostic) = OpenApiDocument.Load(stream);
         diagnostic?.Errors.Should().BeEmpty();
-        return new ClientGenerator(document, namespaceName, _outputDirectory, namespacePrefix: namespacePrefix);
+        return new OpenApiGenerator(document, namespaceName, _outputDirectory, namespacePrefix: namespacePrefix);
     }
 
     public void Dispose()
@@ -690,7 +690,7 @@ public class ClientGenerationTests : IDisposable
     public void Constructor_WithNullDocument_ThrowsArgumentNullException()
     {
         // Act
-        var act = () => new ClientGenerator(null!, "TestNamespace", Path.GetTempPath());
+        var act = () => new OpenApiGenerator(null!, "TestNamespace", Path.GetTempPath());
 
         // Assert
         act.Should().Throw<ArgumentNullException>()
@@ -707,7 +707,7 @@ public class ClientGenerationTests : IDisposable
         };
 
         // Act
-        var act = () => new ClientGenerator(document, null!, Path.GetTempPath());
+        var act = () => new OpenApiGenerator(document, null!, Path.GetTempPath());
 
         // Assert
         act.Should().Throw<ArgumentNullException>()
@@ -724,7 +724,7 @@ public class ClientGenerationTests : IDisposable
         };
 
         // Act
-        var act = () => new ClientGenerator(document, "TestNamespace", null!);
+        var act = () => new OpenApiGenerator(document, "TestNamespace", null!);
 
         // Assert
         act.Should().Throw<ArgumentNullException>()

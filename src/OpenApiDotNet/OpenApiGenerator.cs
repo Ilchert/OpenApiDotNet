@@ -7,7 +7,7 @@ namespace OpenApiDotNet;
 /// <summary>
 /// Generates C# client code from OpenAPI specifications
 /// </summary>
-public class ClientGenerator
+public class OpenApiGenerator
 {
     private readonly OpenApiDocument _document;
     private readonly string _namespace;
@@ -16,7 +16,7 @@ public class ClientGenerator
     private readonly string? _clientName;
     private readonly TypeMappingConfig _typeMappingConfig;
 
-    public ClientGenerator(OpenApiDocument document, string namespaceName, string outputDirectory, string? namespacePrefix = null, string? clientName = null, TypeMappingConfig? typeMappingConfig = null)
+    public OpenApiGenerator(OpenApiDocument document, string namespaceName, string outputDirectory, string? namespacePrefix = null, string? clientName = null, TypeMappingConfig? typeMappingConfig = null)
     {
         _document = document ?? throw new ArgumentNullException(nameof(document));
         _namespace = namespaceName ?? throw new ArgumentNullException(nameof(namespaceName));
@@ -38,11 +38,11 @@ public class ClientGenerator
         GenerateIOpenApiBuilderInterface();
         GenerateIOpenApiClientInterface();
 
-        var endClient = new EndClientGenerator(_document, context);
+        var endClient = new ClientGenerator(_document, context);
 
         // Write named client interface
-        WriteGeneratorToFile(endClient, Path.Combine(_outputDirectory, $"{endClient.InterfaceName}.cs"));
-        Console.WriteLine($"  Generated {endClient.InterfaceName} interface");
+        WriteGeneratorToFile(endClient, Path.Combine(_outputDirectory, $"{endClient.TypeInfo.Name}.cs"));
+        Console.WriteLine($"  Generated {endClient.TypeInfo.Name} interface");
 
         // Write builders
         var buildersDirectory = Path.Combine(_outputDirectory, "Builders");

@@ -2,21 +2,19 @@ using Microsoft.OpenApi;
 
 namespace OpenApiDotNet.Generators;
 
-internal class EndClientGenerator : BaseGenerator
+internal class ClientGenerator : BaseGenerator
 {
     public override GeneratedTypeInfo TypeInfo { get; }
     public string ClientName { get; }
-    public string InterfaceName { get; }
     public string? Description { get; }
     public List<BuilderGenerator> BuilderGenerators { get; }
     public List<BuilderPropertyGenerator> Properties { get; } = [];
     public List<BuilderOperationGenerator> Operations { get; } = [];
 
-    public EndClientGenerator(OpenApiDocument document, GeneratorContext context) : base(context)
+    public ClientGenerator(OpenApiDocument document, GeneratorContext context) : base(context)
     {
         ClientName = context.ClinetName;
-        InterfaceName = $"I{ClientName}";
-        TypeInfo = new GeneratedTypeInfo(context.DefaultNamespace, InterfaceName);
+        TypeInfo = new GeneratedTypeInfo(context.DefaultNamespace, $"I{ClientName}");
         Description = document.Info?.Description ?? document.Info?.Title;
 
         var root = PathTreeBuilder.Build(document.Paths);
@@ -45,7 +43,7 @@ internal class EndClientGenerator : BaseGenerator
     {
         WriteSummary(writer, Description);
 
-        writer.WriteLine($"public interface {InterfaceName} : IOpenApiClient");
+        writer.WriteLine($"public interface {TypeInfo.Name} : IOpenApiClient");
         writer.WriteLine("{");
         writer.Indent();
 

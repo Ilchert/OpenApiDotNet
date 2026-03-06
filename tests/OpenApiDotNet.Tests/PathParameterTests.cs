@@ -25,7 +25,7 @@ public class PathParameterTests
             using var stream = File.OpenRead(specPath);
             var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
+            var generator = new OpenApiGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
             generator.Generate();
@@ -59,7 +59,7 @@ public class PathParameterTests
             using var stream = File.OpenRead(specPath);
             var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
+            var generator = new OpenApiGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
             generator.Generate();
@@ -93,7 +93,7 @@ public class PathParameterTests
             using var stream = File.OpenRead(specPath);
             var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
+            var generator = new OpenApiGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
             generator.Generate();
@@ -128,7 +128,7 @@ public class PathParameterTests
             using var stream = File.OpenRead(specPath);
             var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
 
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
+            var generator = new OpenApiGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
             generator.Generate();

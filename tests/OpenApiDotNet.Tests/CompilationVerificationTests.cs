@@ -36,7 +36,7 @@ public class CompilationVerificationTests
             var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
             diagnostic?.Errors.Should().BeEmpty();
 
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
+            var generator = new OpenApiGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
             generator.Generate();
