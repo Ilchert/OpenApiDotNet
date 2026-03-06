@@ -15,7 +15,8 @@ internal class StringEnumMember
 
     public void Write(CodeWriter writer)
     {
-        writer.WriteLine($"[System.Text.Json.Serialization.JsonConverter.JsonStringEnumMemberName(\"{Name}\")]");
+        if (Name != EnumMemberName)
+            writer.WriteLine($"[System.Text.Json.Serialization.JsonStringEnumMemberName(\"{Name}\")]");
         writer.WriteLine($"{EnumMemberName},");
         writer.WriteLine();
     }

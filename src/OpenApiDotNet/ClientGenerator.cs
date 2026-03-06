@@ -1,4 +1,5 @@
 using Microsoft.OpenApi;
+using OpenApiDotNet.Generators;
 using System.Text;
 
 namespace OpenApiDotNet;
@@ -11,7 +12,6 @@ public class ClientGenerator
     private readonly OpenApiDocument _document;
     private readonly string _namespace;
     private readonly string _outputDirectory;
-    private readonly HashSet<string> _generatedModels = new();
     private readonly string? _namespacePrefix;
     private readonly string? _clientName;
     private readonly TypeMappingConfig _typeMappingConfig;
@@ -31,16 +31,30 @@ public class ClientGenerator
     /// </summary>
     public void Generate()
     {
-        GenerateModels();
+        var clientName = GetClientName();
+        var context = new GeneratorContext(_namespace, clientName, _namespacePrefix, _typeMappingConfig);
 
-        var pathTree = PathTreeBuilder.Build(_document.Paths);
+        GenerateModels(context);
         GenerateIOpenApiBuilderInterface();
         GenerateIOpenApiClientInterface();
-        GenerateNamedClientInterface(pathTree);
-        GenerateBuilders(pathTree);
+
+        var endClient = new EndClientGenerator(_document, context);
+
+        // Write named client interface
+        WriteGeneratorToFile(endClient, _namespace, Path.Combine(_outputDirectory, $"{endClient.InterfaceName}.cs"));
+        Console.WriteLine($"  Generated {endClient.InterfaceName} interface");
+
+        // Write builders
+        var buildersDirectory = Path.Combine(_outputDirectory, "Builders");
+        Directory.CreateDirectory(buildersDirectory);
+        foreach (var builder in endClient.BuilderGenerators)
+        {
+            WriteBuilderToFile(builder, Path.Combine(buildersDirectory, $"{builder.BuilderName}.cs"));
+            Console.WriteLine($"  Generated builder: {builder.BuilderName}");
+        }
     }
 
-    private void GenerateModels()
+    private void GenerateModels(GeneratorContext context)
     {
         var modelsDirectory = Path.Combine(_outputDirectory, "Models");
         Directory.CreateDirectory(modelsDirectory);
@@ -48,130 +62,25 @@ public class ClientGenerator
         if (_document.Components?.Schemas == null)
             return;
 
-        foreach (var schema in _document.Components.Schemas)
+        foreach (var (name, schema) in _document.Components.Schemas)
         {
-            GenerateModel(schema.Key, schema.Value, modelsDirectory);
+            BaseGenerator generator;
+            if (schema.Enum != null && schema.Enum.Count > 0)
+                generator = new EnumGenerator(name, schema, context);
+            else
+                generator = new ObjectGenerator(name, schema, context);
+
+            var (ns, typeName) = context.GetNameAndNamespace(name, GeneratorCategory.Model);
+            var modelsNs = $"{_namespace}.Models";
+            var relativePath = ns.Length > modelsNs.Length
+                ? ns[(modelsNs.Length + 1)..].Replace('.', Path.DirectorySeparatorChar)
+                : "";
+            var dir = string.IsNullOrEmpty(relativePath) ? modelsDirectory : Path.Combine(modelsDirectory, relativePath);
+            Directory.CreateDirectory(dir);
+
+            WriteGeneratorToFile(generator, ns, Path.Combine(dir, $"{typeName}.cs"));
+            Console.WriteLine($"  Generated model: {name}");
         }
-    }
-
-    private void GenerateModel(string name, IOpenApiSchema schema, string directory)
-    {
-        if (_generatedModels.Contains(name))
-            return;
-
-        _generatedModels.Add(name);
-
-        // Detect enum schemas and generate enum instead of class
-        if (schema.Enum != null && schema.Enum.Count > 0)
-        {
-            GenerateEnum(name, schema, directory);
-            return;
-        }
-
-        var (additionalNamespace, typeName) = DecomposeName(StripNamespacePrefix(name));
-        var fullNamespace = string.IsNullOrEmpty(additionalNamespace)
-            ? $"{_namespace}.Models"
-            : $"{_namespace}.Models.{additionalNamespace}";
-
-        var sb = new StringBuilder();
-        sb.AppendLine("using System.Text.Json.Serialization;");
-        sb.AppendLine();
-        sb.AppendLine($"namespace {fullNamespace};");
-        sb.AppendLine();
-
-        if (!string.IsNullOrEmpty(schema.Description))
-        {
-            sb.AppendLine("/// <summary>");
-            sb.AppendLine($"/// {EscapeXmlComment(schema.Description)}");
-            sb.AppendLine("/// </summary>");
-        }
-
-        sb.AppendLine($"public class {typeName}");
-        sb.AppendLine("{");
-
-        var nestedTypes = new StringBuilder();
-        if (schema.Properties != null)
-        {
-            foreach (var property in schema.Properties)
-            {
-                var propertyName = ToPascalCase(property.Key);
-                var propertyType = GetModelPropertyType(property.Value, propertyName, nestedTypes, $"{typeName}{propertyName}");
-                var isRequired = schema.Required?.Contains(property.Key) ?? false;
-
-                if (!string.IsNullOrEmpty(property.Value.Description))
-                {
-                    sb.AppendLine("    /// <summary>");
-                    sb.AppendLine($"    /// {EscapeXmlComment(property.Value.Description)}");
-                    sb.AppendLine("    /// </summary>");
-                }
-
-                sb.AppendLine($"    [JsonPropertyName(\"{property.Key}\")]");
-                sb.AppendLine($"    public {(isRequired ? "required " : "")}{propertyType}{(isRequired ? "" : "?")} {propertyName} {{ get; set; }}");
-                sb.AppendLine();
-            }
-        }
-
-        sb.Append(nestedTypes);
-        sb.AppendLine("}");
-
-        var targetDirectory = string.IsNullOrEmpty(additionalNamespace)
-            ? directory
-            : Path.Combine(directory, additionalNamespace.Replace('.', Path.DirectorySeparatorChar));
-        Directory.CreateDirectory(targetDirectory);
-
-        var filePath = Path.Combine(targetDirectory, $"{typeName}.cs");
-        File.WriteAllText(filePath, sb.ToString());
-        Console.WriteLine($"  Generated model: {name}");
-    }
-
-    private void GenerateEnum(string name, IOpenApiSchema schema, string directory)
-    {
-        var (additionalNamespace, typeName) = DecomposeName(StripNamespacePrefix(name));
-        var fullNamespace = string.IsNullOrEmpty(additionalNamespace)
-            ? $"{_namespace}.Models"
-            : $"{_namespace}.Models.{additionalNamespace}";
-
-        var sb = new StringBuilder();
-        sb.AppendLine("using System.Text.Json.Serialization;");
-        sb.AppendLine();
-        sb.AppendLine($"namespace {fullNamespace};");
-        sb.AppendLine();
-
-        if (!string.IsNullOrEmpty(schema.Description))
-        {
-            sb.AppendLine("/// <summary>");
-            sb.AppendLine($"/// {EscapeXmlComment(schema.Description)}");
-            sb.AppendLine("/// </summary>");
-        }
-
-        sb.AppendLine("[JsonConverter(typeof(JsonStringEnumConverter))]");
-        sb.AppendLine($"public enum {typeName}");
-        sb.AppendLine("{");
-
-        foreach (var enumValue in schema.Enum)
-        {
-            var stringValue = enumValue.ToString();
-
-            var memberName = ToPascalCase(stringValue);
-
-            if (memberName != stringValue)
-            {
-                sb.AppendLine($"    [JsonStringEnumMemberName(\"{stringValue}\")]");
-            }
-            sb.AppendLine($"    {memberName},");
-            sb.AppendLine();
-        }
-
-        sb.AppendLine("}");
-
-        var targetDirectory = string.IsNullOrEmpty(additionalNamespace)
-            ? directory
-            : Path.Combine(directory, additionalNamespace.Replace('.', Path.DirectorySeparatorChar));
-        Directory.CreateDirectory(targetDirectory);
-
-        var filePath = Path.Combine(targetDirectory, $"{typeName}.cs");
-        File.WriteAllText(filePath, sb.ToString());
-        Console.WriteLine($"  Generated enum: {name}");
     }
 
     private void GenerateIOpenApiBuilderInterface()
@@ -218,515 +127,31 @@ public class ClientGenerator
         Console.WriteLine("  Generated IOpenApiClient interface");
     }
 
-    private void GenerateNamedClientInterface(PathSegmentNode pathTree)
+    private static void WriteGeneratorToFile(BaseGenerator generator, string ns, string filePath)
     {
-        var clientName = GetClientName();
-        var interfaceName = $"I{clientName}";
-
-        var sb = new StringBuilder();
-        sb.AppendLine($"namespace {_namespace};");
-        sb.AppendLine();
-        sb.AppendLine("/// <summary>");
-        sb.AppendLine($"/// {EscapeXmlComment(_document.Info.Description ?? _document.Info.Title ?? "API Client")}");
-        sb.AppendLine("/// </summary>");
-        sb.AppendLine($"public interface {interfaceName} : IOpenApiClient");
-        sb.AppendLine("{");
-
-        // Add navigation properties for top-level static segments
-        foreach (var (_, child) in pathTree.Children.OrderBy(c => c.Key))
-        {
-            if (!child.IsParameter)
-            {
-                sb.AppendLine($"    {child.BuilderName} {ToPascalCase(child.SegmentName)} {{ get => new(this); }}");
-            }
-        }
-
-        sb.AppendLine("}");
-
-        var filePath = Path.Combine(_outputDirectory, $"{interfaceName}.cs");
-        File.WriteAllText(filePath, sb.ToString());
-        Console.WriteLine($"  Generated {interfaceName} interface");
+        var writer = new CodeWriter();
+        writer.WriteLine($"namespace {ns};");
+        writer.WriteLine();
+        generator.Write(writer);
+        File.WriteAllText(filePath, writer.ToString());
     }
 
-    private void GenerateBuilders(PathSegmentNode root)
+    private void WriteBuilderToFile(BuilderGenerator builder, string filePath)
     {
-        var buildersDirectory = Path.Combine(_outputDirectory, "Builders");
-        Directory.CreateDirectory(buildersDirectory);
-
-        foreach (var node in PathTreeBuilder.GetAllNodes(root))
-        {
-            GenerateBuilderClass(node, buildersDirectory);
-        }
-    }
-
-    private void GenerateBuilderClass(PathSegmentNode node, string directory)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("using System;");
-        sb.AppendLine("using System.Collections.Generic;");
-        sb.AppendLine("using System.Net.Http;");
-        sb.AppendLine("using System.Net.Http.Json;");
-        sb.AppendLine("using System.Text.Json;");
-        sb.AppendLine("using System.Text.Json.Serialization;");
-        sb.AppendLine("using System.Threading;");
-        sb.AppendLine("using System.Threading.Tasks;");
-        sb.AppendLine();
-        sb.AppendLine($"namespace {_namespace};");
-        sb.AppendLine();
-
-        var builderName = node.BuilderName;
-
-        if (node.IsParameter)
-        {
-            GenerateParameterBuilderBody(sb, node, builderName);
-        }
-        else
-        {
-            GenerateStaticBuilderBody(sb, node, builderName);
-        }
-
-        var filePath = Path.Combine(directory, $"{builderName}.cs");
-        File.WriteAllText(filePath, sb.ToString());
-        Console.WriteLine($"  Generated builder: {builderName}");
-    }
-
-    private void GenerateStaticBuilderBody(StringBuilder sb, PathSegmentNode node, string builderName)
-    {
-        sb.AppendLine($"public class {builderName} : IOpenApiBuilder");
-        sb.AppendLine("{");
-        sb.AppendLine("    private readonly IOpenApiBuilder _parentBuilder;");
-        sb.AppendLine();
-
-        // Protected parameterless constructor for mocking
-        sb.AppendLine("#pragma warning disable CS8618");
-        sb.AppendLine($"    protected {builderName}() {{ }}");
-        sb.AppendLine("#pragma warning restore CS8618");
-        sb.AppendLine();
-
-        sb.AppendLine($"    public {builderName}(IOpenApiBuilder parentBuilder)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        _parentBuilder = parentBuilder;");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-
-        sb.AppendLine("    public IOpenApiClient Client => _parentBuilder.Client;");
-        sb.AppendLine($"    public string GetPath() => $\"{{_parentBuilder.GetPath()}}/{node.SegmentName}\";");
-        sb.AppendLine();
-
-        // Indexer for parameterized child
-        foreach (var (_, child) in node.Children)
-        {
-            if (child.IsParameter)
-            {
-                var paramType = child.ParameterSchema != null ? GetCSharpType(child.ParameterSchema) : "string";
-                var paramName = ToCamelCase(child.ParameterName ?? "id");
-                sb.AppendLine($"    public virtual {child.BuilderName} this[{paramType} {paramName}]");
-                sb.AppendLine("    {");
-                sb.AppendLine($"        get => new(this, {paramName});");
-                sb.AppendLine("    }");
-                sb.AppendLine();
-            }
-        }
-
-        // Navigation properties for static children
-        foreach (var (_, child) in node.Children.OrderBy(c => c.Key))
-        {
-            if (!child.IsParameter)
-            {
-                sb.AppendLine($"    public virtual {child.BuilderName} {ToPascalCase(child.SegmentName)} => new(this);");
-                sb.AppendLine();
-            }
-        }
-
-        // Operations
-        foreach (var (method, operation) in node.Operations)
-        {
-            GenerateBuilderOperation(sb, method, operation);
-        }
-
-        sb.AppendLine("}");
-    }
-
-    private void GenerateParameterBuilderBody(StringBuilder sb, PathSegmentNode node, string builderName)
-    {
-        var paramType = node.ParameterSchema != null ? GetCSharpType(node.ParameterSchema) : "string";
-        var paramName = ToCamelCase(node.ParameterName ?? "id");
-        var fieldName = $"_{paramName}";
-
-        sb.AppendLine($"public class {builderName} : IOpenApiBuilder");
-        sb.AppendLine("{");
-        sb.AppendLine("    private readonly IOpenApiBuilder _parentBuilder;");
-        sb.AppendLine($"    private readonly {paramType} {fieldName};");
-        sb.AppendLine();
-
-        // Protected parameterless constructor for mocking
-        sb.AppendLine("#pragma warning disable CS8618");
-        sb.AppendLine($"    protected {builderName}() {{ }}");
-        sb.AppendLine("#pragma warning restore CS8618");
-        sb.AppendLine();
-
-        sb.AppendLine($"    public {builderName}(IOpenApiBuilder parentBuilder, {paramType} {paramName})");
-        sb.AppendLine("    {");
-        sb.AppendLine("        _parentBuilder = parentBuilder;");
-        sb.AppendLine($"        {fieldName} = {paramName};");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-
-        sb.AppendLine("    public IOpenApiClient Client => _parentBuilder.Client;");
-        sb.AppendLine($"    public string GetPath() => $\"{{_parentBuilder.GetPath()}}/{{{fieldName}}}\";");
-        sb.AppendLine();
-
-        // Indexer for parameterized child
-        foreach (var (_, child) in node.Children)
-        {
-            if (child.IsParameter)
-            {
-                var childParamType = child.ParameterSchema != null ? GetCSharpType(child.ParameterSchema) : "string";
-                var childParamName = ToCamelCase(child.ParameterName ?? "id");
-                sb.AppendLine($"    public virtual {child.BuilderName} this[{childParamType} {childParamName}]");
-                sb.AppendLine("    {");
-                sb.AppendLine($"        get => new(this, {childParamName});");
-                sb.AppendLine("    }");
-                sb.AppendLine();
-            }
-        }
-
-        // Navigation properties for static children
-        foreach (var (_, child) in node.Children.OrderBy(c => c.Key))
-        {
-            if (!child.IsParameter)
-            {
-                sb.AppendLine($"    public virtual {child.BuilderName} {ToPascalCase(child.SegmentName)} => new(this);");
-                sb.AppendLine();
-            }
-        }
-
-        // Operations
-        foreach (var (method, operation) in node.Operations)
-        {
-            GenerateBuilderOperation(sb, method, operation);
-        }
-
-        sb.AppendLine("}");
-    }
-
-    private void GenerateBuilderOperation(StringBuilder sb, HttpMethod httpMethod, OpenApiOperation operation)
-    {
-        var methodName = ToPascalCase($"{httpMethod}".ToLowerInvariant());
-
-        var nestedClasses = new StringBuilder();
-
-        sb.AppendLine("    /// <summary>");
-        sb.AppendLine($"    /// {EscapeXmlComment(operation.Summary ?? operation.Description ?? methodName)}");
-        sb.AppendLine("    /// </summary>");
-
-        var requiredParameters = new List<string>();
-        var optionalParameters = new List<string>();
-        var queryParams = new List<(string name, string paramName, string paramType, bool required, bool isCollection)>();
-        string? requestBodyType = null;
-        string? bodyParamName = null;
-
-        // Only include query parameters (path params are handled by the builder chain)
-        if (operation.Parameters != null)
-        {
-            foreach (var parameter in operation.Parameters)
-            {
-                if (parameter.In == ParameterLocation.Query)
-                {
-                    var paramName = ToCamelCase(parameter.Name);
-                    var paramType = GetCSharpType(parameter.Schema);
-                    var isRequired = parameter.Required;
-                    var isCollection = paramType.StartsWith("List<");
-                    if (isRequired)
-                        requiredParameters.Add($"{paramType} {paramName}");
-                    else
-                        optionalParameters.Add($"{paramType}? {paramName} = default");
-                    queryParams.Add((parameter.Name, paramName, paramType, isRequired, isCollection));
-                }
-            }
-        }
-
-        if (operation.RequestBody != null)
-        {
-            var content = operation.RequestBody.Content.FirstOrDefault();
-            var bodySchemaName = content.Value.Schema != null ? GetSchemaName(content.Value.Schema) : null;
-            if (bodySchemaName != null)
-            {
-                requestBodyType = GetFullyQualifiedTypeName(bodySchemaName);
-            }
-            else if (IsInlineObjectSchema(content.Value?.Schema))
-            {
-                var nestedClassName = $"{methodName}Request";
-                requestBodyType = nestedClassName;
-                GenerateNestedClass(nestedClasses, nestedClassName, content.Value!.Schema!);
-            }
-            else if (content.Value?.Schema != null)
-            {
-                requestBodyType = GetCSharpType(content.Value.Schema);
-            }
-
-            if (requestBodyType != null)
-            {
-                bodyParamName = operation.RequestBody.Extensions?.TryGetValue("x-bodyName", out var bodyNameExt) == true
-                    && bodyNameExt is JsonNodeExtension { Node: { } bodyNameNode }
-                    ? bodyNameNode.GetValue<string>()
-                    : null;
-                if (string.IsNullOrWhiteSpace(bodyParamName))
-                    bodyParamName = "request";
-                requiredParameters.Add($"{requestBodyType} {bodyParamName}");
-            }
-        }
-
-        var responseType = GetResponseType(operation);
-        var responseSchema = GetSuccessResponseSchema(operation);
-        if (IsInlineObjectSchema(responseSchema))
-        {
-            var nestedClassName = $"{methodName}Response";
-            responseType = nestedClassName;
-            GenerateNestedClass(nestedClasses, nestedClassName, responseSchema!);
-        }
-
-        optionalParameters.Add("CancellationToken cancellationToken = default");
-
-        var parameters = requiredParameters.Concat(optionalParameters).ToList();
-
-        sb.AppendLine($"    public virtual async Task{(responseType == "void" ? "" : $"<{responseType}>")} {methodName}({string.Join(", ", parameters)})");
-        sb.AppendLine("    {");
-
-        // URL building: start from GetPath(), add query string if needed
-        if (queryParams.Count > 0)
-        {
-            sb.AppendLine("        var url = GetPath();");
-            sb.AppendLine();
-            sb.AppendLine("        var queryString = new List<string>();");
-
-            foreach (var param in queryParams)
-            {
-                if (param.isCollection)
-                {
-                    if (!param.required)
-                    {
-                        sb.AppendLine($"        if ({param.paramName} != null)");
-                        sb.AppendLine($"            foreach (var item in {param.paramName})");
-                        sb.AppendLine($"                queryString.Add($\"{param.name}={{Uri.EscapeDataString(item.ToString())}}\");");
-                    }
-                    else
-                    {
-                        sb.AppendLine($"        foreach (var item in {param.paramName})");
-                        sb.AppendLine($"            queryString.Add($\"{param.name}={{Uri.EscapeDataString(item.ToString())}}\");");
-                    }
-                }
-                else if (param.required)
-                {
-                    sb.AppendLine($"        queryString.Add($\"{param.name}={{Uri.EscapeDataString({param.paramName}.ToString())}}\");");
-                }
-                else
-                {
-                    sb.AppendLine($"        if ({param.paramName} is {{}} {param.paramName}Value)");
-                    sb.AppendLine($"            queryString.Add($\"{param.name}={{Uri.EscapeDataString({param.paramName}Value.ToString())}}\");");
-                }
-            }
-
-            sb.AppendLine("        if (queryString.Count > 0)");
-            sb.AppendLine("            url += \"?\" + string.Join(\"&\", queryString);");
-        }
-        else
-        {
-            sb.AppendLine("        var url = GetPath();");
-        }
-
-        sb.AppendLine();
-
-        // HTTP call
-        GenerateBuilderHttpCall(sb, httpMethod, responseType, requestBodyType != null ? bodyParamName : null);
-
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.Append(nestedClasses);
-    }
-
-    private static void GenerateBuilderHttpCall(StringBuilder sb, HttpMethod operationType, string responseType, string? bodyParamName)
-    {
-        bool hasRequestBody = bodyParamName != null;
-        if (operationType == HttpMethod.Get)
-        {
-            sb.AppendLine("        var response = await Client.HttpClient.GetAsync(url, cancellationToken);");
-            sb.AppendLine("        response.EnsureSuccessStatusCode();");
-            if (responseType != "void")
-            {
-                AppendDeserializationReturn(sb, responseType);
-            }
-        }
-        else if (operationType == HttpMethod.Post)
-        {
-            if (hasRequestBody)
-            {
-                sb.AppendLine($"        var response = await Client.HttpClient.PostAsJsonAsync(url, {bodyParamName}, Client.JsonOptions, cancellationToken);");
-            }
-            else
-            {
-                sb.AppendLine("        var response = await Client.HttpClient.PostAsync(url, null, cancellationToken);");
-            }
-            sb.AppendLine("        response.EnsureSuccessStatusCode();");
-            if (responseType != "void")
-            {
-                AppendDeserializationReturn(sb, responseType);
-            }
-        }
-        else if (operationType == HttpMethod.Put)
-        {
-            if (hasRequestBody)
-            {
-                sb.AppendLine($"        var response = await Client.HttpClient.PutAsJsonAsync(url, {bodyParamName}, Client.JsonOptions, cancellationToken);");
-            }
-            else
-            {
-                sb.AppendLine("        var response = await Client.HttpClient.PutAsync(url, null, cancellationToken);");
-            }
-            sb.AppendLine("        response.EnsureSuccessStatusCode();");
-            if (responseType != "void")
-            {
-                AppendDeserializationReturn(sb, responseType);
-            }
-        }
-        else if (operationType == HttpMethod.Delete)
-        {
-            sb.AppendLine("        var response = await Client.HttpClient.DeleteAsync(url, cancellationToken);");
-            sb.AppendLine("        response.EnsureSuccessStatusCode();");
-            if (responseType != "void")
-            {
-                AppendDeserializationReturn(sb, responseType);
-            }
-        }
-        else if (operationType == HttpMethod.Patch)
-        {
-            if (hasRequestBody)
-            {
-                sb.AppendLine($"        var content = JsonContent.Create({bodyParamName}, options: Client.JsonOptions);");
-                sb.AppendLine("        var response = await Client.HttpClient.PatchAsync(url, content, cancellationToken);");
-            }
-            else
-            {
-                sb.AppendLine("        var response = await Client.HttpClient.PatchAsync(url, null, cancellationToken);");
-            }
-            sb.AppendLine("        response.EnsureSuccessStatusCode();");
-            if (responseType != "void")
-            {
-                AppendDeserializationReturn(sb, responseType);
-            }
-        }
-    }
-
-    private static void AppendDeserializationReturn(StringBuilder sb, string responseType)
-    {
-        sb.AppendLine($"        var deserializedResponse = await response.Content.ReadFromJsonAsync<{responseType}>(Client.JsonOptions, cancellationToken);");
-        sb.AppendLine("        if (deserializedResponse is { } deserializedResponseValue)");
-        sb.AppendLine("            return deserializedResponseValue;");
-        sb.AppendLine("        throw new InvalidOperationException($\"Response from {url} is null\");");
-    }
-
-    private string GetResponseType(OpenApiOperation operation)
-    {
-        var successResponse = operation.Responses.FirstOrDefault(r => r.Key.StartsWith("2"));
-        if (successResponse.Value?.Content?.Any() == true)
-        {
-            var content = successResponse.Value.Content.FirstOrDefault();
-            var respSchemaName = content.Value.Schema != null ? GetSchemaName(content.Value.Schema) : null;
-            if (respSchemaName != null)
-            {
-                return GetFullyQualifiedTypeName(respSchemaName);
-            }
-            if (content.Value?.Schema != null)
-            {
-                return GetCSharpType(content.Value.Schema);
-            }
-        }
-        return "void";
-    }
-
-    private static IOpenApiSchema? GetSuccessResponseSchema(OpenApiOperation operation)
-    {
-        var successResponse = operation.Responses.FirstOrDefault(r => r.Key.StartsWith("2"));
-        if (successResponse.Value?.Content?.Any() == true)
-        {
-            return successResponse.Value.Content.FirstOrDefault().Value?.Schema;
-        }
-        return null;
-    }
-
-    private static bool IsInlineObjectSchema(IOpenApiSchema? schema)
-    {
-        if (schema == null) return false;
-        if (GetSchemaName(schema) != null) return false;
-        return schema.Type == JsonSchemaType.Object && schema.Properties?.Count > 0;
-    }
-
-    private void GenerateNestedClass(StringBuilder sb, string className, IOpenApiSchema schema)
-    {
-        sb.AppendLine($"    public class {className}");
-        sb.AppendLine("    {");
-
-        if (schema.Properties != null)
-        {
-            foreach (var property in schema.Properties)
-            {
-                var propertyName = ToPascalCase(property.Key);
-                var propertyType = GetCSharpType(property.Value);
-                var isRequired = schema.Required?.Contains(property.Key) ?? false;
-
-                sb.AppendLine($"        [JsonPropertyName(\"{property.Key}\")]");
-                sb.AppendLine($"        public {(isRequired ? "required " : "")}{propertyType}{(isRequired ? "" : "?")} {propertyName} {{ get; set; }}");
-                sb.AppendLine();
-            }
-        }
-
-        sb.AppendLine("    }");
-        sb.AppendLine();
-    }
-
-    private string GetModelPropertyType(IOpenApiSchema schema, string propertyName, StringBuilder nestedTypes, string? nestedTypeName = null)
-    {
-        if (GetSchemaName(schema) != null)
-            return GetCSharpType(schema);
-
-        var typeName = nestedTypeName ?? propertyName;
-
-        if (schema.Enum != null && schema.Enum.Count > 0)
-        {
-            GenerateNestedEnum(nestedTypes, typeName, schema);
-            return typeName;
-        }
-
-        if (IsInlineObjectSchema(schema))
-        {
-            GenerateNestedClass(nestedTypes, typeName, schema);
-            return typeName;
-        }
-
-        return GetCSharpType(schema);
-    }
-
-    private static void GenerateNestedEnum(StringBuilder sb, string enumName, IOpenApiSchema schema)
-    {
-        sb.AppendLine($"    [JsonConverter(typeof(JsonStringEnumConverter))]");
-        sb.AppendLine($"    public enum {enumName}");
-        sb.AppendLine("    {");
-
-        foreach (var enumValue in schema.Enum)
-        {
-            var stringValue = enumValue.ToString();
-            var memberName = ToPascalCase(stringValue);
-
-            if (memberName != stringValue)
-            {
-                sb.AppendLine($"        [JsonStringEnumMemberName(\"{stringValue}\")]");
-            }
-            sb.AppendLine($"        {memberName},");
-            sb.AppendLine();
-        }
-
-        sb.AppendLine("    }");
-        sb.AppendLine();
+        var writer = new CodeWriter();
+        writer.WriteLine("using System;");
+        writer.WriteLine("using System.Collections.Generic;");
+        writer.WriteLine("using System.Net.Http;");
+        writer.WriteLine("using System.Net.Http.Json;");
+        writer.WriteLine("using System.Text.Json;");
+        writer.WriteLine("using System.Text.Json.Serialization;");
+        writer.WriteLine("using System.Threading;");
+        writer.WriteLine("using System.Threading.Tasks;");
+        writer.WriteLine();
+        writer.WriteLine($"namespace {_namespace};");
+        writer.WriteLine();
+        builder.Write(writer);
+        File.WriteAllText(filePath, writer.ToString());
     }
 
     private string GetClientName()
@@ -736,111 +161,5 @@ public class ClientGenerator
 
         var title = _document.Info?.Title?.Replace(" ", "").Replace("-", "").Replace("_", "") ?? "Api";
         return $"{title}Client";
-    }
-
-    public string GetCSharpType(IOpenApiSchema schema)
-    {
-        var schemaName = GetSchemaName(schema);
-        if (schemaName != null)
-        {
-            return GetFullyQualifiedTypeName(schemaName);
-        }
-
-        // Try to resolve from type mapping config
-        var resolved = _typeMappingConfig.Resolve(schema.Type, schema.Format);
-        if (resolved != null)
-            return resolved;
-
-        return schema.Type switch
-        {
-            JsonSchemaType.Array when schema.Items != null => $"List<{GetCSharpType(schema.Items)}>",
-            JsonSchemaType.Array => "List<object>",
-            _ => "object"
-        };
-    }
-
-    public static string ToPascalCase(string input)
-    {
-        if (string.IsNullOrEmpty(input)) return input;
-
-        var words = input.Split(new[] { '-', '_', ' ', '.' }, StringSplitOptions.RemoveEmptyEntries);
-        return string.Concat(words.Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
-    }
-
-    public static string ToCamelCase(string input)
-    {
-        var pascal = ToPascalCase(input);
-        if (string.IsNullOrEmpty(pascal)) return pascal;
-        return char.ToLowerInvariant(pascal[0]) + pascal[1..];
-    }
-
-    /// <summary>
-    /// Strips the configured namespace prefix from a schema name.
-    /// For example, with prefix "Commerce", "Commerce.Order" becomes "Order".
-    /// </summary>
-    private string StripNamespacePrefix(string name)
-    {
-        if (string.IsNullOrEmpty(_namespacePrefix))
-            return name;
-
-        var prefix = _namespacePrefix.EndsWith('.') ? _namespacePrefix : _namespacePrefix + ".";
-
-        return name.StartsWith(prefix, StringComparison.Ordinal)
-            ? name[prefix.Length..]
-            : name;
-    }
-
-    /// <summary>
-    /// Decomposes a potentially dotted schema name into namespace segments and a type name.
-    /// For example, "Pet.Status" becomes ("Pet", "Status").
-    /// </summary>
-    private static (string additionalNamespace, string typeName) DecomposeName(string name)
-    {
-        var dotIndex = name.LastIndexOf('.');
-        if (dotIndex < 0)
-            return ("", name);
-
-        var namespacePart = name[..dotIndex];
-        var typeName = name[(dotIndex + 1)..];
-
-        var segments = namespacePart.Split('.');
-        var pascalSegments = segments.Select(ToPascalCase);
-        return (string.Join(".", pascalSegments), typeName);
-    }
-
-    /// <summary>
-    /// Returns the fully qualified type name for a schema, including the full namespace path.
-    /// </summary>
-    private string GetFullyQualifiedTypeName(string schemaName)
-    {
-        var stripped = StripNamespacePrefix(schemaName);
-        var (additionalNamespace, typeName) = DecomposeName(stripped);
-        var fullNamespace = string.IsNullOrEmpty(additionalNamespace)
-            ? $"{_namespace}.Models"
-            : $"{_namespace}.Models.{additionalNamespace}";
-        return $"{fullNamespace}.{typeName}";
-    }
-
-    /// <summary>
-    /// Extracts the schema name from an IOpenApiSchema, handling both direct Id and OpenApiSchemaReference.
-    /// </summary>
-    private static string? GetSchemaName(IOpenApiSchema schema)
-    {
-        if (!string.IsNullOrEmpty(schema.Id))
-            return schema.Id;
-
-        if (schema is OpenApiSchemaReference schemaRef)
-            return schemaRef.Reference.Id;
-
-        return null;
-    }
-
-    private static string EscapeXmlComment(string text)
-    {
-        return text
-            .Replace("&", "&amp;")
-            .Replace("<", "&lt;")
-            .Replace(">", "&gt;")
-            .Replace("\"", "&quot;");
     }
 }

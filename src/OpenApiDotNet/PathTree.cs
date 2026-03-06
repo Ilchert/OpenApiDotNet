@@ -1,4 +1,5 @@
 using Microsoft.OpenApi;
+using OpenApiDotNet.Generators;
 
 namespace OpenApiDotNet;
 
@@ -140,7 +141,7 @@ public static class PathTreeBuilder
             }
             else
             {
-                var pascalSegment = ClientGenerator.ToPascalCase(child.SegmentName);
+                var pascalSegment = GeneratorContext.ToPascalCase(child.SegmentName);
                 simpleName = $"{pascalSegment}Builder";
                 contextName = $"{contextPrefix}{pascalSegment}Builder";
                 nextContextPrefix = $"{contextPrefix}{pascalSegment}";
@@ -156,7 +157,7 @@ public static class PathTreeBuilder
         // The parent node is the one containing this child. If the parent is a static segment, use its name.
         // If the parent is the root, use a fallback.
         if (!string.IsNullOrEmpty(parentNode.SegmentName) && !parentNode.IsParameter)
-            return ClientGenerator.ToPascalCase(parentNode.SegmentName);
+            return GeneratorContext.ToPascalCase(parentNode.SegmentName);
 
         return "Item";
     }

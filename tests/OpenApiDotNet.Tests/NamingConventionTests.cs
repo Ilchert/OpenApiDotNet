@@ -1,5 +1,5 @@
 using FluentAssertions;
-using OpenApiDotNet;
+using OpenApiDotNet.Generators;
 
 namespace OpenApiDotNet.Tests;
 
@@ -22,7 +22,7 @@ public class NamingConventionTests
     public void ToPascalCase_ConvertsCorrectly(string input, string expected)
     {
         // Act
-        var result = ClientGenerator.ToPascalCase(input);
+        var result = GeneratorContext.ToPascalCase(input);
 
         // Assert
         result.Should().Be(expected);
@@ -42,7 +42,7 @@ public class NamingConventionTests
     public void ToCamelCase_ConvertsCorrectly(string input, string expected)
     {
         // Act
-        var result = ClientGenerator.ToCamelCase(input);
+        var result = GeneratorContext.ToCamelCase(input);
 
         // Assert
         result.Should().Be(expected);

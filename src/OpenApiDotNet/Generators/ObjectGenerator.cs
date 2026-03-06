@@ -22,7 +22,7 @@ internal class ObjectGenerator : BaseGenerator
             throw new InvalidOperationException("Schema is not of type Object.");
 
         Description = _schema.Description;
-        Properties = _schema.Properties?.Select(p => new ObjectPropertyGenerator(p.Key, p.Value, TypeName, Context)).ToList() ?? [];
+        Properties = _schema.Properties?.Select(p => new ObjectPropertyGenerator(p.Key, p.Value, TypeName, _schema.Required?.Contains(p.Key) ?? false, Context)).ToList() ?? [];
     }
 
     public override void Write(CodeWriter writer)

@@ -101,9 +101,9 @@ public class ClientGenerationTests : IDisposable
         content.Should().Contain("public bool? Vaccinated");
         content.Should().Contain("public double? Weight");
         content.Should().NotContain("using NodaTime;");
-        content.Should().Contain("[JsonPropertyName(\"id\")]");
-        content.Should().Contain("[JsonPropertyName(\"birthDate\")]");
-        content.Should().Contain("[JsonPropertyName(\"createdAt\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"id\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"birthDate\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"createdAt\")]");
     }
 
     [Fact]
@@ -406,11 +406,11 @@ public class ClientGenerationTests : IDisposable
 
         // Nested class should be generated with properties
         content.Should().Contain("public class GetResponse");
-        content.Should().Contain("[JsonPropertyName(\"totalCount\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"totalCount\")]");
         content.Should().Contain("public int? TotalCount");
-        content.Should().Contain("[JsonPropertyName(\"activeCount\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"activeCount\")]");
         content.Should().Contain("public int? ActiveCount");
-        content.Should().Contain("[JsonPropertyName(\"lastUpdated\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"lastUpdated\")]");
         content.Should().Contain("public NodaTime.Instant? LastUpdated");
     }
 
@@ -457,9 +457,9 @@ public class ClientGenerationTests : IDisposable
 
         // Nested class should be generated with properties
         content.Should().Contain("public class PostRequest");
-        content.Should().Contain("[JsonPropertyName(\"message\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"message\")]");
         content.Should().Contain("public required string Message");
-        content.Should().Contain("[JsonPropertyName(\"rating\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"rating\")]");
         content.Should().Contain("public int? Rating");
     }
 
@@ -780,11 +780,11 @@ public class ClientGenerationTests : IDisposable
 
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "PetStatus.cs"));
         content.Should().Contain("public enum PetStatus");
-        content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]");
         content.Should().Contain("Available,");
         content.Should().Contain("Pending,");
         content.Should().Contain("Sold,");
-        content.Should().Contain("using System.Text.Json.Serialization;");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonStringEnumMemberName(\"available\")]");
     }
 
     [Fact]
@@ -812,7 +812,7 @@ public class ClientGenerationTests : IDisposable
         content.Should().Contain("Medium,");
         content.Should().Contain("Large,");
         content.Should().Contain("ExtraLarge,");
-        content.Should().Contain("[JsonStringEnumMemberName(\"extra-large\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonStringEnumMemberName(\"extra-large\")]");
     }
 
     [Fact]
@@ -935,7 +935,7 @@ public class ClientGenerationTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Commerce", "OrderStatus.cs"));
         content.Should().Contain("public enum OrderStatus");
         content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
-        content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]");
         content.Should().Contain("Pending,");
         content.Should().Contain("Confirmed,");
         content.Should().Contain("Shipped,");
@@ -1122,9 +1122,9 @@ public class ClientGenerationTests : IDisposable
 
         content.Should().Contain("public OrderAddress? Address");
         content.Should().Contain("public class OrderAddress");
-        content.Should().Contain("[JsonPropertyName(\"street\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"street\")]");
         content.Should().Contain("public string? Street");
-        content.Should().Contain("[JsonPropertyName(\"city\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"city\")]");
         content.Should().Contain("public string? City");
     }
 
@@ -1159,7 +1159,7 @@ public class ClientGenerationTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Pet.cs"));
 
         content.Should().Contain("public PetStatus? Status");
-        content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]");
         content.Should().Contain("public enum PetStatus");
         content.Should().Contain("Available,");
         content.Should().Contain("Pending,");

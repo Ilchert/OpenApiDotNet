@@ -12,13 +12,13 @@ internal class ObjectPropertyGenerator
     public bool IsRequired { get; }
     public BaseGenerator? NestedPropertyTypeGenerator { get; set; }
 
-    public ObjectPropertyGenerator(string name, IOpenApiSchema schema, string parentName, GeneratorContext context)
+    public ObjectPropertyGenerator(string name, IOpenApiSchema schema, string parentName, bool isRequired, GeneratorContext context)
     {
         Name = name;
         Context = context;
         PropertyName = GeneratorContext.ToPascalCase(name);
         Description = schema.Description;
-        IsRequired = schema.Required?.Contains(name) ?? false;
+        IsRequired = isRequired;
 
         (TypeName, NestedPropertyTypeGenerator) = GetPropertyType(schema, parentName);
     }
@@ -43,7 +43,7 @@ internal class ObjectPropertyGenerator
     {
         BaseGenerator.WriteSummary(writer, Description);
         writer.WriteLine($$"""
-[System.Text.Json.Serialization.JsonConverter.JsonPropertyName("{{Name}}")]
+[System.Text.Json.Serialization.JsonPropertyName("{{Name}}")]
 public {{(IsRequired ? "required " : "")}}{{TypeName}}{{(IsRequired ? "" : "?")}} {{PropertyName}} { get; set; }
 """);
         writer.WriteLine();
