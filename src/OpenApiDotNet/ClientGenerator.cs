@@ -41,7 +41,7 @@ public class ClientGenerator
         var endClient = new EndClientGenerator(_document, context);
 
         // Write named client interface
-        WriteGeneratorToFile(endClient, _namespace, Path.Combine(_outputDirectory, $"{endClient.InterfaceName}.cs"));
+        WriteGeneratorToFile(endClient, Path.Combine(_outputDirectory, $"{endClient.InterfaceName}.cs"));
         Console.WriteLine($"  Generated {endClient.InterfaceName} interface");
 
         // Write builders
@@ -49,8 +49,8 @@ public class ClientGenerator
         Directory.CreateDirectory(buildersDirectory);
         foreach (var builder in endClient.BuilderGenerators)
         {
-            WriteBuilderToFile(builder, Path.Combine(buildersDirectory, $"{builder.BuilderName}.cs"));
-            Console.WriteLine($"  Generated builder: {builder.BuilderName}");
+            WriteBuilderToFile(builder, Path.Combine(buildersDirectory, $"{builder.TypeInfo.Name}.cs"));
+            Console.WriteLine($"  Generated builder: {builder.TypeInfo.Name}");
         }
     }
 
@@ -70,15 +70,14 @@ public class ClientGenerator
             else
                 generator = new ObjectGenerator(name, schema, context);
 
-            var (ns, typeName) = context.GetNameAndNamespace(name, GeneratorCategory.Model);
             var modelsNs = $"{_namespace}.Models";
-            var relativePath = ns.Length > modelsNs.Length
-                ? ns[(modelsNs.Length + 1)..].Replace('.', Path.DirectorySeparatorChar)
+            var relativePath = generator.TypeInfo.Namespace.Length > modelsNs.Length
+                ? generator.TypeInfo.Namespace[(modelsNs.Length + 1)..].Replace('.', Path.DirectorySeparatorChar)
                 : "";
             var dir = string.IsNullOrEmpty(relativePath) ? modelsDirectory : Path.Combine(modelsDirectory, relativePath);
             Directory.CreateDirectory(dir);
 
-            WriteGeneratorToFile(generator, ns, Path.Combine(dir, $"{typeName}.cs"));
+            WriteGeneratorToFile(generator, Path.Combine(dir, $"{generator.TypeInfo.Name}.cs"));
             Console.WriteLine($"  Generated model: {name}");
         }
     }
@@ -127,16 +126,14 @@ public class ClientGenerator
         Console.WriteLine("  Generated IOpenApiClient interface");
     }
 
-    private static void WriteGeneratorToFile(BaseGenerator generator, string ns, string filePath)
+    private static void WriteGeneratorToFile(BaseGenerator generator, string filePath)
     {
         var writer = new CodeWriter();
-        writer.WriteLine($"namespace {ns};");
-        writer.WriteLine();
-        generator.Write(writer);
+        generator.WriteWithNamespace(writer);
         File.WriteAllText(filePath, writer.ToString());
     }
 
-    private void WriteBuilderToFile(BuilderGenerator builder, string filePath)
+    private static void WriteBuilderToFile(BuilderGenerator builder, string filePath)
     {
         var writer = new CodeWriter();
         writer.WriteLine("using System;");
@@ -148,9 +145,7 @@ public class ClientGenerator
         writer.WriteLine("using System.Threading;");
         writer.WriteLine("using System.Threading.Tasks;");
         writer.WriteLine();
-        writer.WriteLine($"namespace {_namespace};");
-        writer.WriteLine();
-        builder.Write(writer);
+        builder.WriteWithNamespace(writer);
         File.WriteAllText(filePath, writer.ToString());
     }
 

@@ -4,7 +4,7 @@ internal abstract class BaseGenerator
 {
     protected readonly GeneratorContext Context;
 
-    public abstract string Namespace { get; }
+    public abstract GeneratedTypeInfo TypeInfo { get; }
 
     public BaseGenerator(GeneratorContext context)
     {
@@ -13,13 +13,13 @@ internal abstract class BaseGenerator
 
     public void WriteNamespace(CodeWriter writer)
     {
-        writer.WriteLine($"namespace {Namespace};");
+        writer.WriteLine($"namespace {TypeInfo.Namespace};");
         writer.WriteLine();
     }
 
     public void WriteWithNamespace(CodeWriter writer)
     {
-        writer.WriteLine($"namespace {Namespace};");
+        writer.WriteLine($"namespace {TypeInfo.Namespace};");
         writer.WriteLine();
         Write(writer);
     }

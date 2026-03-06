@@ -4,7 +4,7 @@ namespace OpenApiDotNet.Generators;
 
 internal class EndClientGenerator : BaseGenerator
 {
-    public override string Namespace { get; }
+    public override GeneratedTypeInfo TypeInfo { get; }
     public string ClientName { get; }
     public string InterfaceName { get; }
     public string? Description { get; }
@@ -14,9 +14,9 @@ internal class EndClientGenerator : BaseGenerator
 
     public EndClientGenerator(OpenApiDocument document, GeneratorContext context) : base(context)
     {
-        Namespace = context.DefaultNamespace;
         ClientName = context.ClinetName;
         InterfaceName = $"I{ClientName}";
+        TypeInfo = new GeneratedTypeInfo(context.DefaultNamespace, InterfaceName);
         Description = document.Info?.Description ?? document.Info?.Title;
 
         var root = PathTreeBuilder.Build(document.Paths);

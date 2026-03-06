@@ -4,9 +4,7 @@ namespace OpenApiDotNet.Generators;
 
 internal class EnumGenerator : BaseGenerator // Add oneOf support
 {
-    public override string Namespace { get; }
-
-    public string TypeName { get; }
+    public override GeneratedTypeInfo TypeInfo { get; }
 
     public string? Description { get; }
 
@@ -14,7 +12,7 @@ internal class EnumGenerator : BaseGenerator // Add oneOf support
 
     public EnumGenerator(string name, IOpenApiSchema schema, GeneratorContext context) : base(context)
     {
-        (Namespace, TypeName) = Context.GetNameAndNamespace(name, GeneratorCategory.Model);
+        TypeInfo = Context.GetNameAndNamespace(name, GeneratorCategory.Model);
         if (schema.Enum is null)
             throw new InvalidOperationException("Enum schema must have an Enum property.");
         Description = schema.Description;
@@ -27,7 +25,7 @@ internal class EnumGenerator : BaseGenerator // Add oneOf support
 
         writer.WriteLine($$"""
 [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
-public enum {{TypeName}}
+public enum {{TypeInfo.Name}}
 {
 """);
         writer.Indent();

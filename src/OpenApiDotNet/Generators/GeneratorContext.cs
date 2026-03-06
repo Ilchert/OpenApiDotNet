@@ -22,7 +22,7 @@ internal class GeneratorContext
             StripNamespacePefix = null;
     }
 
-    public (string Namespace, string Name) GetNameAndNamespace(string name, GeneratorCategory category)
+    public GeneratedTypeInfo GetNameAndNamespace(string name, GeneratorCategory category)
     {
         name = GetStrippedName(name);
         IEnumerable<string> namespaceSegments = [DefaultNamespace];
@@ -42,7 +42,7 @@ internal class GeneratorContext
             namespaceSegments = namespaceSegments.Concat(segments.Select(ToPascalCase));
         }
 
-        return (string.Join(".", namespaceSegments), typeName);
+        return new GeneratedTypeInfo(string.Join(".", namespaceSegments), typeName);
     }
 
     private string GetStrippedName(string name)
@@ -72,10 +72,7 @@ internal class GeneratorContext
     {
         var schemaName = GetSchemaName(schema);
         if (schemaName != null)
-        {
-            var (ns, name) = GetNameAndNamespace(schemaName, GeneratorCategory.Model);
-            return $"{ns}.{name}";
-        }
+            return GetNameAndNamespace(schemaName, GeneratorCategory.Model).FullName;
 
         var resolved = TypeMappingConfig.Resolve(schema.Type, schema.Format);
         if (resolved != null)

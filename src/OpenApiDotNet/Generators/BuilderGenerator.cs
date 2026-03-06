@@ -2,8 +2,7 @@ namespace OpenApiDotNet.Generators;
 
 internal class BuilderGenerator : BaseGenerator
 {
-    public override string Namespace { get; }
-    public string BuilderName { get; }
+    public override GeneratedTypeInfo TypeInfo { get; }
     public bool IsParameter { get; }
     public string SegmentName { get; }
     public string? ParameterType { get; }
@@ -13,10 +12,10 @@ internal class BuilderGenerator : BaseGenerator
     public List<BuilderOperationGenerator> Operations { get; } = [];
     public BuilderGenerator(PathSegmentNode node, GeneratorContext context) : base(context)
     {
-        (Namespace, BuilderName) = Context.GetNameAndNamespace(node.BuilderName, GeneratorCategory.Builder);
+        TypeInfo = Context.GetNameAndNamespace(node.BuilderName, GeneratorCategory.Builder);
         IsParameter = node.IsParameter;
         SegmentName = node.SegmentName;
-
+        
         if (node.IsParameter)
         {
             ParameterType = node.ParameterSchema != null ? context.GetCSharpType(node.ParameterSchema) : "string";
@@ -34,12 +33,12 @@ internal class BuilderGenerator : BaseGenerator
     public override void Write(CodeWriter writer)
     {
         writer.WriteLine($$"""
-public class {{BuilderName}} : IOpenApiBuilder
+public class {{TypeInfo.Name}} : IOpenApiBuilder
 {
     private readonly IOpenApiBuilder _parentBuilder;
 
     #pragma warning disable CS8618
-    protected {{BuilderName}}() { }
+    protected {{TypeInfo.Name}}() { }
     #pragma warning restore CS8618
 
 """);
@@ -50,7 +49,7 @@ public class {{BuilderName}} : IOpenApiBuilder
             writer.WriteLine($$"""
 private readonly {{ParameterType}} {{ParameterFieldName}};
 
-public {{BuilderName}}(IOpenApiBuilder parentBuilder, {{ParameterType}} {{ParameterCamelName}})
+public {{TypeInfo.Name}}(IOpenApiBuilder parentBuilder, {{ParameterType}} {{ParameterCamelName}})
 {
     _parentBuilder = parentBuilder;
     {{ParameterFieldName}} = {{ParameterCamelName}};
@@ -62,7 +61,7 @@ public string GetPath() => $"{_parentBuilder.GetPath()}/{{{ParameterFieldName}}}
         else
         {
             writer.WriteLine($$"""
-public {{BuilderName}}(IOpenApiBuilder parentBuilder)
+public {{TypeInfo.Name}}(IOpenApiBuilder parentBuilder)
 {
     _parentBuilder = parentBuilder;
 }

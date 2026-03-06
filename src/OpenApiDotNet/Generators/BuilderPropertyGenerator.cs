@@ -1,8 +1,13 @@
 namespace OpenApiDotNet.Generators;
 
-internal abstract class BuilderPropertyGenerator(string builderName)
+internal abstract class BuilderPropertyGenerator
 {
-    public string BuilderName { get; } = builderName;
+    public GeneratedTypeInfo BuilderTypeInfo { get; }
+
+    public BuilderPropertyGenerator(PathSegmentNode node, GeneratorContext context)
+    {
+        BuilderTypeInfo = context.GetNameAndNamespace(node.BuilderName, GeneratorCategory.Builder);
+    }
 
     public static BuilderPropertyGenerator Create(PathSegmentNode node, GeneratorContext context) =>
         node.IsParameter
