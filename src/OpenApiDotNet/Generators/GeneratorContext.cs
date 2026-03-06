@@ -27,9 +27,9 @@ internal class GeneratorContext
         name = GetStrippedName(name);
         IEnumerable<string> namespaceSegments = [DefaultNamespace];
         if (category == GeneratorCategory.Model)
-            namespaceSegments = namespaceSegments.Append("Model");
+            namespaceSegments = namespaceSegments.Append("Models");
         else if (category == GeneratorCategory.Builder)
-            namespaceSegments = namespaceSegments.Append("Builder");
+            namespaceSegments = namespaceSegments.Append("Builders");
 
         var typeName = name;
 
