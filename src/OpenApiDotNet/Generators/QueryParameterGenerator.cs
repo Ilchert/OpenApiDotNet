@@ -20,7 +20,6 @@ internal class QueryParameterGenerator
     }
     public void WriteAddToToQueryString(CodeWriter writer)
     {
-        // added item.ToString()?? "null" to avoid NRT warnings, since ToString() can return null for boxed Nullable
         if (IsCollection)
         {
             if (!IsRequired)
@@ -28,7 +27,7 @@ internal class QueryParameterGenerator
                 writer.WriteLine($$"""
 if ({{ParameterName}} != null)
     foreach (var item in {{ParameterName}})
-        queryString.Add($"{{Name}}={System.Uri.EscapeDataString(item.ToString()!)}");
+        queryString.Add($"{{Name}}={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(item, Client.JsonOptions).Trim('"'))}");
 
 """);
             }
@@ -36,20 +35,20 @@ if ({{ParameterName}} != null)
             {
                 writer.WriteLine($$"""
 foreach (var item in {{ParameterName}})
-    queryString.Add($"{{Name}}={System.Uri.EscapeDataString(item.ToString()!)}");
+    queryString.Add($"{{Name}}={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(item, Client.JsonOptions).Trim('"'))}");
 
 """);
             }
         }
         else if (IsRequired)
         {
-            writer.WriteLine($$"""queryString.Add($"{{Name}}={System.Uri.EscapeDataString({{ParameterName}}.ToString()!)}");""");
+            writer.WriteLine($$"""queryString.Add($"{{Name}}={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize({{ParameterName}}, Client.JsonOptions).Trim('"'))}");""");
         }
         else
         {
             writer.WriteLine($$"""
 if ({{ParameterName}} is {} {{ParameterName}}Value)
-    queryString.Add($"{{Name}}={System.Uri.EscapeDataString({{ParameterName}}Value.ToString()!)}");
+    queryString.Add($"{{Name}}={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize({{ParameterName}}Value, Client.JsonOptions).Trim('"'))}");
 """);
         }
     }

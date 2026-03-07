@@ -244,7 +244,7 @@ public class OpenApiGeneratorTests : IDisposable
         content.Should().Contain("int? limit");
 
         // Required parameter should always be added to query string (no null check)
-        content.Should().Contain("System.Uri.EscapeDataString(category.ToString())");
+        content.Should().Contain("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(category, Client.JsonOptions)");
         content.Should().NotContain("if (category != null)");
 
         // Optional parameter should have null check using pattern matching (avoids CS8604)
@@ -294,11 +294,11 @@ public class OpenApiGeneratorTests : IDisposable
         content.Should().Contain("foreach (var item in statuses)");
 
         // Each item should be individually escaped and added with the parameter name
-        content.Should().Contain("System.Uri.EscapeDataString(item.ToString())");
+        content.Should().Contain("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(item, Client.JsonOptions)");
 
         // Scalar parameter should use pattern matching to avoid CS8604
         content.Should().Contain("if (limit is {} limitValue)");
-        content.Should().Contain("System.Uri.EscapeDataString(limitValue.ToString())");
+        content.Should().Contain("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(limitValue, Client.JsonOptions)");
     }
 
     [Fact]
