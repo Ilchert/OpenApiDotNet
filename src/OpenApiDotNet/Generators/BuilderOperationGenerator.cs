@@ -1,3 +1,4 @@
+using System.Reflection.Metadata;
 using Microsoft.OpenApi;
 
 namespace OpenApiDotNet.Generators;
@@ -12,9 +13,11 @@ internal class BuilderOperationGenerator
     public string ResponseType { get; }
     public List<BaseGenerator> NestedTypeGenerators { get; } = [];
 
+
     private readonly List<string> _requiredParameters = [];
     private readonly List<string> _optionalParameters = [];
     private readonly List<QueryParamInfo> _queryParams = [];
+    private readonly List<ParameterGenerator> _parameters = [];
     private string? _bodyParamName;
 
     public BuilderOperationGenerator(HttpMethod httpMethod, OpenApiOperation operation, GeneratorContext context)
@@ -24,43 +27,25 @@ internal class BuilderOperationGenerator
         _context = context;
         MethodName = GeneratorContext.ToPascalCase(httpMethod.Method.ToLowerInvariant());
 
-        ProcessQueryParameters();
+        if (_operation.Parameters != null)
+            foreach (var parameter in _operation.Parameters)
+                if (ParameterGenerator.Create(parameter, context) is { } paramGen)
+                    _parameters.Add(paramGen);
+
+
         ProcessRequestBody();
         ResponseType = ResolveResponseType();
         _optionalParameters.Add("System.Threading.CancellationToken cancellationToken = default");
     }
 
-    private void ProcessQueryParameters()
-    {
-        if (_operation.Parameters == null) return;
-
-        foreach (var parameter in _operation.Parameters)
-        {
-            if (parameter.In == ParameterLocation.Query)
-            {
-                var paramName = GeneratorContext.ToCamelCase(parameter.Name);
-                var paramType = _context.GetCSharpType(parameter.Schema);
-                var isRequired = parameter.Required;
-                var isCollection = paramType.StartsWith("System.Collections.Generic.List<");
-
-                if (isRequired)
-                    _requiredParameters.Add($"{paramType} {paramName}");
-                else
-                    _optionalParameters.Add($"{paramType}? {paramName} = default");
-
-                _queryParams.Add(new(parameter.Name, paramName, paramType, isRequired, isCollection));
-            }
-        }
-    }
-
     private void ProcessRequestBody()
     {
-        if (_operation.RequestBody == null) return;
+        if (_operation.RequestBody == null)
+            return;
 
-        var content = _operation.RequestBody.Content.FirstOrDefault();
-        if (content.Value?.Schema == null) return;
+        var content = _operation.RequestBody.Content?.FirstOrDefault();
+        if (content?.Value?.Schema is not { } schema) return;
 
-        var schema = content.Value.Schema;
         string requestBodyType;
 
         if (GeneratorContext.IsInlineObjectSchema(schema))
@@ -232,5 +217,73 @@ internal class BuilderOperationGenerator
         }
     }
 
-    private record QueryParamInfo(string Name, string ParamName, string ParamType, bool Required, bool IsCollection);
+    private enum ParamLocation
+    {
+        Query,
+        Body
+    }
+
+    private record QueryParamInfo(string Name, string ParamName, string ParamType, bool Required, bool IsCollection, ParamLocation Location);
+    private record ParamInfo(string Name, string ParamName, string ParamType, bool Required, bool IsCollection, ParamLocation Location);
+}
+
+internal abstract class ParameterGenerator
+{
+    public static ParameterGenerator? Create(IOpenApiParameter parameter, GeneratorContext context)
+    {
+        if (parameter.In == ParameterLocation.Query)
+            return new QueryParameterGenerator(parameter, context);
+        return null;
+    }
+    public abstract void Write(CodeWriter writer);
+
+}
+
+internal class BodyParameterGenerator : ParameterGenerator
+{
+    public string ParameterName { get; }
+    public string ParameterType { get; }
+    public bool IsRequired { get; }
+    public BodyParameterGenerator(IOpenApiRequestBody requestBody, GeneratorContext context)
+    {
+        var content = requestBody.Content?.FirstOrDefault();
+        if (content?.Value?.Schema is not { } schema) return;
+
+        if (GeneratorContext.IsInlineObjectSchema(schema))
+        {
+            var nestedClassName = $"{context.ClientName}Request";
+            ParameterType = nestedClassName;
+            context.NestedTypeGenerators.Add(new ObjectGenerator(nestedClassName, schema, context));
+        }
+        else
+        {
+            ParameterType = context.GetCSharpType(schema);
+        }
+        ParameterName = "request";
+        IsRequired = requestBody.Required;
+    }
+    public override void Write(CodeWriter writer)
+    {
+        // Body parameters are handled in the HTTP call logic, so no additional code is needed here.
+    }
+}
+
+internal class QueryParameterGenerator : ParameterGenerator
+{
+    public string ParameterName { get; }
+    public string ParameterType { get; }
+    public bool IsRequired { get; }
+
+    public bool IsCollection { get; }
+    public QueryParameterGenerator(IOpenApiParameter openApiParameter, GeneratorContext context)
+    {
+        ParameterName = GeneratorContext.ToCamelCase(openApiParameter.Name);
+        ParameterType = context.GetCSharpType(openApiParameter.Schema);
+        IsRequired = openApiParameter.Required;
+        IsCollection = openApiParameter.Schema.Type == JsonSchemaType.Array;
+    }
+    public override void Write(CodeWriter writer)
+    {
+        // Query parameters are handled in the URL building logic, so no additional code is needed here.
+    }
 }
