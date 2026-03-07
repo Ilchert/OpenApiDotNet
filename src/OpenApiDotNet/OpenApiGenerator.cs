@@ -13,7 +13,7 @@ public class OpenApiGenerator
     private readonly string _namespace;
     private readonly string _outputDirectory;
     private readonly string? _namespacePrefix;
-    private readonly string? _clientName;
+    private readonly string _clientName;
     private readonly TypeMappingConfig _typeMappingConfig;
 
     public OpenApiGenerator(OpenApiDocument document, string namespaceName, string outputDirectory, string? namespacePrefix = null, string? clientName = null, TypeMappingConfig? typeMappingConfig = null)
@@ -22,8 +22,14 @@ public class OpenApiGenerator
         _namespace = namespaceName ?? throw new ArgumentNullException(nameof(namespaceName));
         _outputDirectory = outputDirectory ?? throw new ArgumentNullException(nameof(outputDirectory));
         _namespacePrefix = namespacePrefix;
-        _clientName = clientName;
+        _clientName = clientName ?? GetDefaultClientName(document);
         _typeMappingConfig = typeMappingConfig ?? new TypeMappingConfig();
+    }
+
+    private static string GetDefaultClientName(OpenApiDocument document)
+    {
+        var title = document.Info?.Title?.Replace(" ", "").Replace("-", "").Replace("_", "") ?? "Api";
+        return $"{title}Client";
     }
 
     /// <summary>
@@ -31,8 +37,7 @@ public class OpenApiGenerator
     /// </summary>
     public void Generate()
     {
-        var clientName = GetClientName();
-        var context = new GeneratorContext(_namespace, clientName, _namespacePrefix, _typeMappingConfig);
+        var context = new GeneratorContext(_namespace, _clientName, _namespacePrefix, _typeMappingConfig);
 
         GenerateModels(context);
         GenerateIOpenApiBuilderInterface();
@@ -46,103 +51,80 @@ public class OpenApiGenerator
 
         // Write builders
         var buildersDirectory = Path.Combine(_outputDirectory, "Builders");
-        Directory.CreateDirectory(buildersDirectory);
         foreach (var builder in endClient.BuilderGenerators)
         {
-            WriteBuilderToFile(builder, Path.Combine(buildersDirectory, $"{builder.TypeInfo.Name}.cs"));
+            WriteGeneratorToFile(builder, Path.Combine(buildersDirectory, $"{builder.TypeInfo.Name}.cs"));
             Console.WriteLine($"  Generated builder: {builder.TypeInfo.Name}");
         }
     }
 
     private void GenerateModels(GeneratorContext context)
     {
-        var modelsDirectory = Path.Combine(_outputDirectory, "Models");
-        Directory.CreateDirectory(modelsDirectory);
-
         if (_document.Components?.Schemas == null)
             return;
 
         foreach (var (name, schema) in _document.Components.Schemas)
         {
             BaseGenerator generator;
-            if (schema.Enum != null && schema.Enum.Count > 0)
+            if (schema.Enum?.Count > 0)
                 generator = new EnumGenerator(name, schema, context);
             else
                 generator = new ObjectGenerator(name, schema, context);
 
-            var modelsNs = $"{_namespace}.Models";
-            var relativePath = generator.TypeInfo.Namespace.Length > modelsNs.Length
-                ? generator.TypeInfo.Namespace[(modelsNs.Length + 1)..].Replace('.', Path.DirectorySeparatorChar)
-                : "";
-            var dir = string.IsNullOrEmpty(relativePath) ? modelsDirectory : Path.Combine(modelsDirectory, relativePath);
-            Directory.CreateDirectory(dir);
+            // trim namespace prefix from model file path if specified and present in the model's namespace
+            var modelFile = generator.TypeInfo.FullName.Replace('.', Path.DirectorySeparatorChar) + ".cs";
+            if (modelFile.StartsWith(_namespace + Path.DirectorySeparatorChar))
+                modelFile = modelFile[(_namespace.Length + 1)..];
 
-            WriteGeneratorToFile(generator, Path.Combine(dir, $"{generator.TypeInfo.Name}.cs"));
+            WriteGeneratorToFile(generator, Path.Combine(_outputDirectory, modelFile));
             Console.WriteLine($"  Generated model: {name}");
         }
     }
-
-    private void GenerateIOpenApiBuilderInterface()
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine($"namespace {_namespace};");
-        sb.AppendLine();
-        sb.AppendLine("/// <summary>");
-        sb.AppendLine("/// Base interface for all fluent API builders");
-        sb.AppendLine("/// </summary>");
-        sb.AppendLine("public interface IOpenApiBuilder");
-        sb.AppendLine("{");
-        sb.AppendLine("    IOpenApiClient Client { get; }");
-        sb.AppendLine("    string GetPath();");
-        sb.AppendLine("}");
-
-        var filePath = Path.Combine(_outputDirectory, "IOpenApiBuilder.cs");
-        File.WriteAllText(filePath, sb.ToString());
-        Console.WriteLine("  Generated IOpenApiBuilder interface");
-    }
-
-    private void GenerateIOpenApiClientInterface()
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine($"namespace {_namespace};");
-        sb.AppendLine();
-        sb.AppendLine("/// <summary>");
-        sb.AppendLine("/// Base interface for all OpenAPI clients");
-        sb.AppendLine("/// </summary>");
-        sb.AppendLine("public interface IOpenApiClient : IOpenApiBuilder");
-        sb.AppendLine("{");
-        sb.AppendLine("    System.Net.Http.HttpClient HttpClient { get; }");
-        sb.AppendLine("    System.Text.Json.JsonSerializerOptions JsonOptions { get; }");
-        sb.AppendLine();
-        sb.AppendLine($"    IOpenApiClient IOpenApiBuilder.Client => this;");
-        sb.AppendLine($"    string IOpenApiBuilder.GetPath() => \"\";");
-        sb.AppendLine("}");
-
-        var filePath = Path.Combine(_outputDirectory, "IOpenApiClient.cs");
-        File.WriteAllText(filePath, sb.ToString());
-        Console.WriteLine("  Generated IOpenApiClient interface");
-    }
-
     private static void WriteGeneratorToFile(BaseGenerator generator, string filePath)
     {
+        Directory.CreateDirectory(Path.GetFullPath(filePath));
         var writer = new CodeWriter();
         generator.WriteWithNamespace(writer);
         File.WriteAllText(filePath, writer.ToString());
     }
 
-    private static void WriteBuilderToFile(BuilderGenerator builder, string filePath)
+    private void GenerateIOpenApiBuilderInterface()
     {
-        var writer = new CodeWriter();
-        builder.WriteWithNamespace(writer);
-        File.WriteAllText(filePath, writer.ToString());
+        var builderInterface = $$"""
+namespace {{_namespace}};
+/// <summary>
+/// Base interface for all fluent API builders
+/// /// </summary>
+public interface IOpenApiBuilder
+{
+    IOpenApiClient Client { get; }
+    string GetPath();
+}
+""";
+
+        var filePath = Path.Combine(_outputDirectory, "IOpenApiBuilder.cs");
+        File.WriteAllText(filePath, builderInterface);
+        Console.WriteLine("  Generated IOpenApiBuilder interface");
     }
 
-    private string GetClientName()
+    private void GenerateIOpenApiClientInterface()
     {
-        if (!string.IsNullOrEmpty(_clientName))
-            return _clientName;
+        var apiClinet = $$"""
+namespace {{_namespace}};
+/// <summary>
+/// Base interface for all OpenAPI clients
+/// </summary>
+public interface IOpenApiClient : IOpenApiBuilder
+{
+    System.Net.Http.HttpClient HttpClient { get; }
+    System.Text.Json.JsonSerializerOptions JsonOptions { get; }
+    IOpenApiClient IOpenApiBuilder.Client => this;
+    string IOpenApiBuilder.GetPath() => "";
+}
+""";
 
-        var title = _document.Info?.Title?.Replace(" ", "").Replace("-", "").Replace("_", "") ?? "Api";
-        return $"{title}Client";
+        var filePath = Path.Combine(_outputDirectory, "IOpenApiClient.cs");
+        File.WriteAllText(filePath, apiClinet);
+        Console.WriteLine("  Generated IOpenApiClient interface");
     }
 }
