@@ -6,7 +6,7 @@ internal class BodyGenerator
 {
     public string ParameterDeclaration => IsRequired ? $"{ParameterType} {ParameterName}" : $"{ParameterType}? {ParameterName} = default";
     public string ParameterName { get; }
-    public string ParameterType { get; } // use GeneratedTypeInfo?
+    public string ParameterType { get; }
     public bool IsRequired { get; }
     public BaseGenerator? NestedClassGenerator { get; }
 

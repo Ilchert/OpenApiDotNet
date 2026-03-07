@@ -20,7 +20,7 @@ internal class ClientGenerator : BaseGenerator
         var root = PathTreeBuilder.Build(document.Paths);
         BuilderGenerators = [];
 
-
+        // root level operations and properties are added directly to the client interface, they will be implemented by the root builder
         foreach (var (_, child) in root.Children)
             Properties.Add(BuilderPropertyGenerator.Create(child, context));
 
