@@ -29,9 +29,9 @@ internal class BuilderOperationGenerator
             _bodyGenerator = new BodyGenerator(operation.RequestBody, MethodName, context);
 
         if (operation.Responses?.FirstOrDefault(r => r.Key.StartsWith("2")).Value is { } operationResponse2xx)
-            _responseGenerator = new ResponseGenerator(operationResponse2xx, context);
+            _responseGenerator = new ResponseGenerator(operationResponse2xx, MethodName, context);
         else
-            _responseGenerator = new ResponseGenerator(new OpenApiResponse(), context); // void
+            _responseGenerator = new ResponseGenerator(new OpenApiResponse(), MethodName, context); // void
     }
 
     public void Write(CodeWriter writer)
@@ -48,7 +48,7 @@ internal class BuilderOperationGenerator
         parameters.AddRange(_parameters.Where(p => p.IsRequired).Select(p => p.ParameterDeclaration));
 
         // then optional body parameter
-        if (_bodyGenerator != null)
+        if (_bodyGenerator is { IsRequired: false })
             parameters.Add(_bodyGenerator.ParameterDeclaration);
 
         // then optional query parameters

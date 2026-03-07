@@ -28,7 +28,7 @@ internal class QueryParameterGenerator
                 writer.WriteLine($$"""
 if ({{ParameterName}} != null)
     foreach (var item in {{ParameterName}})
-        queryString.Add($"{{Name}}={System.Uri.EscapeDataString(item.ToString() ?? "null")}");
+        queryString.Add($"{{Name}}={System.Uri.EscapeDataString(item.ToString())}");
 
 """);
             }
@@ -36,20 +36,20 @@ if ({{ParameterName}} != null)
             {
                 writer.WriteLine($$"""
 foreach (var item in {{ParameterName}})
-    queryString.Add($"{{Name}}={System.Uri.EscapeDataString(item.ToString() ?? "null")}");
+    queryString.Add($"{{Name}}={System.Uri.EscapeDataString(item.ToString())}");
 
 """);
             }
         }
         else if (IsRequired)
         {
-            writer.WriteLine($$"""queryString.Add($"{{Name}}={System.Uri.EscapeDataString({{ParameterName}}.ToString() ?? "null")}");""");
+            writer.WriteLine($$"""queryString.Add($"{{Name}}={System.Uri.EscapeDataString({{ParameterName}}.ToString())}");""");
         }
         else
         {
             writer.WriteLine($$"""
 if ({{ParameterName}} is {} {{ParameterName}}Value)
-    queryString.Add($"{{Name}}={System.Uri.EscapeDataString({{ParameterName}}Value.ToString() ?? "null")}");
+    queryString.Add($"{{Name}}={System.Uri.EscapeDataString({{ParameterName}}Value.ToString())}");
 """);
         }
     }

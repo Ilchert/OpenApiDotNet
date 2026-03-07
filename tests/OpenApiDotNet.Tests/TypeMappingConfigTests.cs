@@ -151,7 +151,7 @@ public class TypeMappingConfigTests
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" };
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("DateTimeOffset");
+        result.FullName.Should().Be("DateTimeOffset");
     }
 
     [Fact]
@@ -167,6 +167,6 @@ public class TypeMappingConfigTests
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" };
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("System.Guid");
+        result.FullName.Should().Be("System.Guid");
     }
 }
