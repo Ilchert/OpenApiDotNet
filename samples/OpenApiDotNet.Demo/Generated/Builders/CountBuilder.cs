@@ -1,51 +1,44 @@
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace PetStore;
+namespace PetStore.Builders;
 
 public class CountBuilder : IOpenApiBuilder
 {
     private readonly IOpenApiBuilder _parentBuilder;
 
-#pragma warning disable CS8618
+    #pragma warning disable CS8618
     protected CountBuilder() { }
-#pragma warning restore CS8618
+    #pragma warning restore CS8618
 
     public CountBuilder(IOpenApiBuilder parentBuilder)
-    {
-        _parentBuilder = parentBuilder;
-    }
+{
+    _parentBuilder = parentBuilder;
+}
 
-    public IOpenApiClient Client => _parentBuilder.Client;
-    public string GetPath() => $"{_parentBuilder.GetPath()}/count";
+public string GetPath() => $"{_parentBuilder.GetPath()}/count";
 
+                
+public IOpenApiClient Client => _parentBuilder.Client;
+            
     /// <summary>
     /// Tests: value-type return (int32); required reference-type query param (string); required value-type query param (int32); optional value-type query param (bool)
     /// </summary>
-    public virtual async Task<int> Get(string species, int minAge, bool? vaccinated = default, CancellationToken cancellationToken = default)
+    public virtual async System.Threading.Tasks.Task<int> Get(string species, int minAge, bool? vaccinated = default, System.Threading.CancellationToken cancellationToken = default)
     {
         var url = GetPath();
+var queryString = new System.Collections.Generic.List<string>();
 
-        var queryString = new List<string>();
-        queryString.Add($"species={Uri.EscapeDataString(species.ToString())}");
-        queryString.Add($"minAge={Uri.EscapeDataString(minAge.ToString())}");
+        queryString.Add($"species={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(species, Client.JsonOptions).Trim('"'))}");
+        queryString.Add($"minAge={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(minAge, Client.JsonOptions).Trim('"'))}");
         if (vaccinated is {} vaccinatedValue)
-            queryString.Add($"vaccinated={Uri.EscapeDataString(vaccinatedValue.ToString())}");
+    queryString.Add($"vaccinated={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(vaccinatedValue, Client.JsonOptions).Trim('"'))}");
         if (queryString.Count > 0)
-            url += "?" + string.Join("&", queryString);
-
+    url += "?" + string.Join("&", queryString);
+        
         var response = await Client.HttpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
-        var deserializedResponse = await response.Content.ReadFromJsonAsync<int>(Client.JsonOptions, cancellationToken);
-        if (deserializedResponse is { } deserializedResponseValue)
-            return deserializedResponseValue;
-        throw new InvalidOperationException($"Response from {url} is null");
+        var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<int>(response.Content, Client.JsonOptions, cancellationToken);
+if (deserializedResponse is { } deserializedResponseValue)
+    return deserializedResponseValue;
+throw new System.InvalidOperationException($"Response from {url} is null");
     }
-
+    
 }

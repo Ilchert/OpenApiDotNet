@@ -1,20 +1,18 @@
-using System.Text.Json.Serialization;
-
 namespace PetStore.Models;
 
 /// <summary>
 /// Tests: component-level string enum; all member names map directly to PascalCase without JsonStringEnumMemberName (available, pending, sold)
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter))]
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
 public enum PetStatus
 {
-    [JsonStringEnumMemberName("available")]
+    [System.Text.Json.Serialization.JsonStringEnumMemberName("available")]
     Available,
-
-    [JsonStringEnumMemberName("pending")]
+    
+    [System.Text.Json.Serialization.JsonStringEnumMemberName("pending")]
     Pending,
-
-    [JsonStringEnumMemberName("sold")]
+    
+    [System.Text.Json.Serialization.JsonStringEnumMemberName("sold")]
     Sold,
-
+    
 }

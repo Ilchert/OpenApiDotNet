@@ -1,33 +1,26 @@
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace PetStore;
+namespace PetStore.Builders;
 
 public class PhotosBuilder : IOpenApiBuilder
 {
     private readonly IOpenApiBuilder _parentBuilder;
 
-#pragma warning disable CS8618
+    #pragma warning disable CS8618
     protected PhotosBuilder() { }
-#pragma warning restore CS8618
+    #pragma warning restore CS8618
 
     public PhotosBuilder(IOpenApiBuilder parentBuilder)
-    {
-        _parentBuilder = parentBuilder;
-    }
+{
+    _parentBuilder = parentBuilder;
+}
 
-    public IOpenApiClient Client => _parentBuilder.Client;
-    public string GetPath() => $"{_parentBuilder.GetPath()}/photos";
+public string GetPath() => $"{_parentBuilder.GetPath()}/photos";
 
-    public virtual PhotosIdBuilder this[Guid photoId]
+                
+public IOpenApiClient Client => _parentBuilder.Client;
+            
+    public virtual PetStore.Builders.PhotosIdBuilder this[System.Guid photoId]
     {
         get => new(this, photoId);
     }
-
+    
 }
