@@ -68,21 +68,21 @@ internal class GeneratorContext
         return char.ToLowerInvariant(pascal[0]) + pascal[1..];
     }
 
-    public string GetCSharpType(IOpenApiSchema schema)
+    public GeneratedTypeInfo GetCSharpType(IOpenApiSchema schema)
     {
         var schemaName = GetSchemaName(schema);
         if (schemaName != null)
-            return GetNameAndNamespace(schemaName, GeneratorCategory.Model).FullName;
+            return GetNameAndNamespace(schemaName, GeneratorCategory.Model);
 
         var resolved = TypeMappingConfig.Resolve(schema.Type, schema.Format);
         if (resolved != null)
-            return resolved;
+            return GeneratedTypeInfo.FromFullyQualified(resolved);
 
         return schema.Type switch
         {
-            JsonSchemaType.Array when schema.Items != null => $"System.Collections.Generic.List<{GetCSharpType(schema.Items)}>",
-            JsonSchemaType.Array => "System.Collections.Generic.List<object>",
-            _ => "object"
+            JsonSchemaType.Array when schema.Items != null => new GeneratedTypeInfo("System.Collections.Generic", $"List<{GetCSharpType(schema.Items).FullName}>"),
+            JsonSchemaType.Array => new GeneratedTypeInfo("System.Collections.Generic", "List<object>"),
+            _ => new GeneratedTypeInfo(string.Empty, "object")
         };
     }
 

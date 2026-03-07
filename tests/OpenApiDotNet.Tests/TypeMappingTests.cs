@@ -19,7 +19,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("string");
+        result.FullName.Should().Be("string");
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("NodaTime.Instant");
+        result.FullName.Should().Be("NodaTime.Instant");
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("NodaTime.LocalDate");
+        result.FullName.Should().Be("NodaTime.LocalDate");
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("NodaTime.LocalTime");
+        result.FullName.Should().Be("NodaTime.LocalTime");
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("System.Guid");
+        result.FullName.Should().Be("System.Guid");
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("int");
+        result.FullName.Should().Be("int");
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("long");
+        result.FullName.Should().Be("long");
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("double");
+        result.FullName.Should().Be("double");
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("float");
+        result.FullName.Should().Be("float");
     }
 
     [Fact]
@@ -145,7 +145,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("bool");
+        result.FullName.Should().Be("bool");
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("System.Collections.Generic.List<string>");
+        result.FullName.Should().Be("System.Collections.Generic.List<string>");
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("System.Collections.Generic.List<object>");
+        result.FullName.Should().Be("System.Collections.Generic.List<object>");
     }
 
     [Fact]
@@ -198,7 +198,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("TestNamespace.Models.Pet");
+        result.FullName.Should().Be("TestNamespace.Models.Pet");
     }
 
     [Fact]
@@ -212,7 +212,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("object");
+        result.FullName.Should().Be("object");
     }
 
     [Fact]
@@ -223,7 +223,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("NodaTime.Duration");
+        result.FullName.Should().Be("NodaTime.Duration");
     }
 
     [Fact]
@@ -234,7 +234,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("NodaTime.LocalDateTime");
+        result.FullName.Should().Be("NodaTime.LocalDateTime");
     }
 
     [Fact]
@@ -245,7 +245,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("NodaTime.LocalTime");
+        result.FullName.Should().Be("NodaTime.LocalTime");
     }
 
     [Fact]
@@ -256,7 +256,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("System.Uri");
+        result.FullName.Should().Be("System.Uri");
     }
 
     [Fact]
@@ -267,7 +267,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("System.Uri");
+        result.FullName.Should().Be("System.Uri");
     }
 
     [Fact]
@@ -278,7 +278,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("System.Uri");
+        result.FullName.Should().Be("System.Uri");
     }
 
     [Fact]
@@ -289,7 +289,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("System.Uri");
+        result.FullName.Should().Be("System.Uri");
     }
 
     [Fact]
@@ -300,7 +300,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("byte[]");
+        result.FullName.Should().Be("byte[]");
     }
 
     [Fact]
@@ -311,7 +311,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("byte[]");
+        result.FullName.Should().Be("byte[]");
     }
 
     [Fact]
@@ -322,7 +322,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("byte[]");
+        result.FullName.Should().Be("byte[]");
     }
 
     [Fact]
@@ -333,7 +333,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("char");
+        result.FullName.Should().Be("char");
     }
 
     [Fact]
@@ -344,7 +344,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("int");
+        result.FullName.Should().Be("int");
     }
 
     [Fact]
@@ -355,7 +355,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("short");
+        result.FullName.Should().Be("short");
     }
 
     [Fact]
@@ -366,7 +366,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("sbyte");
+        result.FullName.Should().Be("sbyte");
     }
 
     [Fact]
@@ -377,7 +377,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("byte");
+        result.FullName.Should().Be("byte");
     }
 
     [Fact]
@@ -388,7 +388,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("ushort");
+        result.FullName.Should().Be("ushort");
     }
 
     [Fact]
@@ -399,7 +399,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("uint");
+        result.FullName.Should().Be("uint");
     }
 
     [Fact]
@@ -410,7 +410,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("ulong");
+        result.FullName.Should().Be("ulong");
     }
 
     [Fact]
@@ -421,7 +421,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("decimal");
+        result.FullName.Should().Be("decimal");
     }
 
     [Fact]
@@ -432,7 +432,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("decimal");
+        result.FullName.Should().Be("decimal");
     }
 
     [Fact]
@@ -443,7 +443,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("long");
+        result.FullName.Should().Be("long");
     }
 
     [Fact]
@@ -457,7 +457,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("TestNamespace.Models.PetStatus");
+        result.FullName.Should().Be("TestNamespace.Models.PetStatus");
     }
 
     [Fact]
@@ -477,7 +477,7 @@ public class TypeMappingTests
 
         var result = context.GetCSharpType(schema);
 
-        result.Should().Be("string");
+        result.FullName.Should().Be("string");
     }
 
     private static GeneratorContext CreateContext()

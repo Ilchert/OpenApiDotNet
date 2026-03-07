@@ -1,4 +1,3 @@
-using System.Reflection.Metadata;
 using Microsoft.OpenApi;
 
 namespace OpenApiDotNet.Generators;
@@ -8,20 +7,14 @@ internal class BuilderOperationGenerator
     private readonly HttpMethod _httpMethod;
     private readonly OpenApiOperation _operation;
     private readonly GeneratorContext _context;
-
     public string MethodName { get; }
-    public string ResponseType { get; }
-    public List<BaseGenerator> NestedTypeGenerators { get; } = [];
-
-
-    private readonly List<string> _requiredParameters = [];
-    private readonly List<string> _optionalParameters = [];
-    private readonly List<QueryParamInfo> _queryParams = [];
-    private readonly List<ParameterGenerator> _parameters = [];
-    private string? _bodyParamName;
-
+    private readonly List<QueryParameterGenerator> _parameters = [];
+    private readonly BodyGenerator? _bodyGenerator;
+    private readonly ResponseGenerator _responseGenerator;
+    private string? _description;
     public BuilderOperationGenerator(HttpMethod httpMethod, OpenApiOperation operation, GeneratorContext context)
     {
+        _description = operation.Summary ?? operation.Description;
         _httpMethod = httpMethod;
         _operation = operation;
         _context = context;
@@ -29,76 +22,42 @@ internal class BuilderOperationGenerator
 
         if (_operation.Parameters != null)
             foreach (var parameter in _operation.Parameters)
-                if (ParameterGenerator.Create(parameter, context) is { } paramGen)
-                    _parameters.Add(paramGen);
+                if (parameter.In == ParameterLocation.Query)
+                    _parameters.Add(new QueryParameterGenerator(parameter, context));
 
+        if (operation.RequestBody?.Content?.Any() == true)
+            _bodyGenerator = new BodyGenerator(operation.RequestBody, MethodName, context);
 
-        ProcessRequestBody();
-        ResponseType = ResolveResponseType();
-        _optionalParameters.Add("System.Threading.CancellationToken cancellationToken = default");
-    }
-
-    private void ProcessRequestBody()
-    {
-        if (_operation.RequestBody == null)
-            return;
-
-        var content = _operation.RequestBody.Content?.FirstOrDefault();
-        if (content?.Value?.Schema is not { } schema) return;
-
-        string requestBodyType;
-
-        if (GeneratorContext.IsInlineObjectSchema(schema))
-        {
-            var nestedClassName = $"{MethodName}Request";
-            requestBodyType = nestedClassName;
-            NestedTypeGenerators.Add(new ObjectGenerator(nestedClassName, schema, _context));
-        }
+        if (operation.Responses?.FirstOrDefault(r => r.Key.StartsWith("2")).Value is { } operationResponse2xx)
+            _responseGenerator = new ResponseGenerator(operationResponse2xx, context);
         else
-        {
-            requestBodyType = _context.GetCSharpType(schema);
-        }
-
-        _bodyParamName = _operation.RequestBody.Extensions?.TryGetValue("x-bodyName", out var bodyNameExt) == true
-            && bodyNameExt is JsonNodeExtension { Node: { } bodyNameNode }
-            ? bodyNameNode.GetValue<string>()
-            : null;
-        if (string.IsNullOrWhiteSpace(_bodyParamName))
-            _bodyParamName = "request";
-
-        _requiredParameters.Add($"{requestBodyType} {_bodyParamName}");
-    }
-
-    private string ResolveResponseType()
-    {
-        var successResponse = _operation.Responses.FirstOrDefault(r => r.Key.StartsWith("2"));
-        if (successResponse.Value?.Content?.Any() != true)
-            return "void";
-
-        var content = successResponse.Value.Content.FirstOrDefault();
-        if (content.Value?.Schema == null)
-            return "void";
-
-        var schema = content.Value.Schema;
-
-        if (GeneratorContext.IsInlineObjectSchema(schema))
-        {
-            var nestedClassName = $"{MethodName}Response";
-            NestedTypeGenerators.Add(new ObjectGenerator(nestedClassName, schema, _context));
-            return nestedClassName;
-        }
-
-        return _context.GetCSharpType(schema);
+            _responseGenerator = new ResponseGenerator(new OpenApiResponse(), context); // void
     }
 
     public void Write(CodeWriter writer)
     {
-        BaseGenerator.WriteSummary(writer, _operation.Summary ?? _operation.Description);
+        BaseGenerator.WriteSummary(writer, _description);
 
-        var parameters = _requiredParameters.Concat(_optionalParameters);
-        var returnType = ResponseType == "void" ? "System.Threading.Tasks.Task" : $"System.Threading.Tasks.Task<{ResponseType}>";
+        var parameters = new List<string>();
 
-        writer.WriteLine($"public virtual async {returnType} {MethodName}({string.Join(", ", parameters)})");
+        //required body parameter should come before optional query parameters for better usability, even though it's not a strict requirement
+        if (_bodyGenerator is { IsRequired: true })
+            parameters.Add(_bodyGenerator.ParameterDeclaration);
+
+        // then requred query parameters
+        parameters.AddRange(_parameters.Where(p => p.IsRequired).Select(p => p.ParameterDeclaration));
+
+        // then optional body parameter
+        if (_bodyGenerator != null)
+            parameters.Add(_bodyGenerator.ParameterDeclaration);
+
+        // then optional query parameters
+        parameters.AddRange(_parameters.Where(p => !p.IsRequired).Select(p => p.ParameterDeclaration));
+
+        // CanlellationToken is always optional and should come last
+        parameters.Add("System.Threading.CancellationToken cancellationToken = default");
+
+        writer.WriteLine($"public virtual async {_responseGenerator.AsyncResponseType} {MethodName}({string.Join(", ", parameters)})");
         writer.WriteLine("{");
         writer.Indent();
 
@@ -110,66 +69,36 @@ internal class BuilderOperationGenerator
         writer.WriteLine("}");
         writer.WriteLine();
 
-        NestedTypeGenerators.ForEach(g => g.Write(writer));
+        _bodyGenerator?.NestedClassGenerator?.Write(writer);
+        _responseGenerator.NestedClassGenerator?.Write(writer);
     }
 
     private void WriteUrlBuilding(CodeWriter writer)
     {
-        if (_queryParams.Count > 0)
+        if (_parameters.Count == 0)
         {
             writer.WriteLine("var url = GetPath();");
-            writer.WriteLine();
-            writer.WriteLine("var queryString = new System.Collections.Generic.List<string>();");
-
-            foreach (var param in _queryParams)
-            {
-                if (param.IsCollection)
-                {
-                    if (!param.Required)
-                    {
-                        writer.WriteLine($"if ({param.ParamName} != null)");
-                        writer.Indent();
-                        writer.WriteLine($"foreach (var item in {param.ParamName})");
-                        writer.Indent();
-                        writer.WriteLine($"queryString.Add($\"{param.Name}={{System.Uri.EscapeDataString(item.ToString())}}\");");
-                        writer.Unindent();
-                        writer.Unindent();
-                    }
-                    else
-                    {
-                        writer.WriteLine($"foreach (var item in {param.ParamName})");
-                        writer.Indent();
-                        writer.WriteLine($"queryString.Add($\"{param.Name}={{System.Uri.EscapeDataString(item.ToString())}}\");");
-                        writer.Unindent();
-                    }
-                }
-                else if (param.Required)
-                {
-                    writer.WriteLine($"queryString.Add($\"{param.Name}={{System.Uri.EscapeDataString({param.ParamName}.ToString())}}\");");
-                }
-                else
-                {
-                    writer.WriteLine($"if ({param.ParamName} is {{}} {param.ParamName}Value)");
-                    writer.Indent();
-                    writer.WriteLine($"queryString.Add($\"{param.Name}={{System.Uri.EscapeDataString({param.ParamName}Value.ToString())}}\");");
-                    writer.Unindent();
-                }
-            }
-
-            writer.WriteLine("if (queryString.Count > 0)");
-            writer.Indent();
-            writer.WriteLine("url += \"?\" + string.Join(\"&\", queryString);");
-            writer.Unindent();
+            return;
         }
-        else
-        {
-            writer.WriteLine("var url = GetPath();");
-        }
+
+        writer.WriteLine("""
+var url = GetPath();
+var queryString = new System.Collections.Generic.List<string>();
+
+""");
+
+        foreach (var param in _parameters)
+            param.WriteAddToToQueryString(writer);
+
+        writer.WriteLine("""
+if (queryString.Count > 0)
+    url += "?" + string.Join("&", queryString);
+""");
     }
 
     private void WriteHttpCall(CodeWriter writer)
     {
-        var hasBody = _bodyParamName != null;
+        var hasBody = _bodyGenerator != null;
 
         if (_httpMethod == HttpMethod.Get)
         {
@@ -178,13 +107,13 @@ internal class BuilderOperationGenerator
         else if (_httpMethod == HttpMethod.Post)
         {
             writer.WriteLine(hasBody
-                ? $"var response = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(Client.HttpClient, url, {_bodyParamName}, Client.JsonOptions, cancellationToken);"
+                ? $"var response = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(Client.HttpClient, url, {_bodyGenerator!.ParameterName}, Client.JsonOptions, cancellationToken);"
                 : "var response = await Client.HttpClient.PostAsync(url, null, cancellationToken);");
         }
         else if (_httpMethod == HttpMethod.Put)
         {
             writer.WriteLine(hasBody
-                ? $"var response = await System.Net.Http.Json.HttpClientJsonExtensions.PutAsJsonAsync(Client.HttpClient, url, {_bodyParamName}, Client.JsonOptions, cancellationToken);"
+                ? $"var response = await System.Net.Http.Json.HttpClientJsonExtensions.PutAsJsonAsync(Client.HttpClient, url, {_bodyGenerator!.ParameterName}, Client.JsonOptions, cancellationToken);"
                 : "var response = await Client.HttpClient.PutAsync(url, null, cancellationToken);");
         }
         else if (_httpMethod == HttpMethod.Delete)
@@ -193,97 +122,143 @@ internal class BuilderOperationGenerator
         }
         else if (_httpMethod == HttpMethod.Patch)
         {
-            if (hasBody)
-            {
-                writer.WriteLine($"var content = System.Net.Http.Json.JsonContent.Create({_bodyParamName}, options: Client.JsonOptions);");
-                writer.WriteLine("var response = await Client.HttpClient.PatchAsync(url, content, cancellationToken);");
-            }
-            else
-            {
-                writer.WriteLine("var response = await Client.HttpClient.PatchAsync(url, null, cancellationToken);");
-            }
+            writer.WriteLine(hasBody
+                ? $"var response = await System.Net.Http.Json.HttpClientJsonExtensions.PatchAsJsonAsync(Client.HttpClient, url, {_bodyGenerator!.ParameterName}, Client.JsonOptions, cancellationToken);"
+                : "var response = await Client.HttpClient.PatchAsync(url, null, cancellationToken);");
         }
 
         writer.WriteLine("response.EnsureSuccessStatusCode();");
 
-        if (ResponseType != "void")
+        if (_responseGenerator.ResponseType != "void")
         {
-            writer.WriteLine($"var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<{ResponseType}>(response.Content, Client.JsonOptions, cancellationToken);");
-            writer.WriteLine("if (deserializedResponse is { } deserializedResponseValue)");
-            writer.Indent();
-            writer.WriteLine("return deserializedResponseValue;");
-            writer.Unindent();
-            writer.WriteLine("throw new System.InvalidOperationException($\"Response from {url} is null\");");
+            writer.WriteLine($$"""
+var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<{{_responseGenerator.ResponseType}}>(response.Content, Client.JsonOptions, cancellationToken);
+if (deserializedResponse is { } deserializedResponseValue)
+    return deserializedResponseValue;
+throw new System.InvalidOperationException($"Response from {url} is null");
+""");
         }
     }
-
-    private enum ParamLocation
-    {
-        Query,
-        Body
-    }
-
-    private record QueryParamInfo(string Name, string ParamName, string ParamType, bool Required, bool IsCollection, ParamLocation Location);
-    private record ParamInfo(string Name, string ParamName, string ParamType, bool Required, bool IsCollection, ParamLocation Location);
 }
 
-internal abstract class ParameterGenerator
+internal class BodyGenerator
 {
-    public static ParameterGenerator? Create(IOpenApiParameter parameter, GeneratorContext context)
-    {
-        if (parameter.In == ParameterLocation.Query)
-            return new QueryParameterGenerator(parameter, context);
-        return null;
-    }
-    public abstract void Write(CodeWriter writer);
-
-}
-
-internal class BodyParameterGenerator : ParameterGenerator
-{
+    public string ParameterDeclaration => IsRequired ? $"{ParameterType} {ParameterName}" : $"{ParameterType}? {ParameterName} = default";
     public string ParameterName { get; }
-    public string ParameterType { get; }
+    public string ParameterType { get; } // use GeneratedTypeInfo?
     public bool IsRequired { get; }
-    public BodyParameterGenerator(IOpenApiRequestBody requestBody, GeneratorContext context)
+    public BaseGenerator? NestedClassGenerator { get; }
+
+    public BodyGenerator(IOpenApiRequestBody requestBody, string methodName, GeneratorContext context)
     {
         var content = requestBody.Content?.FirstOrDefault();
-        if (content?.Value?.Schema is not { } schema) return;
+        if (content?.Value?.Schema is not { } schema)
+            throw new InvalidOperationException();
 
         if (GeneratorContext.IsInlineObjectSchema(schema))
         {
-            var nestedClassName = $"{context.ClientName}Request";
-            ParameterType = nestedClassName;
-            context.NestedTypeGenerators.Add(new ObjectGenerator(nestedClassName, schema, context));
+            ParameterType = $"{methodName}Request";
+            NestedClassGenerator = new ObjectGenerator(ParameterType, schema, context);
         }
         else
         {
-            ParameterType = context.GetCSharpType(schema);
+            ParameterType = context.GetCSharpType(schema).FullName;
         }
+
         ParameterName = "request";
+        if (requestBody.Extensions?.TryGetValue("x-bodyName", out var bodyNameExt) == true
+            && bodyNameExt is JsonNodeExtension { Node: { } bodyNameNode })
+            ParameterName = bodyNameNode.GetValue<string>();
         IsRequired = requestBody.Required;
-    }
-    public override void Write(CodeWriter writer)
-    {
-        // Body parameters are handled in the HTTP call logic, so no additional code is needed here.
     }
 }
 
-internal class QueryParameterGenerator : ParameterGenerator
+internal class QueryParameterGenerator
 {
+    public string ParameterDeclaration => IsRequired ? $"{ParameterType} {ParameterName}" : $"{ParameterType}? {ParameterName} = default";
     public string ParameterName { get; }
     public string ParameterType { get; }
+    public string Name { get; }
     public bool IsRequired { get; }
-
     public bool IsCollection { get; }
     public QueryParameterGenerator(IOpenApiParameter openApiParameter, GeneratorContext context)
     {
+        Name = openApiParameter.Name ?? throw new InvalidOperationException("Parameter name is null");
         ParameterName = GeneratorContext.ToCamelCase(openApiParameter.Name);
-        ParameterType = context.GetCSharpType(openApiParameter.Schema);
+        ParameterType = context.GetCSharpType(openApiParameter.Schema ?? throw new InvalidOperationException("Parameter schema is null")).FullName;
         IsRequired = openApiParameter.Required;
         IsCollection = openApiParameter.Schema.Type == JsonSchemaType.Array;
     }
-    public override void Write(CodeWriter writer)
+    public void WriteAddToToQueryString(CodeWriter writer)
     {
-        // Query parameters are handled in the URL building logic, so no additional code is needed here.
+        // added item.ToString()! to avoid NRT warnings, since ToString() can return null for boxed Nullable
+        if (IsCollection)
+        {
+            if (!IsRequired)
+            {
+                writer.WriteLine($$"""
+if ({{ParameterName}} != null)
+    foreach (var item in {{ParameterName}})
+        queryString.Add($"{{Name}}={System.Uri.EscapeDataString(item.ToString() ?? "null")}");
+
+""");
+            }
+            else
+            {
+                writer.WriteLine($$"""
+foreach (var item in {{ParameterName}})
+    queryString.Add($"{{Name}}={System.Uri.EscapeDataString(item.ToString() ?? "null")}");
+
+""");
+            }
+        }
+        else if (IsRequired)
+        {
+            writer.WriteLine($$"""queryString.Add($"{{Name}}={System.Uri.EscapeDataString({{ParameterName}}.ToString() ?? "null")}");""");
+        }
+        else
+        {
+            writer.WriteLine($$"""
+if ({{ParameterName}} is {} {{ParameterName}}Value)
+    queryString.Add($"{{Name}}={System.Uri.EscapeDataString({{ParameterName}}Value.ToString() ?? "null")}");
+""");
+        }
+    }
+}
+
+internal class ResponseGenerator
+{
+    public string AsyncResponseType => ResponseType == "void" ? "System.Threading.Tasks.Task" : $"System.Threading.Tasks.Task<{ResponseType}>";
+    public string ResponseType { get; }
+    public BaseGenerator? NestedClassGenerator { get; }
+    public ResponseGenerator(IOpenApiResponse response, GeneratorContext context)
+    {
+        var content = response.Content?.FirstOrDefault();
+        if (content?.Value?.Schema is not { } schema)
+        {
+            ResponseType = "void";
+            return;
+        }
+        if (GeneratorContext.IsInlineObjectSchema(schema))
+        {
+            ResponseType = $"Response";
+            NestedClassGenerator = new ObjectGenerator(ResponseType, schema, context);
+        }
+        else
+        {
+            ResponseType = context.GetCSharpType(schema).FullName;
+        }
+    }
+    public void WriteDeserialization(CodeWriter writer)
+    {
+        if (ResponseType != "void")
+        {
+            writer.WriteLine($$"""
+var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<{{ResponseType}}>(response.Content, Client.JsonOptions, cancellationToken);
+if (deserializedResponse is { } deserializedResponseValue)
+    return deserializedResponseValue;
+throw new System.InvalidOperationException($"Response from {url} is null");
+""");
+        }
     }
 }

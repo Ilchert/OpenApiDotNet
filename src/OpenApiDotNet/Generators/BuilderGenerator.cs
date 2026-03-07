@@ -18,7 +18,7 @@ internal class BuilderGenerator : BaseGenerator
         
         if (node.IsParameter)
         {
-            ParameterType = node.ParameterSchema != null ? context.GetCSharpType(node.ParameterSchema) : "string";
+            ParameterType = node.ParameterSchema != null ? context.GetCSharpType(node.ParameterSchema).FullName : "string";
             ParameterCamelName = GeneratorContext.ToCamelCase(node.ParameterName ?? "id");
             ParameterFieldName = $"_{ParameterCamelName}";
         }

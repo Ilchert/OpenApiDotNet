@@ -26,13 +26,13 @@ internal abstract class BaseGenerator
 
     public static void WriteSummary(CodeWriter writer, string? summary)
     {
-        if (!string.IsNullOrEmpty(summary))
-        {
-            writer.WriteLine("/// <summary>");
-            foreach (var line in summary.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
-                writer.WriteLine($"/// {EscapeXmlComment(line)}");
-            writer.WriteLine("/// </summary>");
-        }
+        if (string.IsNullOrEmpty(summary))
+            return;
+        
+        writer.WriteLine("/// <summary>");
+        foreach (var line in summary.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+            writer.WriteLine($"/// {EscapeXmlComment(line)}");
+        writer.WriteLine("/// </summary>");
     }
 
     private static string EscapeXmlComment(string text)

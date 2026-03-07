@@ -26,7 +26,7 @@ internal class ObjectPropertyGenerator
     private (string TypeName, BaseGenerator? NestedPropertyTypeGenerator) GetPropertyType(IOpenApiSchema schema, string parentName)
     {
         if (GeneratorContext.GetSchemaName(schema) != null)
-            return (Context.GetCSharpType(schema), null);
+            return (Context.GetCSharpType(schema).FullName, null);
 
         var nestedTypeName = $"{parentName}{PropertyName}";
 
@@ -36,7 +36,7 @@ internal class ObjectPropertyGenerator
         if (GeneratorContext.IsInlineObjectSchema(schema))
             return (nestedTypeName, new ObjectGenerator(nestedTypeName, schema, Context));
 
-        return (Context.GetCSharpType(schema), null);
+        return (Context.GetCSharpType(schema).FullName, null);
     }
 
     public void Write(CodeWriter writer)
