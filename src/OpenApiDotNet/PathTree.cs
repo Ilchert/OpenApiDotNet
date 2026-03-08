@@ -36,12 +36,10 @@ internal static class PathTreeBuilder
 
         foreach (var (pathKey, pathItem) in paths)
         {
-            var segments = pathKey.Split('/', StringSplitOptions.RemoveEmptyEntries);
             var current = root;
 
-            for (var i = 0; i < segments.Length; i++)
+            foreach (var segment in pathKey.Split('/', StringSplitOptions.RemoveEmptyEntries))
             {
-                var segment = segments[i];
                 if (!current.Children.TryGetValue(segment, out var child))
                 {
                     var isParam = segment is ['{', .., '}'];
@@ -56,8 +54,14 @@ internal static class PathTreeBuilder
                 current = child;
             }
 
-            // Resolve parameter schemas from operations
-            ResolveParameterSchemas(current, pathItem, segments);
+            // Resolve parameter schema for the terminal node from operation definitions
+            if (current is { IsParameter: true, ParameterName: not null, ParameterSchema: null })
+            {
+                current.ParameterSchema = pathItem.Operations
+                    .SelectMany(op => op.Value.Parameters ?? [])
+                    .FirstOrDefault(p => p.In == ParameterLocation.Path && p.Name == current.ParameterName)
+                    ?.Schema;
+            }
 
             // Attach operations to the terminal node
             foreach (var (method, operation) in pathItem.Operations)
@@ -71,47 +75,11 @@ internal static class PathTreeBuilder
     }
 
     /// <summary>
-    /// Walks the path from root to the terminal node and assigns parameter schemas
-    /// from the operation definitions to each parameterized segment.
-    /// </summary>
-    private static void ResolveParameterSchemas(PathSegmentNode terminal, IOpenApiPathItem pathItem, string[] segments)
-    {
-        // Collect all path parameters from all operations on this path item
-        var pathParams = new Dictionary<string, IOpenApiSchema>();
-        foreach (var (_, operation) in pathItem.Operations)
-        {
-            if (operation.Parameters == null)
-                continue;
-
-            foreach (var param in operation.Parameters)
-                if (param.In == ParameterLocation.Path && param.Schema != null)
-                    pathParams.TryAdd(param.Name, param.Schema);
-        }
-
-        // Walk ancestor chain is not needed here since we only have the terminal;
-        // instead, the tree builder resolves schemas during the Build pass by re-walking.
-        if (terminal is { IsParameter: true, ParameterName: not null, ParameterSchema: null })
-        {
-            if (pathParams.TryGetValue(terminal.ParameterName, out var schema))
-                terminal.ParameterSchema = schema;
-        }
-
-        // Also resolve ancestor parameter nodes that may not have schemas yet
-        // by walking parent segments. We re-derive the ancestor chain from the segments array.
-        // This is done globally in a second pass (see ResolveParameterSchemasRecursive).
-    }
-
-    /// <summary>
     /// Resolves builder class names for every node in the tree using dot-separated
     /// hierarchical names. Each path segment contributes a namespace part so that
     /// short class names (e.g. <c>IdBuilder</c>) live in distinct namespaces.
     /// </summary>
-    private static void ResolveBuilderNames(PathSegmentNode root, string buildersNamespace)
-    {
-        AssignBuilderNames(root, buildersNamespace);
-    }
-
-    private static void AssignBuilderNames(PathSegmentNode node, string currentNamespace)
+    private static void ResolveBuilderNames(PathSegmentNode node, string currentNamespace)
     {
         foreach (var (_, child) in node.Children)
         {
@@ -131,7 +99,7 @@ internal static class PathTreeBuilder
             }
 
             child.BuilderName = new GeneratedTypeInfo(currentNamespace, shortName);
-            AssignBuilderNames(child, childNamespace);
+            ResolveBuilderNames(child, childNamespace);
         }
     }
 
