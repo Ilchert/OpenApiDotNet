@@ -1,5 +1,6 @@
 using Microsoft.OpenApi;
 using OpenApiDotNet.Generators;
+using OpenApiDotNet.IO;
 using System.Text;
 
 namespace OpenApiDotNet;
@@ -7,20 +8,20 @@ namespace OpenApiDotNet;
 /// <summary>
 /// Generates C# client code from OpenAPI specifications
 /// </summary>
-public class OpenApiGenerator
+internal class OpenApiGenerator
 {
     private readonly OpenApiDocument _document;
     private readonly string _namespace;
-    private readonly string _outputDirectory;
+    private readonly IWritableFileProvider _output;
     private readonly string? _namespacePrefix;
     private readonly string _clientName;
     private readonly TypeMappingConfig _typeMappingConfig;
 
-    public OpenApiGenerator(OpenApiDocument document, string namespaceName, string outputDirectory, string? namespacePrefix = null, string? clientName = null, TypeMappingConfig? typeMappingConfig = null)
+    public OpenApiGenerator(OpenApiDocument document, string namespaceName, IWritableFileProvider output, string? namespacePrefix = null, string? clientName = null, TypeMappingConfig? typeMappingConfig = null)
     {
         _document = document ?? throw new ArgumentNullException(nameof(document));
         _namespace = namespaceName ?? throw new ArgumentNullException(nameof(namespaceName));
-        _outputDirectory = outputDirectory ?? throw new ArgumentNullException(nameof(outputDirectory));
+        _output = output ?? throw new ArgumentNullException(nameof(output));
         _namespacePrefix = namespacePrefix;
         _clientName = clientName ?? GetDefaultClientName(document);
         _typeMappingConfig = typeMappingConfig ?? new TypeMappingConfig();
@@ -38,7 +39,6 @@ public class OpenApiGenerator
     /// <returns>A list of relative paths (relative to the output directory) of all generated files</returns>
     public List<string> Generate()
     {
-        Directory.CreateDirectory(_outputDirectory);
         var context = new GeneratorContext(_namespace, _clientName, _namespacePrefix, _typeMappingConfig);
         var generatedFiles = new List<string>();
 
@@ -49,17 +49,17 @@ public class OpenApiGenerator
         var endClient = new ClientGenerator(_document, context);
 
         // Write named client interface
-        var clientFilePath = GetOutputFilePath(endClient.TypeInfo);
-        WriteGeneratorToFile(endClient, clientFilePath);
-        generatedFiles.Add(Path.GetRelativePath(_outputDirectory, clientFilePath));
+        var clientRelativePath = GetRelativePath(endClient.TypeInfo);
+        WriteGeneratorToFile(endClient, clientRelativePath);
+        generatedFiles.Add(clientRelativePath);
         Console.WriteLine($"  Generated {endClient.TypeInfo.Name} interface");
 
         // Write builders
         foreach (var builder in endClient.BuilderGenerators)
         {
-            var builderFilePath = GetOutputFilePath(builder.TypeInfo);
-            WriteGeneratorToFile(builder, builderFilePath);
-            generatedFiles.Add(Path.GetRelativePath(_outputDirectory, builderFilePath));
+            var builderRelativePath = GetRelativePath(builder.TypeInfo);
+            WriteGeneratorToFile(builder, builderRelativePath);
+            generatedFiles.Add(builderRelativePath);
             Console.WriteLine($"  Generated builder: {builder.TypeInfo.Name}");
         }
 
@@ -79,28 +79,27 @@ public class OpenApiGenerator
             else
                 generator = new ObjectGenerator(name, schema, context);
 
-            var filePath = GetOutputFilePath(generator.TypeInfo);
-            WriteGeneratorToFile(generator, filePath);
-            generatedFiles.Add(Path.GetRelativePath(_outputDirectory, filePath));
+            var relativePath = GetRelativePath(generator.TypeInfo);
+            WriteGeneratorToFile(generator, relativePath);
+            generatedFiles.Add(relativePath);
             Console.WriteLine($"  Generated model: {name}");
         }
     }
-    private string GetOutputFilePath(GeneratedTypeInfo typeInfo)
+    private string GetRelativePath(GeneratedTypeInfo typeInfo)
     {
         var relativePath = typeInfo.FullName.Replace('.', Path.DirectorySeparatorChar) + ".cs";
         var nsPrefix = _namespace.Replace('.', Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (relativePath.StartsWith(nsPrefix))
             relativePath = relativePath[nsPrefix.Length..];
 
-        return Path.Combine(_outputDirectory, relativePath);
+        return relativePath;
     }
 
-    private static void WriteGeneratorToFile(BaseGenerator generator, string filePath)
+    private void WriteGeneratorToFile(BaseGenerator generator, string relativePath)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(filePath))!);
         var writer = new CodeWriter();
         generator.WriteWithNamespace(writer);
-        File.WriteAllText(filePath, writer.ToString());
+        _output.GetFileInfo(relativePath).WriteAllTextIfChanged(writer.ToString());
     }
 
     private void GenerateIOpenApiBuilderInterface(List<string> generatedFiles)
@@ -117,9 +116,9 @@ public interface IOpenApiBuilder
 }
 """;
 
-        var filePath = Path.Combine(_outputDirectory, "IOpenApiBuilder.cs");
-        File.WriteAllText(filePath, builderInterface);
-        generatedFiles.Add(Path.GetRelativePath(_outputDirectory, filePath));
+        var relativePath = "IOpenApiBuilder.cs";
+        _output.GetFileInfo(relativePath).WriteAllTextIfChanged(builderInterface);
+        generatedFiles.Add(relativePath);
         Console.WriteLine("  Generated IOpenApiBuilder interface");
     }
 
@@ -139,9 +138,9 @@ public interface IOpenApiClient : IOpenApiBuilder
 }
 """;
 
-        var filePath = Path.Combine(_outputDirectory, "IOpenApiClient.cs");
-        File.WriteAllText(filePath, apiClinet);
-        generatedFiles.Add(Path.GetRelativePath(_outputDirectory, filePath));
+        var relativePath = "IOpenApiClient.cs";
+        _output.GetFileInfo(relativePath).WriteAllTextIfChanged(apiClinet);
+        generatedFiles.Add(relativePath);
         Console.WriteLine("  Generated IOpenApiClient interface");
     }
 }

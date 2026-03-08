@@ -6,6 +6,7 @@ using BinkyLabs.OpenApi.Overlays;
 using Microsoft.OpenApi;
 using Microsoft.OpenApi.Reader;
 using OpenApiDotNet;
+using OpenApiDotNet.IO;
 
 // default generate command
 var openApiFileArgument = new Argument<FileInfo>("openapi-file")
@@ -164,7 +165,9 @@ static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, 
     Console.WriteLine("Generating client code...");
     Console.WriteLine();
 
-    var generator = new OpenApiGenerator(openApiDocument, namespaceName, outputDirectory.FullName, namespacePrefix, clientName, new TypeMappingConfig(typeMappings));
+    Directory.CreateDirectory(outputDirectory.FullName);
+    using var outputProvider = new PhysicalWritableFileProvider(outputDirectory.FullName);
+    var generator = new OpenApiGenerator(openApiDocument, namespaceName, outputProvider, namespacePrefix, clientName, new TypeMappingConfig(typeMappings));
     var generatedFiles = generator.Generate();
 
     SaveConfig(openApiFile, outputDirectory, namespaceName, namespacePrefix, clientName, overlayFiles, typeMappings, generatedFiles);
@@ -242,26 +245,34 @@ static void CleanupRemovedFiles(string outputDirectory, List<string>? previousFi
     if (removedFiles.Count == 0)
         return;
 
+    Directory.CreateDirectory(outputDirectory);
+    using var outputProvider = new PhysicalWritableFileProvider(outputDirectory);
+
     Console.WriteLine();
     Console.WriteLine("Cleaning up removed files:");
     foreach (var relativePath in removedFiles)
     {
-        var fullPath = Path.Combine(outputDirectory, relativePath);
-        if (File.Exists(fullPath))
+        var fileInfo = outputProvider.GetFileInfo(relativePath);
+        if (fileInfo.Exists)
         {
-            File.Delete(fullPath);
+            fileInfo.Delete();
             Console.WriteLine($"  Deleted: {relativePath}");
 
             // Remove empty parent directories up to the output directory
-            var directory = Path.GetDirectoryName(fullPath);
-            while (directory != null
-                && !string.Equals(Path.GetFullPath(directory), Path.GetFullPath(outputDirectory), StringComparison.OrdinalIgnoreCase)
-                && Directory.Exists(directory)
-                && !Directory.EnumerateFileSystemEntries(directory).Any())
+            var directory = Path.GetDirectoryName(relativePath);
+            while (!string.IsNullOrEmpty(directory))
             {
-                Directory.Delete(directory);
-                Console.WriteLine($"  Removed empty directory: {Path.GetRelativePath(outputDirectory, directory)}");
-                directory = Path.GetDirectoryName(directory);
+                var dirContents = outputProvider.GetDirectoryContents(directory);
+                if (dirContents.Exists && !dirContents.Any())
+                {
+                    outputProvider.GetFileInfo(directory).Delete();
+                    Console.WriteLine($"  Removed empty directory: {directory}");
+                    directory = Path.GetDirectoryName(directory);
+                }
+                else
+                {
+                    break;
+                }
             }
         }
     }

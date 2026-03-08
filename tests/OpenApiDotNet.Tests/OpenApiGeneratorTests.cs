@@ -1,12 +1,13 @@
 using System.Text;
 using FluentAssertions;
 using Microsoft.OpenApi;
+using OpenApiDotNet.Tests.IO;
 
 namespace OpenApiDotNet.Tests;
 
-public class OpenApiGeneratorTests : IDisposable
+public class OpenApiGeneratorTests
 {
-    private string _outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+    private readonly InMemoryWritableFileProvider _output = new();
 
     private OpenApiGenerator CreateGenerator(
         string specJson,
@@ -16,13 +17,7 @@ public class OpenApiGeneratorTests : IDisposable
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(specJson));
         var (document, diagnostic) = OpenApiDocument.Load(stream);
         diagnostic?.Errors.Should().BeEmpty();
-        return new OpenApiGenerator(document, namespaceName, _outputDirectory, namespacePrefix: namespacePrefix);
-    }
-
-    public void Dispose()
-    {
-        if (_outputDirectory is not null && Directory.Exists(_outputDirectory))
-            Directory.Delete(_outputDirectory, true);
+        return new OpenApiGenerator(document, namespaceName, _output, namespacePrefix: namespacePrefix);
     }
 
     [Fact]
@@ -49,15 +44,12 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        Directory.Exists(_outputDirectory).Should().BeTrue();
-        Directory.Exists(Path.Combine(_outputDirectory, "Models")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "Models", "Pet.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "Models", "NewPet.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "IOpenApiBuilder.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "IOpenApiClient.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "IPetStoreAPIClient.cs")).Should().BeTrue();
-        Directory.Exists(Path.Combine(_outputDirectory, "Builders")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs")).Should().BeTrue();
+        _output.Files.Should().ContainKey("Models/Pet.cs");
+        _output.Files.Should().ContainKey("Models/NewPet.cs");
+        _output.Files.Should().ContainKey("IOpenApiBuilder.cs");
+        _output.Files.Should().ContainKey("IOpenApiClient.cs");
+        _output.Files.Should().ContainKey("IPetStoreAPIClient.cs");
+        _output.Files.Should().ContainKey("Builders/PetsBuilder.cs");
     }
 
     [Fact]
@@ -91,7 +83,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Pet.cs"));
+        var content = _output.Files["Models/Pet.cs"];
 
         content.Should().Contain("public required long Id");
         content.Should().Contain("public required string Name");
@@ -152,18 +144,18 @@ public class OpenApiGeneratorTests : IDisposable
         generator.Generate();
 
         // IOpenApiClient should have HttpClient and JsonOptions but no navigation properties
-        var clientContent = File.ReadAllText(Path.Combine(_outputDirectory, "IOpenApiClient.cs"));
+        var clientContent = _output.Files["IOpenApiClient.cs"];
         clientContent.Should().Contain("HttpClient HttpClient");
         clientContent.Should().Contain("JsonSerializerOptions JsonOptions");
         clientContent.Should().NotContain("PetsBuilder Pets");
 
         // Named client interface should have navigation property for Pets
-        var namedClientContent = File.ReadAllText(Path.Combine(_outputDirectory, "IPetStoreAPIClient.cs"));
+        var namedClientContent = _output.Files["IPetStoreAPIClient.cs"];
         namedClientContent.Should().Contain("PetsBuilder Pets");
         namedClientContent.Should().Contain(": IOpenApiClient");
 
         // PetsBuilder should have Get and Post operations
-        var petsContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs"));
+        var petsContent = _output.Files["Builders/PetsBuilder.cs"];
         petsContent.Should().Contain("public virtual async System.Threading.Tasks.Task<System.Collections.Generic.List<PetStore.Client.Models.Pet>> Get");
         petsContent.Should().Contain("public virtual async System.Threading.Tasks.Task<PetStore.Client.Models.Pet> Post");
         petsContent.Should().Contain("int? limit");
@@ -174,7 +166,7 @@ public class OpenApiGeneratorTests : IDisposable
         petsContent.Should().Contain("Pets.IdBuilder this[long petId]");
 
         // IdBuilder (under Pets namespace) should have Get and Delete operations
-        var petsIdContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "Pets", "IdBuilder.cs"));
+        var petsIdContent = _output.Files["Builders/Pets/IdBuilder.cs"];
         petsIdContent.Should().Contain("public virtual async System.Threading.Tasks.Task<PetStore.Client.Models.Pet> Get");
         petsIdContent.Should().Contain("public virtual async System.Threading.Tasks.Task Delete");
         petsIdContent.Should().Contain("Client.HttpClient.DeleteAsync");
@@ -202,7 +194,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
+        var content = _output.Files["Builders/ItemsBuilder.cs"];
         content.Should().Contain("var queryString = new System.Collections.Generic.List<string>();");
         content.Should().Contain("if (limit is {} limitValue)");
         content.Should().Contain("System.Uri.EscapeDataString");
@@ -233,13 +225,13 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
+        var content = _output.Files["Builders/ItemsBuilder.cs"];
 
         // Required parameter should be non-nullable
         content.Should().Contain("string category");
         content.Should().NotContain("string? category");
         content.Should().NotContain("string category = default");
-        
+
         // Optional parameter should be nullable
         content.Should().Contain("int? limit");
 
@@ -277,7 +269,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
+        var content = _output.Files["Builders/ItemsBuilder.cs"];
 
         // Optional list parameter should be nullable
         content.Should().Contain("System.Collections.Generic.List<string>? tags");
@@ -333,9 +325,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
-
-        // Required parameters (category, request) should appear before optional ones (limit, offset, cancellationToken)
+        var content = _output.Files["Builders/ItemsBuilder.cs"];
         var signatureStart = content.IndexOf("Post(");
         var signatureEnd = content.IndexOf(')', signatureStart);
         var signature = content[signatureStart..signatureEnd];
@@ -398,7 +388,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "StatsBuilder.cs"));
+        var content = _output.Files["Builders/StatsBuilder.cs"];
 
         // Return type should reference the nested class
         content.Should().Contain("System.Threading.Tasks.Task<GetResponse>");
@@ -450,7 +440,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "FeedbackBuilder.cs"));
+        var content = _output.Files["Builders/FeedbackBuilder.cs"];
 
         // Request body should use the nested class
         content.Should().Contain("PostRequest request");
@@ -498,7 +488,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "NumbersBuilder.cs"));
+        var content = _output.Files["Builders/NumbersBuilder.cs"];
 
         content.Should().Contain("System.Collections.Generic.List<int> request");
     }
@@ -538,7 +528,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs"));
+        var content = _output.Files["Builders/PetsBuilder.cs"];
 
         content.Should().Contain("newPet");
         content.Should().NotContain("Pet request");
@@ -581,9 +571,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "Items", "IdBuilder.cs"));
-
-        // Return type should be the referenced model
+        var content = _output.Files["Builders/Items/IdBuilder.cs"];
         content.Should().Contain("System.Threading.Tasks.Task<Test.Client.Models.Item>");
 
         // Should read from JSON and return the result
@@ -629,7 +617,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "DataBuilder.cs"));
+        var content = _output.Files["Builders/DataBuilder.cs"];
 
         // Return type should be object (not void, not a nested class)
         content.Should().Contain("System.Threading.Tasks.Task<object>");
@@ -674,7 +662,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "Items", "IdBuilder.cs"));
+        var content = _output.Files["Builders/Items/IdBuilder.cs"];
 
         // Return type should be bool
         content.Should().Contain("System.Threading.Tasks.Task<bool>");
@@ -690,7 +678,7 @@ public class OpenApiGeneratorTests : IDisposable
     public void Constructor_WithNullDocument_ThrowsArgumentNullException()
     {
         // Act
-        var act = () => new OpenApiGenerator(null!, "TestNamespace", Path.GetTempPath());
+        var act = () => new OpenApiGenerator(null!, "TestNamespace", _output);
 
         // Assert
         act.Should().Throw<ArgumentNullException>()
@@ -707,7 +695,7 @@ public class OpenApiGeneratorTests : IDisposable
         };
 
         // Act
-        var act = () => new OpenApiGenerator(document, null!, Path.GetTempPath());
+        var act = () => new OpenApiGenerator(document, null!, _output);
 
         // Assert
         act.Should().Throw<ArgumentNullException>()
@@ -715,7 +703,7 @@ public class OpenApiGeneratorTests : IDisposable
     }
 
     [Fact]
-    public void Constructor_WithNullOutputDirectory_ThrowsArgumentNullException()
+    public void Constructor_WithNullOutput_ThrowsArgumentNullException()
     {
         // Arrange
         var document = new OpenApiDocument
@@ -728,7 +716,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         // Assert
         act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("outputDirectory");
+            .WithParameterName("output");
     }
 
     [Fact]
@@ -751,8 +739,8 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        File.Exists(Path.Combine(_outputDirectory, "Models", "PetStatus.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "Models", "PetSize.cs")).Should().BeTrue();
+        _output.Files.Should().ContainKey("Models/PetStatus.cs");
+        _output.Files.Should().ContainKey("Models/PetSize.cs");
     }
 
     [Fact]
@@ -778,7 +766,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "PetStatus.cs"));
+        var content = _output.Files["Models/PetStatus.cs"];
         content.Should().Contain("public enum PetStatus");
         content.Should().Contain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]");
         content.Should().Contain("Available,");
@@ -806,7 +794,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "PetSize.cs"));
+        var content = _output.Files["Models/PetSize.cs"];
         content.Should().Contain("public enum PetSize");
         content.Should().Contain("Small,");
         content.Should().Contain("Medium,");
@@ -842,7 +830,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Pet.cs"));
+        var content = _output.Files["Models/Pet.cs"];
         content.Should().Contain("public Test.Client.Models.PetStatus? Status");
         content.Should().Contain("public Test.Client.Models.PetSize? Size");
     }
@@ -874,11 +862,11 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        File.Exists(Path.Combine(_outputDirectory, "Models", "Commerce", "Order.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "Models", "Commerce", "NewOrder.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "Models", "Commerce", "OrderStatus.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "Models", "Identity", "Customer.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "Models", "SimpleModel.cs")).Should().BeTrue();
+        _output.Files.Should().ContainKey("Models/Commerce/Order.cs");
+        _output.Files.Should().ContainKey("Models/Commerce/NewOrder.cs");
+        _output.Files.Should().ContainKey("Models/Commerce/OrderStatus.cs");
+        _output.Files.Should().ContainKey("Models/Identity/Customer.cs");
+        _output.Files.Should().ContainKey("Models/SimpleModel.cs");
     }
 
     [Fact]
@@ -907,7 +895,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Commerce", "Order.cs"));
+        var content = _output.Files["Models/Commerce/Order.cs"];
         content.Should().Contain("public class Order");
         content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
         content.Should().NotContain("using DottedNames.Client.Models");
@@ -932,7 +920,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Commerce", "OrderStatus.cs"));
+        var content = _output.Files["Models/Commerce/OrderStatus.cs"];
         content.Should().Contain("public enum OrderStatus");
         content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
         content.Should().Contain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]");
@@ -974,7 +962,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Commerce", "Order.cs"));
+        var content = _output.Files["Models/Commerce/Order.cs"];
         content.Should().Contain("public required DottedNames.Client.Models.Commerce.OrderStatus Status");
         content.Should().Contain("public DottedNames.Client.Models.Identity.Customer? Customer");
     }
@@ -1012,7 +1000,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var builderContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "OrdersBuilder.cs"));
+        var builderContent = _output.Files["Builders/OrdersBuilder.cs"];
         builderContent.Should().NotContain("using DottedNames.Client.Models");
         builderContent.Should().Contain("System.Threading.Tasks.Task<System.Collections.Generic.List<DottedNames.Client.Models.Commerce.Order>>");
         builderContent.Should().Contain("System.Threading.Tasks.Task<DottedNames.Client.Models.Commerce.Order>");
@@ -1038,7 +1026,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "SimpleModel.cs"));
+        var content = _output.Files["Models/SimpleModel.cs"];
         content.Should().Contain("namespace DottedNames.Client.Models;");
         content.Should().Contain("public class SimpleModel");
     }
@@ -1073,17 +1061,17 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        File.Exists(Path.Combine(_outputDirectory, "Models", "Order.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "Models", "NewOrder.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "Models", "OrderStatus.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "Models", "Identity", "Customer.cs")).Should().BeTrue();
-        File.Exists(Path.Combine(_outputDirectory, "Models", "SimpleModel.cs")).Should().BeTrue();
+        _output.Files.Should().ContainKey("Models/Order.cs");
+        _output.Files.Should().ContainKey("Models/NewOrder.cs");
+        _output.Files.Should().ContainKey("Models/OrderStatus.cs");
+        _output.Files.Should().ContainKey("Models/Identity/Customer.cs");
+        _output.Files.Should().ContainKey("Models/SimpleModel.cs");
 
-        var orderContent = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Order.cs"));
+        var orderContent = _output.Files["Models/Order.cs"];
         orderContent.Should().Contain("namespace DottedNames.Client.Models;");
         orderContent.Should().Contain("public class Order");
 
-        var customerContent = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Identity", "Customer.cs"));
+        var customerContent = _output.Files["Models/Identity/Customer.cs"];
         customerContent.Should().Contain("namespace DottedNames.Client.Models.Identity;");
     }
 
@@ -1118,7 +1106,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Order.cs"));
+        var content = _output.Files["Models/Order.cs"];
 
         content.Should().Contain("public OrderAddress? Address");
         content.Should().Contain("public class OrderAddress");
@@ -1156,7 +1144,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Pet.cs"));
+        var content = _output.Files["Models/Pet.cs"];
 
         content.Should().Contain("public PetStatus? Status");
         content.Should().Contain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]");
@@ -1193,7 +1181,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Order.cs"));
+        var content = _output.Files["Models/Order.cs"];
 
         content.Should().Contain("public OrderType? Type");
         content.Should().Contain("public enum OrderType");
@@ -1275,7 +1263,7 @@ public class OpenApiGeneratorTests : IDisposable
         var firstFiles = firstGenerator.Generate();
 
         firstFiles.Should().Contain(Path.Combine("Models", "NewPet.cs"));
-        File.Exists(Path.Combine(_outputDirectory, "Models", "NewPet.cs")).Should().BeTrue();
+        _output.Files.Should().ContainKey("Models/NewPet.cs");
 
         var secondGenerator = CreateGenerator(specWithOneSchema, "PetStore.Client");
         var secondFiles = secondGenerator.Generate();

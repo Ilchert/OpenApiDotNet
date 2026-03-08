@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.OpenApi;
+using OpenApiDotNet.Tests.IO;
 
 namespace OpenApiDotNet.Tests;
 
@@ -28,65 +29,57 @@ public class CompilationVerificationTests
         //   - query parameters (int, array, enum, System.Object via untyped schema)
         //   - request body and response body
         var specPath = Path.Combine(_fixturesPath, "petstore.json");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 
-        try
-        {
-            using var stream = File.OpenRead(specPath);
-            var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-            diagnostic?.Errors.Should().BeEmpty();
+        using var stream = File.OpenRead(specPath);
+        var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
+        diagnostic?.Errors.Should().BeEmpty();
 
-            var generator = new OpenApiGenerator(document, "PetStore.Client", outputDirectory);
+        var output = new InMemoryWritableFileProvider();
+        var generator = new OpenApiGenerator(document, "PetStore.Client", output);
 
-            // Act
-            generator.Generate();
+        // Act
+        generator.Generate();
 
-            // Collect all generated .cs files
-            var sourceFiles = Directory.GetFiles(outputDirectory, "*.cs", SearchOption.AllDirectories);
-            sourceFiles.Should().NotBeEmpty("generator should produce at least one .cs file");
+        // Collect all generated .cs files from the in-memory provider
+        output.Files.Should().NotBeEmpty("generator should produce at least one .cs file");
 
-            var syntaxTrees = sourceFiles
-                .Select(f => CSharpSyntaxTree.ParseText(
-                    File.ReadAllText(f),
-                    new CSharpParseOptions(LanguageVersion.Latest),
-                    path: f))
-                .ToList();
+        var syntaxTrees = output.Files
+            .Where(f => f.Key.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+            .Select(f => CSharpSyntaxTree.ParseText(
+                f.Value,
+                new CSharpParseOptions(LanguageVersion.Latest),
+                path: f.Key))
+            .ToList();
 
-            // Build metadata references from trusted platform assemblies (BCL) and
-            // assemblies already loaded in this process (for NodaTime, etc.)
-            var trustedPlatformPaths = (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string ?? "")
-                .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+        // Build metadata references from trusted platform assemblies (BCL) and
+        // assemblies already loaded in this process (for NodaTime, etc.)
+        var trustedPlatformPaths = (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string ?? "")
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
 
-            var references = trustedPlatformPaths
-                .Concat(AppDomain.CurrentDomain.GetAssemblies()
-                    .Where(a => !a.IsDynamic && !string.IsNullOrWhiteSpace(a.Location))
-                    .Select(a => a.Location))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Select(path => MetadataReference.CreateFromFile(path))
-                .Cast<MetadataReference>()
-                .ToList();
+        var references = trustedPlatformPaths
+            .Concat(AppDomain.CurrentDomain.GetAssemblies()
+                .Where(a => !a.IsDynamic && !string.IsNullOrWhiteSpace(a.Location))
+                .Select(a => a.Location))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(path => MetadataReference.CreateFromFile(path))
+            .Cast<MetadataReference>()
+            .ToList();
 
-            var compilation = CSharpCompilation.Create(
-                "PetStore.Client",
-                syntaxTrees,
-                references,
-                new CSharpCompilationOptions(
-                    OutputKind.DynamicallyLinkedLibrary,
-                    nullableContextOptions: NullableContextOptions.Enable));
+        var compilation = CSharpCompilation.Create(
+            "PetStore.Client",
+            syntaxTrees,
+            references,
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
 
-            // Assert - no warnings or errors in the generated code
-            var diagnostics = compilation.GetDiagnostics()
-                .Where(d => d.Severity >= DiagnosticSeverity.Warning)
-                .ToList();
+        // Assert - no warnings or errors in the generated code
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(d => d.Severity >= DiagnosticSeverity.Warning)
+            .ToList();
 
-            diagnostics.Should().BeEmpty(
-                $"generated code should compile without warnings or errors, but got:\n" +
-                string.Join("\n", diagnostics.Select(d => $"  [{d.Severity}] {d.Id}: {d.GetMessage()} ({d.Location})")));
-        }
-        finally
-        {
-            if (Directory.Exists(outputDirectory))
-                Directory.Delete(outputDirectory, true);
-        }
+        diagnostics.Should().BeEmpty(
+            $"generated code should compile without warnings or errors, but got:\n" +
+            string.Join("\n", diagnostics.Select(d => $"  [{d.Severity}] {d.Id}: {d.GetMessage()} ({d.Location})")));
     }
 }
