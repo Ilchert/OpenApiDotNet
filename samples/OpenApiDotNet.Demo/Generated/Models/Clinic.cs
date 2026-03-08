@@ -9,12 +9,12 @@ public class Clinic
     /// Name of the clinic
     /// </summary>
     [System.Text.Json.Serialization.JsonPropertyName("name")]
-public required string Name { get; set; }
-    
+    public required string Name { get; set; }
+
     /// <summary>
     /// Address of the clinic
     /// </summary>
     [System.Text.Json.Serialization.JsonPropertyName("address")]
-public string? Address { get; set; }
-    
+    public string? Address { get; set; }
+
 }

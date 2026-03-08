@@ -6,13 +6,13 @@ namespace PetStore;
 public interface IPetStoreApi : IOpenApiClient
 {
     public virtual PetStore.Builders.PetsBuilder Pets => new(this);
-    
+
     public virtual PetStore.Builders.ReportsBuilder Reports => new(this);
-    
+
     public virtual PetStore.Builders.OwnersBuilder Owners => new(this);
-    
+
     public virtual PetStore.Builders.SearchBuilder Search => new(this);
-    
+
     public virtual PetStore.Builders.ClinicsBuilder Clinics => new(this);
-    
+
 }

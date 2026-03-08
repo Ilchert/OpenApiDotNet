@@ -9,9 +9,12 @@ internal class CodeWriter
     private const int IndentLength = 4;
     public void Write(string text)
     {
-        if (_builder.Length == 0 || _builder[_builder.Length - 1] == '\n')
-            _builder.Append(new string(' ', _indentLevel * IndentLength));
-        _builder.Append(text);
+        foreach (var ch in text)
+        {
+            if (ch != '\r' && ch != '\n' && (_builder.Length == 0 || _builder[_builder.Length - 1] == '\n'))
+                _builder.Append(' ', _indentLevel * IndentLength);
+            _builder.Append(ch);
+        }
     }
     public void WriteLine(string text = "")
     {

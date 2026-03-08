@@ -9,18 +9,18 @@ public class OwnersBuilder : IOpenApiBuilder
     #pragma warning restore CS8618
 
     public OwnersBuilder(IOpenApiBuilder parentBuilder)
-{
-    _parentBuilder = parentBuilder;
-}
+    {
+        _parentBuilder = parentBuilder;
+    }
 
-public string GetPath() => $"{_parentBuilder.GetPath()}/owners";
+    public string GetPath() => $"{_parentBuilder.GetPath()}/owners";
 
-                
-public IOpenApiClient Client => _parentBuilder.Client;
-            
-    public virtual PetStore.Builders.OwnersIdBuilder this[string ownerId]
+
+    public IOpenApiClient Client => _parentBuilder.Client;
+
+    public virtual PetStore.Builders.Owners.IdBuilder this[string ownerId]
     {
         get => new(this, ownerId);
     }
-    
+
 }

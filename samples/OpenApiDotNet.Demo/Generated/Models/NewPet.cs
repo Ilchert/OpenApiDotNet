@@ -9,18 +9,18 @@ public class NewPet
     /// Name of the pet
     /// </summary>
     [System.Text.Json.Serialization.JsonPropertyName("name")]
-public required string Name { get; set; }
-    
+    public required string Name { get; set; }
+
     /// <summary>
     /// Tag for the pet
     /// </summary>
     [System.Text.Json.Serialization.JsonPropertyName("tag")]
-public string? Tag { get; set; }
-    
+    public string? Tag { get; set; }
+
     /// <summary>
     /// Birth date of the pet
     /// </summary>
     [System.Text.Json.Serialization.JsonPropertyName("birthDate")]
-public NodaTime.LocalDate? BirthDate { get; set; }
-    
+    public NodaTime.LocalDate? BirthDate { get; set; }
+
 }

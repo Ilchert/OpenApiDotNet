@@ -72,9 +72,9 @@ public string GetPath() => $"{_parentBuilder.GetPath()}/{{SegmentName}}";
         }
 
         writer.WriteLine("""
-            
+
 public IOpenApiClient Client => _parentBuilder.Client;
-            
+
 """);
 
         Properties.ForEach(p => p.Write(writer));

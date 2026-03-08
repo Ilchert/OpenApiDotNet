@@ -8,11 +8,11 @@ public enum PetStatus
 {
     [System.Text.Json.Serialization.JsonStringEnumMemberName("available")]
     Available,
-    
+
     [System.Text.Json.Serialization.JsonStringEnumMemberName("pending")]
     Pending,
-    
+
     [System.Text.Json.Serialization.JsonStringEnumMemberName("sold")]
     Sold,
-    
+
 }
