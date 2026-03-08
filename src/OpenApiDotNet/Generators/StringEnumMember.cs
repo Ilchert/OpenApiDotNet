@@ -10,7 +10,7 @@ internal class StringEnumMember
     public StringEnumMember(JsonNode jsonNode)
     {
         Name = jsonNode.ToString();
-        EnumMemberName = GeneratorContext.ToPascalCase(Name);
+        EnumMemberName = NamingConventions.ToPascalCase(Name);
     }
 
     public void Write(CodeWriter writer)

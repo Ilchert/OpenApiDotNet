@@ -18,7 +18,7 @@ internal class BuilderOperationGenerator
         _httpMethod = httpMethod;
         _operation = operation;
         _context = context;
-        MethodName = GeneratorContext.ToPascalCase(httpMethod.Method.ToLowerInvariant());
+        MethodName = NamingConventions.ToPascalCase(httpMethod.Method.ToLowerInvariant());
 
         if (_operation.Parameters != null)
             foreach (var parameter in _operation.Parameters)

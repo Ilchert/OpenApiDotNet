@@ -22,7 +22,7 @@ public class NamingConventionTests
     public void ToPascalCase_ConvertsCorrectly(string input, string expected)
     {
         // Act
-        var result = GeneratorContext.ToPascalCase(input);
+        var result = NamingConventions.ToPascalCase(input);
 
         // Assert
         result.Should().Be(expected);
@@ -42,7 +42,7 @@ public class NamingConventionTests
     public void ToCamelCase_ConvertsCorrectly(string input, string expected)
     {
         // Act
-        var result = GeneratorContext.ToCamelCase(input);
+        var result = NamingConventions.ToCamelCase(input);
 
         // Assert
         result.Should().Be(expected);

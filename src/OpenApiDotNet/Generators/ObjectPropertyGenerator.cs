@@ -16,7 +16,7 @@ internal class ObjectPropertyGenerator
     {
         Name = name;
         Context = context;
-        PropertyName = GeneratorContext.ToPascalCase(name);
+        PropertyName = NamingConventions.ToPascalCase(name);
         Description = schema.Description;
         IsRequired = isRequired;
 
@@ -25,7 +25,7 @@ internal class ObjectPropertyGenerator
 
     private (string TypeName, BaseGenerator? NestedPropertyTypeGenerator) GetPropertyType(IOpenApiSchema schema, string parentName)
     {
-        if (GeneratorContext.GetSchemaName(schema) != null)
+        if (schema.GetSchemaName() != null)
             return (Context.GetCSharpType(schema).FullName, null);
 
         var nestedTypeName = $"{parentName}{PropertyName}";
@@ -33,7 +33,7 @@ internal class ObjectPropertyGenerator
         if (schema.Enum != null && schema.Enum.Count > 0)
             return (nestedTypeName, new EnumGenerator(nestedTypeName, schema, Context));
 
-        if (GeneratorContext.IsInlineObjectSchema(schema))
+        if (schema.IsInlineObjectSchema())
             return (nestedTypeName, new ObjectGenerator(nestedTypeName, schema, Context));
 
         return (Context.GetCSharpType(schema).FullName, null);

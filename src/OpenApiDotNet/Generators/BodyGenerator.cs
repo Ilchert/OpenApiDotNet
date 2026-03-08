@@ -16,7 +16,7 @@ internal class BodyGenerator
         if (content?.Value?.Schema is not { } schema)
             throw new InvalidOperationException();
 
-        if (GeneratorContext.IsInlineObjectSchema(schema))
+        if (schema.IsInlineObjectSchema())
         {
             ParameterType = $"{methodName}Request";
             NestedClassGenerator = new ObjectGenerator(ParameterType, schema, context);

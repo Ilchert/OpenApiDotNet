@@ -2,7 +2,7 @@ namespace OpenApiDotNet.Generators;
 
 internal class StaticBuilderPropertyGenerator(PathSegmentNode node, GeneratorContext context) : BuilderPropertyGenerator(node, context)
 {
-    public string PropertyName { get; } = GeneratorContext.ToPascalCase(node.SegmentName);
+    public string PropertyName { get; } = NamingConventions.ToPascalCase(node.SegmentName);
 
     public override void Write(CodeWriter writer)
     {

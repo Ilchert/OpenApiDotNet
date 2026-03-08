@@ -15,7 +15,7 @@ internal class ResponseGenerator
             ResponseType = "void";
             return;
         }
-        if (GeneratorContext.IsInlineObjectSchema(schema))
+        if (schema.IsInlineObjectSchema())
         {
             ResponseType = $"{methodName}Response";
             NestedClassGenerator = new ObjectGenerator(ResponseType, schema, context);

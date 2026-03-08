@@ -2,25 +2,22 @@ using Microsoft.OpenApi;
 
 namespace OpenApiDotNet.Generators;
 
-internal class GeneratorContext
+internal record GeneratorContext(
+    string DefaultNamespace,
+    string ClientName,
+    string? StripNamespacePrefix,
+    TypeMappingConfig? TypeMappingConfig = null)
 {
-    public string DefaultNamespace { get; }
-    public string ClientName { get; }
-    public string? StripNamespacePrefix { get; }
-    public TypeMappingConfig TypeMappingConfig { get; }
-
     private static readonly char[] s_namespaceSeparators = ['.'];
 
-    public GeneratorContext(string defaultNamespace, string clientName, string? stripNamespacePrefix, TypeMappingConfig? typeMappingConfig = null)
+    public string? StripNamespacePrefix { get; } = StripNamespacePrefix switch
     {
-        DefaultNamespace = defaultNamespace;
-        ClientName = clientName;
-        TypeMappingConfig = typeMappingConfig ?? new TypeMappingConfig();
-        if (stripNamespacePrefix != null)
-            StripNamespacePrefix = stripNamespacePrefix.EndsWith('.') ? stripNamespacePrefix : stripNamespacePrefix + ".";
-        else
-            StripNamespacePrefix = null;
-    }
+        null => null,
+        _ when StripNamespacePrefix.EndsWith('.') => StripNamespacePrefix,
+        _ => StripNamespacePrefix + "."
+    };
+
+    public TypeMappingConfig TypeMappingConfig { get; } = TypeMappingConfig ?? new TypeMappingConfig();
 
     public GeneratedTypeInfo GetNameAndNamespace(string name, GeneratorCategory category)
     {
@@ -39,7 +36,7 @@ internal class GeneratorContext
             var namespacePart = name[..dotIndex];
             typeName = name[(dotIndex + 1)..];
             var segments = namespacePart.Split(s_namespaceSeparators, StringSplitOptions.RemoveEmptyEntries);
-            namespaceSegments = namespaceSegments.Concat(segments.Select(ToPascalCase));
+            namespaceSegments = namespaceSegments.Concat(segments.Select(NamingConventions.ToPascalCase));
         }
 
         return new GeneratedTypeInfo(string.Join(".", namespaceSegments), typeName);
@@ -55,22 +52,9 @@ internal class GeneratorContext
             : name;
     }
 
-    public static string ToPascalCase(string input)
-    {
-        var words = input.Split(['-', '_', ' ', '.'], StringSplitOptions.RemoveEmptyEntries);
-        return string.Concat(words.Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
-    }
-
-    public static string ToCamelCase(string input)
-    {
-        var pascal = ToPascalCase(input);
-        if (string.IsNullOrEmpty(pascal)) return pascal;
-        return char.ToLowerInvariant(pascal[0]) + pascal[1..];
-    }
-
     public GeneratedTypeInfo GetCSharpType(IOpenApiSchema schema)
     {
-        var schemaName = GetSchemaName(schema);
+        var schemaName = schema.GetSchemaName();
         if (schemaName != null)
             return GetNameAndNamespace(schemaName, GeneratorCategory.Model);
 
@@ -84,23 +68,5 @@ internal class GeneratorContext
             JsonSchemaType.Array => new GeneratedTypeInfo("System.Collections.Generic", "List<object>"),
             _ => new GeneratedTypeInfo(string.Empty, "object")
         };
-    }
-
-    public static string? GetSchemaName(IOpenApiSchema schema)
-    {
-        if (!string.IsNullOrEmpty(schema.Id))
-            return schema.Id;
-
-        if (schema is OpenApiSchemaReference schemaRef)
-            return schemaRef.Reference.Id;
-
-        return null;
-    }
-
-    public static bool IsInlineObjectSchema(IOpenApiSchema? schema)
-    {
-        if (schema == null) return false;
-        if (GetSchemaName(schema) != null) return false;
-        return schema.Type == JsonSchemaType.Object && schema.Properties?.Count > 0;
     }
 }

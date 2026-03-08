@@ -3,7 +3,7 @@ namespace OpenApiDotNet.Generators;
 internal class ParameterBuilderPropertyGenerator(PathSegmentNode node, GeneratorContext context) : BuilderPropertyGenerator(node, context)
 {
     public string ParamType { get; } = node.ParameterSchema != null ? context.GetCSharpType(node.ParameterSchema).FullName : "string";
-    public string ParamName { get; } = GeneratorContext.ToCamelCase(node.ParameterName ?? "id");
+    public string ParamName { get; } = NamingConventions.ToCamelCase(node.ParameterName ?? "id");
 
     public override void Write(CodeWriter writer)
     {

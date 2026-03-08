@@ -13,7 +13,7 @@ internal class QueryParameterGenerator
     public QueryParameterGenerator(IOpenApiParameter openApiParameter, GeneratorContext context)
     {
         Name = openApiParameter.Name ?? throw new InvalidOperationException("Parameter name is null");
-        ParameterName = GeneratorContext.ToCamelCase(openApiParameter.Name);
+        ParameterName = NamingConventions.ToCamelCase(openApiParameter.Name);
         ParameterType = context.GetCSharpType(openApiParameter.Schema ?? throw new InvalidOperationException("Parameter schema is null")).FullName;
         IsRequired = openApiParameter.Required;
         IsCollection = openApiParameter.Schema.Type == JsonSchemaType.Array;

@@ -78,7 +78,7 @@ internal static class PathTreeBuilder
             }
             else
             {
-                var pascalSegment = GeneratorContext.ToPascalCase(child.SegmentName);
+                var pascalSegment = NamingConventions.ToPascalCase(child.SegmentName);
                 shortName = $"{pascalSegment}Builder";
                 childNamespace = $"{currentNamespace}.{pascalSegment}";
             }
