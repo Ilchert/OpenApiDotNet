@@ -322,8 +322,6 @@ In the example above:
 ### Example Generated Model
 
 ```csharp
-using System.Text.Json.Serialization;
-
 namespace PetStoreClient.Models;
 
 /// <summary>
@@ -334,25 +332,25 @@ public class Pet
     /// <summary>
     /// Unique identifier for the pet
     /// </summary>
-    [JsonPropertyName("id")]
+    [System.Text.Json.Serialization.JsonPropertyName("id")]
     public required long Id { get; set; }
 
     /// <summary>
     /// Name of the pet
     /// </summary>
-    [JsonPropertyName("name")]
+    [System.Text.Json.Serialization.JsonPropertyName("name")]
     public required string Name { get; set; }
 
     /// <summary>
     /// Birth date of the pet
     /// </summary>
-    [JsonPropertyName("birthDate")]
+    [System.Text.Json.Serialization.JsonPropertyName("birthDate")]
     public NodaTime.LocalDate? BirthDate { get; set; }
 
     /// <summary>
     /// When the pet was created
     /// </summary>
-    [JsonPropertyName("createdAt")]
+    [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
     public NodaTime.Instant? CreatedAt { get; set; }
 }
 ```
@@ -360,23 +358,21 @@ public class Pet
 ### Example Generated Enum
 
 ```csharp
-using System.Text.Json.Serialization;
-
 namespace PetStoreClient.Models;
 
 /// <summary>
 /// The status of a pet in the store
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter))]
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
 public enum PetStatus
 {
-    [JsonStringEnumMemberName("available")]
+    [System.Text.Json.Serialization.JsonStringEnumMemberName("available")]
     Available,
 
-    [JsonStringEnumMemberName("pending")]
+    [System.Text.Json.Serialization.JsonStringEnumMemberName("pending")]
     Pending,
 
-    [JsonStringEnumMemberName ("sold")]
+    [System.Text.Json.Serialization.JsonStringEnumMemberName("sold")]
     Sold,
 }
 ```
@@ -386,8 +382,6 @@ public enum PetStatus
 `IOpenApiClient` is a base interface containing the HTTP infrastructure. A separate named interface (derived from the `--client-name` option or the API title) inherits from it and exposes the top-level navigation properties:
 
 ```csharp
-using System.Text.Json;
-
 namespace PetStoreClient;
 
 /// <summary>
@@ -395,8 +389,8 @@ namespace PetStoreClient;
 /// </summary>
 public interface IOpenApiClient : IOpenApiBuilder
 {
-    HttpClient HttpClient { get; }
-    JsonSerializerOptions JsonOptions { get; }
+    System.Net.Http.HttpClient HttpClient { get; }
+    System.Text.Json.JsonSerializerOptions JsonOptions { get; }
 
     IOpenApiClient IOpenApiBuilder.Client => this;
     string IOpenApiBuilder.GetPath() => "";
@@ -413,17 +407,14 @@ namespace PetStoreClient;
 /// </summary>
 public interface IPetStoreClient : IOpenApiClient
 {
-    PetsBuilder Pets { get => new(this); }
+    public virtual PetStoreClient.Builders.PetsBuilder Pets => new(this);
 }
 ```
 
 ### Example Generated Builder
 
 ```csharp
-using System.Net.Http.Json;
-using System.Text.Json.Serialization;
-
-namespace PetStoreClient;
+namespace PetStoreClient.Builders;
 
 public class PetsBuilder : IOpenApiBuilder
 {
@@ -441,7 +432,7 @@ public class PetsBuilder : IOpenApiBuilder
     public IOpenApiClient Client => _parentBuilder.Client;
     public string GetPath() => $"{_parentBuilder.GetPath()}/pets";
 
-    public virtual PetsIdBuilder this[long petId]
+    public virtual PetStoreClient.Builders.PetsIdBuilder this[long petId]
     {
         get => new(this, petId);
     }
@@ -449,23 +440,32 @@ public class PetsBuilder : IOpenApiBuilder
     /// <summary>
     /// List all pets
     /// </summary>
-    public virtual async Task<List<PetStoreClient.Models.Pet>> Get(
-        int? limit = default, CancellationToken cancellationToken = default)
+    public virtual async System.Threading.Tasks.Task<System.Collections.Generic.List<PetStoreClient.Models.Pet>> Get(
+        int? limit = default, System.Threading.CancellationToken cancellationToken = default)
     {
         var url = GetPath();
+        var queryString = new System.Collections.Generic.List<string>();
 
-        var queryString = new List<string>();
-        if (limit != null)
-            queryString.Add($"limit={Uri.EscapeDataString(limit.ToString())}");
+        if (limit is {} limitValue)
+            queryString.Add($"limit={System.Uri.EscapeDataString(
+                System.Text.Json.JsonSerializer.Serialize(limitValue, Client.JsonOptions).Trim('"'))}");
         if (queryString.Count > 0)
             url += "?" + string.Join("&", queryString);
 
         var response = await Client.HttpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<List<PetStoreClient.Models.Pet>>(Client.JsonOptions, cancellationToken)
-            ?? throw new InvalidOperationException("Response was null");
+        var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions
+            .ReadFromJsonAsync<System.Collections.Generic.List<PetStoreClient.Models.Pet>>(
+                response.Content, Client.JsonOptions, cancellationToken);
+        if (deserializedResponse is { } deserializedResponseValue)
+            return deserializedResponseValue;
+        throw new System.InvalidOperationException($"Response from {url} is null");
     }
 }
+```
+
+```csharp
+namespace PetStoreClient.Builders;
 
 public class PetsIdBuilder : IOpenApiBuilder
 {
@@ -485,21 +485,24 @@ public class PetsIdBuilder : IOpenApiBuilder
     public IOpenApiClient Client => _parentBuilder.Client;
     public string GetPath() => $"{_parentBuilder.GetPath()}/{_petId}";
 
-    // Navigation properties are virtual so they can be overridden in mocks
-    public virtual PhotosBuilder Photos => new(this);
+    public virtual PetStoreClient.Builders.PhotosBuilder Photos => new(this);
 
     /// <summary>
     /// Get a pet by ID
     /// </summary>
-    public virtual async Task<PetStoreClient.Models.Pet> Get(
-        CancellationToken cancellationToken = default)
+    public virtual async System.Threading.Tasks.Task<PetStoreClient.Models.Pet> Get(
+        System.Threading.CancellationToken cancellationToken = default)
     {
         var url = GetPath();
 
         var response = await Client.HttpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<PetStoreClient.Models.Pet>(Client.JsonOptions, cancellationToken)
-            ?? throw new InvalidOperationException("Response was null");
+        var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions
+            .ReadFromJsonAsync<PetStoreClient.Models.Pet>(
+                response.Content, Client.JsonOptions, cancellationToken);
+        if (deserializedResponse is { } deserializedResponseValue)
+            return deserializedResponseValue;
+        throw new System.InvalidOperationException($"Response from {url} is null");
     }
 }
 ```
@@ -539,27 +542,30 @@ public class StatsBuilder : IOpenApiBuilder
     /// <summary>
     /// Get statistics
     /// </summary>
-    public virtual async Task<GetResponse> Get(
-        CancellationToken cancellationToken = default)
+    public virtual async System.Threading.Tasks.Task<GetResponse> Get(
+        System.Threading.CancellationToken cancellationToken = default)
     {
         var url = GetPath();
 
         var response = await Client.HttpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<GetResponse>(
-            Client.JsonOptions, cancellationToken)
-            ?? throw new InvalidOperationException("Response was null");
+        var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions
+            .ReadFromJsonAsync<GetResponse>(
+                response.Content, Client.JsonOptions, cancellationToken);
+        if (deserializedResponse is { } deserializedResponseValue)
+            return deserializedResponseValue;
+        throw new System.InvalidOperationException($"Response from {url} is null");
     }
 
     public class GetResponse
     {
-        [JsonPropertyName("totalCount")]
+        [System.Text.Json.Serialization.JsonPropertyName("totalCount")]
         public int? TotalCount { get; set; }
 
-        [JsonPropertyName("activeCount")]
+        [System.Text.Json.Serialization.JsonPropertyName("activeCount")]
         public int? ActiveCount { get; set; }
 
-        [JsonPropertyName("lastUpdated")]
+        [System.Text.Json.Serialization.JsonPropertyName("lastUpdated")]
         public NodaTime.Instant? LastUpdated { get; set; }
     }
 }

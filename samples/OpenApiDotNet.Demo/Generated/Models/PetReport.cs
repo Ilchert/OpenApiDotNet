@@ -1,5 +1,3 @@
-using System.Text.Json.Serialization;
-
 namespace PetStore.Models;
 
 /// <summary>
@@ -10,43 +8,47 @@ public class PetReport
     /// <summary>
     /// ID of the reported pet
     /// </summary>
-    [JsonPropertyName("petId")]
+    [System.Text.Json.Serialization.JsonPropertyName("petId")]
     public long? PetId { get; set; }
 
     /// <summary>
     /// Priority level of the report
     /// </summary>
-    [JsonPropertyName("priority")]
+    [System.Text.Json.Serialization.JsonPropertyName("priority")]
     public PetReportPriority? Priority { get; set; }
+
+    /// <summary>
+    /// Priority level of the report
+    /// </summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
+    public enum PetReportPriority
+    {
+        [System.Text.Json.Serialization.JsonStringEnumMemberName("low")]
+        Low,
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName("medium")]
+        Medium,
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName("high")]
+        High,
+
+    }
+    /// <summary>
+    /// Location where the pet was found
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("location")]
+    public PetReportLocation? Location { get; set; }
 
     /// <summary>
     /// Location where the pet was found
     /// </summary>
-    [JsonPropertyName("location")]
-    public PetReportLocation? Location { get; set; }
-
-    [JsonConverter(typeof(JsonStringEnumConverter))]
-    public enum PetReportPriority
-    {
-        [JsonStringEnumMemberName("low")]
-        Low,
-
-        [JsonStringEnumMemberName("medium")]
-        Medium,
-
-        [JsonStringEnumMemberName("high")]
-        High,
-
-    }
-
     public class PetReportLocation
     {
-        [JsonPropertyName("latitude")]
+        [System.Text.Json.Serialization.JsonPropertyName("latitude")]
         public double? Latitude { get; set; }
 
-        [JsonPropertyName("longitude")]
+        [System.Text.Json.Serialization.JsonPropertyName("longitude")]
         public double? Longitude { get; set; }
 
     }
-
 }

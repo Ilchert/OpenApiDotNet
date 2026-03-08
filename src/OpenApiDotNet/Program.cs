@@ -1,4 +1,4 @@
-﻿using System.Buffers;
+using System.Buffers;
 using System.CommandLine;
 using System.CommandLine.Completions;
 using System.Text.Json;
@@ -164,7 +164,7 @@ static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, 
     Console.WriteLine("Generating client code...");
     Console.WriteLine();
 
-    var generator = new ClientGenerator(openApiDocument, namespaceName, outputDirectory.FullName, namespacePrefix, clientName, new TypeMappingConfig(typeMappings));
+    var generator = new OpenApiGenerator(openApiDocument, namespaceName, outputDirectory.FullName, namespacePrefix, clientName, new TypeMappingConfig(typeMappings));
     generator.Generate();
 
     SaveConfig(openApiFile, outputDirectory, namespaceName, namespacePrefix, clientName, overlayFiles, typeMappings);

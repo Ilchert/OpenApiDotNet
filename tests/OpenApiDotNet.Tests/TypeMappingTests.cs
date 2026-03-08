@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using FluentAssertions;
 using Microsoft.OpenApi;
 using OpenApiDotNet;
+using OpenApiDotNet.Generators;
 
 namespace OpenApiDotNet.Tests;
 
@@ -12,13 +13,13 @@ public class TypeMappingTests
     {
         // Arrange
         var schema = new OpenApiSchema { Type =JsonSchemaType.String };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("string");
+        result.FullName.Should().Be("string");
     }
 
     [Fact]
@@ -26,13 +27,13 @@ public class TypeMappingTests
     {
         // Arrange
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("NodaTime.Instant");
+        result.FullName.Should().Be("NodaTime.Instant");
     }
 
     [Fact]
@@ -40,13 +41,13 @@ public class TypeMappingTests
     {
         // Arrange
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("NodaTime.LocalDate");
+        result.FullName.Should().Be("NodaTime.LocalDate");
     }
 
     [Fact]
@@ -54,13 +55,13 @@ public class TypeMappingTests
     {
         // Arrange
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "time" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("NodaTime.LocalTime");
+        result.FullName.Should().Be("NodaTime.LocalTime");
     }
 
     [Fact]
@@ -68,13 +69,13 @@ public class TypeMappingTests
     {
         // Arrange
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("Guid");
+        result.FullName.Should().Be("System.Guid");
     }
 
     [Fact]
@@ -82,13 +83,13 @@ public class TypeMappingTests
     {
         // Arrange
         var schema = new OpenApiSchema { Type = JsonSchemaType.Integer };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("int");
+        result.FullName.Should().Be("int");
     }
 
     [Fact]
@@ -96,13 +97,13 @@ public class TypeMappingTests
     {
         // Arrange
         var schema = new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int64" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("long");
+        result.FullName.Should().Be("long");
     }
 
     [Fact]
@@ -110,13 +111,13 @@ public class TypeMappingTests
     {
         // Arrange
         var schema = new OpenApiSchema { Type = JsonSchemaType.Number };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("double");
+        result.FullName.Should().Be("double");
     }
 
     [Fact]
@@ -124,13 +125,13 @@ public class TypeMappingTests
     {
         // Arrange
         var schema = new OpenApiSchema { Type = JsonSchemaType.Number, Format = "float" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("float");
+        result.FullName.Should().Be("float");
     }
 
     [Fact]
@@ -138,13 +139,13 @@ public class TypeMappingTests
     {
         // Arrange
         var schema = new OpenApiSchema { Type = JsonSchemaType.Boolean };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("bool");
+        result.FullName.Should().Be("bool");
     }
 
     [Fact]
@@ -156,13 +157,13 @@ public class TypeMappingTests
             Type = JsonSchemaType.Array,
             Items = new OpenApiSchema { Type = JsonSchemaType.String }
         };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("List<string>");
+        result.FullName.Should().Be("System.Collections.Generic.List<string>");
     }
 
     [Fact]
@@ -174,13 +175,13 @@ public class TypeMappingTests
             Type = JsonSchemaType.Array,
             Items = new OpenApiSchema { Type = JsonSchemaType.Object }
         };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("List<object>");
+        result.FullName.Should().Be("System.Collections.Generic.List<object>");
     }
 
     [Fact]
@@ -191,13 +192,13 @@ public class TypeMappingTests
         { 
             Id = "Pet"
         };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("TestNamespace.Models.Pet");
+        result.FullName.Should().Be("TestNamespace.Models.Pet");
     }
 
     [Fact]
@@ -205,244 +206,244 @@ public class TypeMappingTests
     {
         // Arrange
         var schema = new OpenApiSchema { Type = null };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
         // Act
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
         // Assert
-        result.Should().Be("object");
+        result.FullName.Should().Be("object");
     }
 
     [Fact]
     public void GetCSharpType_StringWithDurationFormat_ReturnsDuration()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "duration" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("NodaTime.Duration");
+        result.FullName.Should().Be("NodaTime.Duration");
     }
 
     [Fact]
     public void GetCSharpType_StringWithDateTimeLocalFormat_ReturnsLocalDateTime()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time-local" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("NodaTime.LocalDateTime");
+        result.FullName.Should().Be("NodaTime.LocalDateTime");
     }
 
     [Fact]
     public void GetCSharpType_StringWithTimeLocalFormat_ReturnsLocalTime()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "time-local" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("NodaTime.LocalTime");
+        result.FullName.Should().Be("NodaTime.LocalTime");
     }
 
     [Fact]
     public void GetCSharpType_StringWithUriFormat_ReturnsUri()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "uri" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("Uri");
+        result.FullName.Should().Be("System.Uri");
     }
 
     [Fact]
     public void GetCSharpType_StringWithUriReferenceFormat_ReturnsUri()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "uri-reference" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("Uri");
+        result.FullName.Should().Be("System.Uri");
     }
 
     [Fact]
     public void GetCSharpType_StringWithIriFormat_ReturnsUri()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "iri" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("Uri");
+        result.FullName.Should().Be("System.Uri");
     }
 
     [Fact]
     public void GetCSharpType_StringWithIriReferenceFormat_ReturnsUri()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "iri-reference" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("Uri");
+        result.FullName.Should().Be("System.Uri");
     }
 
     [Fact]
     public void GetCSharpType_StringWithByteFormat_ReturnsByteArray()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "byte" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("byte[]");
+        result.FullName.Should().Be("byte[]");
     }
 
     [Fact]
     public void GetCSharpType_StringWithBinaryFormat_ReturnsByteArray()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "binary" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("byte[]");
+        result.FullName.Should().Be("byte[]");
     }
 
     [Fact]
     public void GetCSharpType_StringWithBase64UrlFormat_ReturnsByteArray()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "base64url" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("byte[]");
+        result.FullName.Should().Be("byte[]");
     }
 
     [Fact]
     public void GetCSharpType_StringWithCharFormat_ReturnsChar()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "char" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("char");
+        result.FullName.Should().Be("char");
     }
 
     [Fact]
     public void GetCSharpType_IntegerWithInt32Format_ReturnsInt()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("int");
+        result.FullName.Should().Be("int");
     }
 
     [Fact]
     public void GetCSharpType_IntegerWithInt16Format_ReturnsShort()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int16" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("short");
+        result.FullName.Should().Be("short");
     }
 
     [Fact]
     public void GetCSharpType_IntegerWithInt8Format_ReturnsSbyte()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int8" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("sbyte");
+        result.FullName.Should().Be("sbyte");
     }
 
     [Fact]
     public void GetCSharpType_IntegerWithUint8Format_ReturnsByte()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "uint8" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("byte");
+        result.FullName.Should().Be("byte");
     }
 
     [Fact]
     public void GetCSharpType_IntegerWithUint16Format_ReturnsUshort()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "uint16" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("ushort");
+        result.FullName.Should().Be("ushort");
     }
 
     [Fact]
     public void GetCSharpType_IntegerWithUint32Format_ReturnsUint()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "uint32" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("uint");
+        result.FullName.Should().Be("uint");
     }
 
     [Fact]
     public void GetCSharpType_IntegerWithUint64Format_ReturnsUlong()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "uint64" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("ulong");
+        result.FullName.Should().Be("ulong");
     }
 
     [Fact]
     public void GetCSharpType_NumberWithDecimalFormat_ReturnsDecimal()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.Number, Format = "decimal" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("decimal");
+        result.FullName.Should().Be("decimal");
     }
 
     [Fact]
     public void GetCSharpType_NumberWithDecimal128Format_ReturnsDecimal()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.Number, Format = "decimal128" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("decimal");
+        result.FullName.Should().Be("decimal");
     }
 
     [Fact]
     public void GetCSharpType_NumberWithDoubleIntFormat_ReturnsLong()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.Number, Format = "double-int" };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("long");
+        result.FullName.Should().Be("long");
     }
 
     [Fact]
@@ -452,11 +453,11 @@ public class TypeMappingTests
         {
             Id = "PetStatus"
         };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("TestNamespace.Models.PetStatus");
+        result.FullName.Should().Be("TestNamespace.Models.PetStatus");
     }
 
     [Fact]
@@ -472,20 +473,15 @@ public class TypeMappingTests
                 JsonValue.Create("sold")
             }
         };
-        var generator = CreateGenerator();
+        var context = CreateContext();
 
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("string");
+        result.FullName.Should().Be("string");
     }
 
-    private static ClientGenerator CreateGenerator()
+    private static GeneratorContext CreateContext()
     {
-        var document = new OpenApiDocument
-        {
-            Info = new OpenApiInfo { Title = "Test", Version = "1.0" },
-            Paths = new OpenApiPaths()
-        };
-        return new ClientGenerator(document, "TestNamespace", Path.GetTempPath());
+        return new GeneratorContext("TestNamespace", "TestClient", null);
     }
 }

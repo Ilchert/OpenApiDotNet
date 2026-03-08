@@ -1,23 +1,21 @@
-using System.Text.Json.Serialization;
-
 namespace PetStore.Models;
 
 /// <summary>
 /// Tests: component-level string enum with a hyphenated member name (extra-large) that requires JsonStringEnumMemberName to preserve the wire value
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter))]
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
 public enum PetSize
 {
-    [JsonStringEnumMemberName("small")]
+    [System.Text.Json.Serialization.JsonStringEnumMemberName("small")]
     Small,
 
-    [JsonStringEnumMemberName("medium")]
+    [System.Text.Json.Serialization.JsonStringEnumMemberName("medium")]
     Medium,
 
-    [JsonStringEnumMemberName("large")]
+    [System.Text.Json.Serialization.JsonStringEnumMemberName("large")]
     Large,
 
-    [JsonStringEnumMemberName("extra-large")]
+    [System.Text.Json.Serialization.JsonStringEnumMemberName("extra-large")]
     ExtraLarge,
 
 }

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.OpenApi;
 using OpenApiDotNet;
+using OpenApiDotNet.Generators;
 
 namespace OpenApiDotNet.Tests;
 
@@ -119,7 +120,7 @@ public class TypeMappingConfigTests
 
         // Other string format mappings should remain unchanged
         config.Resolve(JsonSchemaType.String, "date").Should().Be("NodaTime.LocalDate");
-        config.Resolve(JsonSchemaType.String, "uuid").Should().Be("Guid");
+        config.Resolve(JsonSchemaType.String, "uuid").Should().Be("System.Guid");
         config.Resolve(JsonSchemaType.String, null).Should().Be("string");
     }
 
@@ -130,7 +131,7 @@ public class TypeMappingConfigTests
 
         defaults.Should().ContainKey("string").WhoseValue.Should().Be("string");
         defaults.Should().ContainKey("string:date-time").WhoseValue.Should().Be("NodaTime.Instant");
-        defaults.Should().ContainKey("string:uuid").WhoseValue.Should().Be("Guid");
+        defaults.Should().ContainKey("string:uuid").WhoseValue.Should().Be("System.Guid");
         defaults.Should().ContainKey("integer").WhoseValue.Should().Be("int");
         defaults.Should().ContainKey("integer:int64").WhoseValue.Should().Be("long");
         defaults.Should().ContainKey("number").WhoseValue.Should().Be("double");
@@ -145,17 +146,12 @@ public class TypeMappingConfigTests
         {
             ["string:date-time"] = "DateTimeOffset"
         };
-        var document = new OpenApiDocument
-        {
-            Info = new OpenApiInfo { Title = "Test", Version = "1.0" },
-            Paths = new OpenApiPaths()
-        };
-        var generator = new ClientGenerator(document, "TestNamespace", Path.GetTempPath(), typeMappingConfig: new TypeMappingConfig(customMappings));
+        var context = new GeneratorContext("TestNamespace", "TestClient", null, new TypeMappingConfig(customMappings));
 
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" };
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("DateTimeOffset");
+        result.FullName.Should().Be("DateTimeOffset");
     }
 
     [Fact]
@@ -165,17 +161,12 @@ public class TypeMappingConfigTests
         {
             ["string:date-time"] = "DateTimeOffset"
         };
-        var document = new OpenApiDocument
-        {
-            Info = new OpenApiInfo { Title = "Test", Version = "1.0" },
-            Paths = new OpenApiPaths()
-        };
-        var generator = new ClientGenerator(document, "TestNamespace", Path.GetTempPath(), typeMappingConfig: new TypeMappingConfig(customMappings));
+        var context = new GeneratorContext("TestNamespace", "TestClient", null, new TypeMappingConfig(customMappings));
 
         // Non-overridden mapping should still work
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" };
-        var result = generator.GetCSharpType(schema);
+        var result = context.GetCSharpType(schema);
 
-        result.Should().Be("Guid");
+        result.FullName.Should().Be("System.Guid");
     }
 }

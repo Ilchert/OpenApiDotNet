@@ -25,7 +25,7 @@ public class CompilationVerificationTests
         //   - single path parameter (/pets/{petId})
         //   - multiple path parameters (/pets/{petId}/photos/{photoId})
         //   - nested resource paths (/owners/{ownerId}/pets/{petId})
-        //   - query parameters (int, array, enum)
+        //   - query parameters (int, array, enum, System.Object via untyped schema)
         //   - request body and response body
         var specPath = Path.Combine(_fixturesPath, "petstore.json");
         var outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -36,7 +36,7 @@ public class CompilationVerificationTests
             var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
             diagnostic?.Errors.Should().BeEmpty();
 
-            var generator = new ClientGenerator(document, "PetStore.Client", outputDirectory);
+            var generator = new OpenApiGenerator(document, "PetStore.Client", outputDirectory);
 
             // Act
             generator.Generate();

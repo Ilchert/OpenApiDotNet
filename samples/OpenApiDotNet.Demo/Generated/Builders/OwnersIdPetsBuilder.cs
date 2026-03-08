@@ -1,33 +1,26 @@
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace PetStore;
+namespace PetStore.Builders;
 
 public class OwnersIdPetsBuilder : IOpenApiBuilder
 {
     private readonly IOpenApiBuilder _parentBuilder;
 
-#pragma warning disable CS8618
+    #pragma warning disable CS8618
     protected OwnersIdPetsBuilder() { }
-#pragma warning restore CS8618
+    #pragma warning restore CS8618
 
     public OwnersIdPetsBuilder(IOpenApiBuilder parentBuilder)
-    {
-        _parentBuilder = parentBuilder;
-    }
+{
+    _parentBuilder = parentBuilder;
+}
 
-    public IOpenApiClient Client => _parentBuilder.Client;
-    public string GetPath() => $"{_parentBuilder.GetPath()}/pets";
+public string GetPath() => $"{_parentBuilder.GetPath()}/pets";
 
-    public virtual OwnersIdPetsIdBuilder this[long petId]
+                
+public IOpenApiClient Client => _parentBuilder.Client;
+            
+    public virtual PetStore.Builders.OwnersIdPetsIdBuilder this[long petId]
     {
         get => new(this, petId);
     }
-
+    
 }

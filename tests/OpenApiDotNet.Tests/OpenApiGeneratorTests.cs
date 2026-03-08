@@ -4,11 +4,11 @@ using Microsoft.OpenApi;
 
 namespace OpenApiDotNet.Tests;
 
-public class ClientGenerationTests : IDisposable
+public class OpenApiGeneratorTests : IDisposable
 {
     private string _outputDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 
-    private ClientGenerator CreateGenerator(
+    private OpenApiGenerator CreateGenerator(
         string specJson,
         string namespaceName = "Test.Client",
         string? namespacePrefix = null)
@@ -16,7 +16,7 @@ public class ClientGenerationTests : IDisposable
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(specJson));
         var (document, diagnostic) = OpenApiDocument.Load(stream);
         diagnostic?.Errors.Should().BeEmpty();
-        return new ClientGenerator(document, namespaceName, _outputDirectory, namespacePrefix: namespacePrefix);
+        return new OpenApiGenerator(document, namespaceName, _outputDirectory, namespacePrefix: namespacePrefix);
     }
 
     public void Dispose()
@@ -101,9 +101,9 @@ public class ClientGenerationTests : IDisposable
         content.Should().Contain("public bool? Vaccinated");
         content.Should().Contain("public double? Weight");
         content.Should().NotContain("using NodaTime;");
-        content.Should().Contain("[JsonPropertyName(\"id\")]");
-        content.Should().Contain("[JsonPropertyName(\"birthDate\")]");
-        content.Should().Contain("[JsonPropertyName(\"createdAt\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"id\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"birthDate\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"createdAt\")]");
     }
 
     [Fact]
@@ -164,19 +164,19 @@ public class ClientGenerationTests : IDisposable
 
         // PetsBuilder should have Get and Post operations
         var petsContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsBuilder.cs"));
-        petsContent.Should().Contain("public virtual async Task<List<PetStore.Client.Models.Pet>> Get");
-        petsContent.Should().Contain("public virtual async Task<PetStore.Client.Models.Pet> Post");
+        petsContent.Should().Contain("public virtual async System.Threading.Tasks.Task<System.Collections.Generic.List<PetStore.Client.Models.Pet>> Get");
+        petsContent.Should().Contain("public virtual async System.Threading.Tasks.Task<PetStore.Client.Models.Pet> Post");
         petsContent.Should().Contain("int? limit");
         petsContent.Should().Contain("PetStore.Client.Models.NewPet request");
-        petsContent.Should().Contain("CancellationToken cancellationToken = default");
+        petsContent.Should().Contain("System.Threading.CancellationToken cancellationToken = default");
         petsContent.Should().Contain("Client.HttpClient.GetAsync");
-        petsContent.Should().Contain("Client.HttpClient.PostAsJsonAsync");
-        petsContent.Should().Contain("PetsIdBuilder this[long petId]");
+        petsContent.Should().Contain("HttpClientJsonExtensions.PostAsJsonAsync");
+        petsContent.Should().Contain("Pets.IdBuilder this[long petId]");
 
-        // PetsIdBuilder should have Get and Delete operations
-        var petsIdContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsIdBuilder.cs"));
-        petsIdContent.Should().Contain("public virtual async Task<PetStore.Client.Models.Pet> Get");
-        petsIdContent.Should().Contain("public virtual async Task Delete");
+        // IdBuilder (under Pets namespace) should have Get and Delete operations
+        var petsIdContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "Pets", "IdBuilder.cs"));
+        petsIdContent.Should().Contain("public virtual async System.Threading.Tasks.Task<PetStore.Client.Models.Pet> Get");
+        petsIdContent.Should().Contain("public virtual async System.Threading.Tasks.Task Delete");
         petsIdContent.Should().Contain("Client.HttpClient.DeleteAsync");
     }
 
@@ -203,9 +203,9 @@ public class ClientGenerationTests : IDisposable
         generator.Generate();
 
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
-        content.Should().Contain("var queryString = new List<string>();");
+        content.Should().Contain("var queryString = new System.Collections.Generic.List<string>();");
         content.Should().Contain("if (limit is {} limitValue)");
-        content.Should().Contain("Uri.EscapeDataString");
+        content.Should().Contain("System.Uri.EscapeDataString");
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public class ClientGenerationTests : IDisposable
         content.Should().Contain("int? limit");
 
         // Required parameter should always be added to query string (no null check)
-        content.Should().Contain("Uri.EscapeDataString(category.ToString())");
+        content.Should().Contain("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(category, Client.JsonOptions)");
         content.Should().NotContain("if (category != null)");
 
         // Optional parameter should have null check using pattern matching (avoids CS8604)
@@ -280,11 +280,11 @@ public class ClientGenerationTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsBuilder.cs"));
 
         // Optional list parameter should be nullable
-        content.Should().Contain("List<string>? tags");
+        content.Should().Contain("System.Collections.Generic.List<string>? tags");
 
         // Required list parameter should be non-nullable
-        content.Should().Contain("List<string> statuses");
-        content.Should().NotContain("List<string>? statuses");
+        content.Should().Contain("System.Collections.Generic.List<string> statuses");
+        content.Should().NotContain("System.Collections.Generic.List<string>? statuses");
 
         // Optional list parameter should have null check before foreach
         content.Should().Contain("if (tags != null)");
@@ -294,11 +294,11 @@ public class ClientGenerationTests : IDisposable
         content.Should().Contain("foreach (var item in statuses)");
 
         // Each item should be individually escaped and added with the parameter name
-        content.Should().Contain("Uri.EscapeDataString(item.ToString())");
+        content.Should().Contain("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(item, Client.JsonOptions)");
 
         // Scalar parameter should use pattern matching to avoid CS8604
         content.Should().Contain("if (limit is {} limitValue)");
-        content.Should().Contain("Uri.EscapeDataString(limitValue.ToString())");
+        content.Should().Contain("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(limitValue, Client.JsonOptions)");
     }
 
     [Fact]
@@ -344,7 +344,7 @@ public class ClientGenerationTests : IDisposable
         var requestPos = signature.IndexOf("Test.Client.Models.SearchRequest request");
         var limitPos = signature.IndexOf("int? limit");
         var offsetPos = signature.IndexOf("int? offset");
-        var ctPos = signature.IndexOf("CancellationToken cancellationToken");
+        var ctPos = signature.IndexOf("System.Threading.CancellationToken cancellationToken");
 
         categoryPos.Should().BePositive();
         requestPos.Should().BePositive();
@@ -401,16 +401,16 @@ public class ClientGenerationTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "StatsBuilder.cs"));
 
         // Return type should reference the nested class
-        content.Should().Contain("Task<GetResponse>");
+        content.Should().Contain("System.Threading.Tasks.Task<GetResponse>");
         content.Should().Contain("Get");
 
         // Nested class should be generated with properties
         content.Should().Contain("public class GetResponse");
-        content.Should().Contain("[JsonPropertyName(\"totalCount\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"totalCount\")]");
         content.Should().Contain("public int? TotalCount");
-        content.Should().Contain("[JsonPropertyName(\"activeCount\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"activeCount\")]");
         content.Should().Contain("public int? ActiveCount");
-        content.Should().Contain("[JsonPropertyName(\"lastUpdated\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"lastUpdated\")]");
         content.Should().Contain("public NodaTime.Instant? LastUpdated");
     }
 
@@ -457,9 +457,9 @@ public class ClientGenerationTests : IDisposable
 
         // Nested class should be generated with properties
         content.Should().Contain("public class PostRequest");
-        content.Should().Contain("[JsonPropertyName(\"message\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"message\")]");
         content.Should().Contain("public required string Message");
-        content.Should().Contain("[JsonPropertyName(\"rating\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"rating\")]");
         content.Should().Contain("public int? Rating");
     }
 
@@ -500,7 +500,7 @@ public class ClientGenerationTests : IDisposable
 
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "NumbersBuilder.cs"));
 
-        content.Should().Contain("List<int> request");
+        content.Should().Contain("System.Collections.Generic.List<int> request");
     }
 
     [Fact]
@@ -542,7 +542,7 @@ public class ClientGenerationTests : IDisposable
 
         content.Should().Contain("newPet");
         content.Should().NotContain("Pet request");
-        content.Should().Contain("PostAsJsonAsync(url, newPet,");
+        content.Should().Contain("PostAsJsonAsync(Client.HttpClient, url, newPet,");
     }
 
     [Fact]
@@ -581,10 +581,10 @@ public class ClientGenerationTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsIdBuilder.cs"));
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "Items", "IdBuilder.cs"));
 
         // Return type should be the referenced model
-        content.Should().Contain("Task<Test.Client.Models.Item>");
+        content.Should().Contain("System.Threading.Tasks.Task<Test.Client.Models.Item>");
 
         // Should read from JSON and return the result
         content.Should().Contain("ReadFromJsonAsync<Test.Client.Models.Item>");
@@ -632,8 +632,8 @@ public class ClientGenerationTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "DataBuilder.cs"));
 
         // Return type should be object (not void, not a nested class)
-        content.Should().Contain("Task<object>");
-        content.Should().NotContain("Task<GetResponse>");
+        content.Should().Contain("System.Threading.Tasks.Task<object>");
+        content.Should().NotContain("System.Threading.Tasks.Task<GetResponse>");
         content.Should().NotContain("public class GetResponse");
 
         // Should read from JSON as object
@@ -674,23 +674,23 @@ public class ClientGenerationTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsIdBuilder.cs"));
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "Items", "IdBuilder.cs"));
 
         // Return type should be bool
-        content.Should().Contain("Task<bool>");
+        content.Should().Contain("System.Threading.Tasks.Task<bool>");
 
         // Uses is {} pattern which works uniformly for both value types and reference types
-        content.Should().Contain("var deserializedResponse = await response.Content.ReadFromJsonAsync<bool>(Client.JsonOptions, cancellationToken);");
+        content.Should().Contain("var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<bool>(response.Content, Client.JsonOptions, cancellationToken);");
         content.Should().Contain("if (deserializedResponse is { } deserializedResponseValue)");
         content.Should().Contain("    return deserializedResponseValue;");
-        content.Should().Contain("throw new InvalidOperationException($\"Response from {url} is null\");");
+        content.Should().Contain("throw new System.InvalidOperationException($\"Response from {url} is null\");");
     }
 
     [Fact]
     public void Constructor_WithNullDocument_ThrowsArgumentNullException()
     {
         // Act
-        var act = () => new ClientGenerator(null!, "TestNamespace", Path.GetTempPath());
+        var act = () => new OpenApiGenerator(null!, "TestNamespace", Path.GetTempPath());
 
         // Assert
         act.Should().Throw<ArgumentNullException>()
@@ -707,7 +707,7 @@ public class ClientGenerationTests : IDisposable
         };
 
         // Act
-        var act = () => new ClientGenerator(document, null!, Path.GetTempPath());
+        var act = () => new OpenApiGenerator(document, null!, Path.GetTempPath());
 
         // Assert
         act.Should().Throw<ArgumentNullException>()
@@ -724,7 +724,7 @@ public class ClientGenerationTests : IDisposable
         };
 
         // Act
-        var act = () => new ClientGenerator(document, "TestNamespace", null!);
+        var act = () => new OpenApiGenerator(document, "TestNamespace", null!);
 
         // Assert
         act.Should().Throw<ArgumentNullException>()
@@ -780,11 +780,11 @@ public class ClientGenerationTests : IDisposable
 
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "PetStatus.cs"));
         content.Should().Contain("public enum PetStatus");
-        content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]");
         content.Should().Contain("Available,");
         content.Should().Contain("Pending,");
         content.Should().Contain("Sold,");
-        content.Should().Contain("using System.Text.Json.Serialization;");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonStringEnumMemberName(\"available\")]");
     }
 
     [Fact]
@@ -812,7 +812,7 @@ public class ClientGenerationTests : IDisposable
         content.Should().Contain("Medium,");
         content.Should().Contain("Large,");
         content.Should().Contain("ExtraLarge,");
-        content.Should().Contain("[JsonStringEnumMemberName(\"extra-large\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonStringEnumMemberName(\"extra-large\")]");
     }
 
     [Fact]
@@ -935,7 +935,7 @@ public class ClientGenerationTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Commerce", "OrderStatus.cs"));
         content.Should().Contain("public enum OrderStatus");
         content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
-        content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]");
         content.Should().Contain("Pending,");
         content.Should().Contain("Confirmed,");
         content.Should().Contain("Shipped,");
@@ -1014,8 +1014,8 @@ public class ClientGenerationTests : IDisposable
 
         var builderContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "OrdersBuilder.cs"));
         builderContent.Should().NotContain("using DottedNames.Client.Models");
-        builderContent.Should().Contain("Task<List<DottedNames.Client.Models.Commerce.Order>>");
-        builderContent.Should().Contain("Task<DottedNames.Client.Models.Commerce.Order>");
+        builderContent.Should().Contain("System.Threading.Tasks.Task<System.Collections.Generic.List<DottedNames.Client.Models.Commerce.Order>>");
+        builderContent.Should().Contain("System.Threading.Tasks.Task<DottedNames.Client.Models.Commerce.Order>");
         builderContent.Should().Contain("DottedNames.Client.Models.Commerce.NewOrder request");
     }
 
@@ -1122,9 +1122,9 @@ public class ClientGenerationTests : IDisposable
 
         content.Should().Contain("public OrderAddress? Address");
         content.Should().Contain("public class OrderAddress");
-        content.Should().Contain("[JsonPropertyName(\"street\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"street\")]");
         content.Should().Contain("public string? Street");
-        content.Should().Contain("[JsonPropertyName(\"city\")]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"city\")]");
         content.Should().Contain("public string? City");
     }
 
@@ -1159,7 +1159,7 @@ public class ClientGenerationTests : IDisposable
         var content = File.ReadAllText(Path.Combine(_outputDirectory, "Models", "Pet.cs"));
 
         content.Should().Contain("public PetStatus? Status");
-        content.Should().Contain("[JsonConverter(typeof(JsonStringEnumConverter))]");
+        content.Should().Contain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]");
         content.Should().Contain("public enum PetStatus");
         content.Should().Contain("Available,");
         content.Should().Contain("Pending,");
