@@ -5,21 +5,21 @@ namespace OpenApiDotNet.Generators;
 internal class GeneratorContext
 {
     public string DefaultNamespace { get; }
-    public string ClinetName { get; }
-    public string? StripNamespacePefix { get; }
+    public string ClientName { get; }
+    public string? StripNamespacePrefix { get; }
     public TypeMappingConfig TypeMappingConfig { get; }
 
     private static readonly char[] s_namespaceSeparators = ['.'];
 
-    public GeneratorContext(string defaultNamespace, string clinetName, string? stripNamespacePefix, TypeMappingConfig? typeMappingConfig = null)
+    public GeneratorContext(string defaultNamespace, string clientName, string? stripNamespacePrefix, TypeMappingConfig? typeMappingConfig = null)
     {
         DefaultNamespace = defaultNamespace;
-        ClinetName = clinetName;
+        ClientName = clientName;
         TypeMappingConfig = typeMappingConfig ?? new TypeMappingConfig();
-        if (stripNamespacePefix != null)
-            StripNamespacePefix = stripNamespacePefix.EndsWith('.') ? stripNamespacePefix : stripNamespacePefix + ".";
+        if (stripNamespacePrefix != null)
+            StripNamespacePrefix = stripNamespacePrefix.EndsWith('.') ? stripNamespacePrefix : stripNamespacePrefix + ".";
         else
-            StripNamespacePefix = null;
+            StripNamespacePrefix = null;
     }
 
     public GeneratedTypeInfo GetNameAndNamespace(string name, GeneratorCategory category)
@@ -47,11 +47,11 @@ internal class GeneratorContext
 
     private string GetStrippedName(string name)
     {
-        if (string.IsNullOrEmpty(StripNamespacePefix))
+        if (string.IsNullOrEmpty(StripNamespacePrefix))
             return name;
 
-        return name.StartsWith(StripNamespacePefix, StringComparison.Ordinal)
-            ? name[StripNamespacePefix.Length..]
+        return name.StartsWith(StripNamespacePrefix, StringComparison.Ordinal)
+            ? name[StripNamespacePrefix.Length..]
             : name;
     }
 

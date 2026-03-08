@@ -25,16 +25,4 @@ internal class ResponseGenerator
             ResponseType = context.GetCSharpType(schema).FullName;
         }
     }
-    public void WriteDeserialization(CodeWriter writer)
-    {
-        if (ResponseType != "void")
-        {
-            writer.WriteLine($$"""
-var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<{{ResponseType}}>(response.Content, Client.JsonOptions, cancellationToken);
-if (deserializedResponse is { } deserializedResponseValue)
-    return deserializedResponseValue;
-throw new System.InvalidOperationException($"Response from {url} is null");
-""");
-        }
-    }
 }

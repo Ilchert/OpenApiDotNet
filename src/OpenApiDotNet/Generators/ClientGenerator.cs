@@ -7,36 +7,24 @@ internal class ClientGenerator : BaseGenerator
     public override GeneratedTypeInfo TypeInfo { get; }
     public string ClientName { get; }
     public string? Description { get; }
-    public List<BuilderGenerator> BuilderGenerators { get; }
+    public PathSegmentNode PathTreeRoot { get; }
     public List<BuilderPropertyGenerator> Properties { get; } = [];
     public List<BuilderOperationGenerator> Operations { get; } = [];
 
     public ClientGenerator(OpenApiDocument document, GeneratorContext context) : base(context)
     {
-        ClientName = context.ClinetName;
+        ClientName = context.ClientName;
         TypeInfo = new GeneratedTypeInfo(context.DefaultNamespace, $"I{ClientName}");
         Description = document.Info?.Description ?? document.Info?.Title;
 
-        var root = PathTreeBuilder.Build(document.Paths, context);
-        BuilderGenerators = [];
+        PathTreeRoot = PathTreeBuilder.Build(document.Paths, context);
 
-        // root level operations and properties are added directly to the client interface, they will be implemented by the root builder
-        foreach (var (_, child) in root.Children)
+        // root level operations and properties are added directly to the client interface
+        foreach (var (_, child) in PathTreeRoot.Children)
             Properties.Add(BuilderPropertyGenerator.Create(child, context));
 
-        foreach (var (method, operation) in root.Operations)
+        foreach (var (method, operation) in PathTreeRoot.Operations)
             Operations.Add(new BuilderOperationGenerator(method, operation, context));
-
-        CollectBuilders(root, context);
-    }
-
-    private void CollectBuilders(PathSegmentNode node, GeneratorContext context)
-    {
-        foreach (var (_, child) in node.Children)
-        {
-            BuilderGenerators.Add(new BuilderGenerator(child, context));
-            CollectBuilders(child, context);
-        }
     }
 
     public override void Write(CodeWriter writer)
