@@ -1200,4 +1200,87 @@ public class OpenApiGeneratorTests : IDisposable
         content.Should().Contain("Buy,");
         content.Should().Contain("Sell,");
     }
+
+    [Fact]
+    public void Generate_ReturnsListOfGeneratedFiles()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Pet Store API", "version": "1.0.0" },
+              "paths": {
+                "/pets": {
+                  "get": { "operationId": "listPets", "responses": { "200": { "description": "ok" } } }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "Pet": { "type": "object", "properties": { "id": { "type": "integer", "format": "int64" } } },
+                  "NewPet": { "type": "object", "properties": { "name": { "type": "string" } } }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec, "PetStore.Client");
+
+        var generatedFiles = generator.Generate();
+
+        generatedFiles.Should().NotBeEmpty();
+        generatedFiles.Should().Contain(Path.Combine("Models", "Pet.cs"));
+        generatedFiles.Should().Contain(Path.Combine("Models", "NewPet.cs"));
+        generatedFiles.Should().Contain("IOpenApiBuilder.cs");
+        generatedFiles.Should().Contain("IOpenApiClient.cs");
+        generatedFiles.Should().Contain("IPetStoreAPIClient.cs");
+        generatedFiles.Should().Contain(Path.Combine("Builders", "PetsBuilder.cs"));
+    }
+
+    [Fact]
+    public void Generate_SecondRun_WithRemovedSchema_ReturnsUpdatedFileList()
+    {
+        var specWithTwoSchemas = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Pet Store API", "version": "1.0.0" },
+              "paths": {
+                "/pets": {
+                  "get": { "operationId": "listPets", "responses": { "200": { "description": "ok" } } }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "Pet": { "type": "object", "properties": { "id": { "type": "integer", "format": "int64" } } },
+                  "NewPet": { "type": "object", "properties": { "name": { "type": "string" } } }
+                }
+              }
+            }
+            """;
+        var specWithOneSchema = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Pet Store API", "version": "1.0.0" },
+              "paths": {
+                "/pets": {
+                  "get": { "operationId": "listPets", "responses": { "200": { "description": "ok" } } }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "Pet": { "type": "object", "properties": { "id": { "type": "integer", "format": "int64" } } }
+                }
+              }
+            }
+            """;
+
+        var firstGenerator = CreateGenerator(specWithTwoSchemas, "PetStore.Client");
+        var firstFiles = firstGenerator.Generate();
+
+        firstFiles.Should().Contain(Path.Combine("Models", "NewPet.cs"));
+        File.Exists(Path.Combine(_outputDirectory, "Models", "NewPet.cs")).Should().BeTrue();
+
+        var secondGenerator = CreateGenerator(specWithOneSchema, "PetStore.Client");
+        var secondFiles = secondGenerator.Generate();
+
+        secondFiles.Should().NotContain(Path.Combine("Models", "NewPet.cs"));
+        secondFiles.Should().Contain(Path.Combine("Models", "Pet.cs"));
+    }
 }

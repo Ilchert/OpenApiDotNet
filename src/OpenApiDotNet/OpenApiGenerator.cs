@@ -35,30 +35,38 @@ public class OpenApiGenerator
     /// <summary>
     /// Generates all client code including models and builder classes
     /// </summary>
-    public void Generate()
+    /// <returns>A list of relative paths (relative to the output directory) of all generated files</returns>
+    public List<string> Generate()
     {
         Directory.CreateDirectory(_outputDirectory);
         var context = new GeneratorContext(_namespace, _clientName, _namespacePrefix, _typeMappingConfig);
+        var generatedFiles = new List<string>();
 
-        GenerateModels(context);
-        GenerateIOpenApiBuilderInterface();
-        GenerateIOpenApiClientInterface();
+        GenerateModels(context, generatedFiles);
+        GenerateIOpenApiBuilderInterface(generatedFiles);
+        GenerateIOpenApiClientInterface(generatedFiles);
 
         var endClient = new ClientGenerator(_document, context);
 
         // Write named client interface
-        WriteGeneratorToFile(endClient, GetOutputFilePath(endClient.TypeInfo));
+        var clientFilePath = GetOutputFilePath(endClient.TypeInfo);
+        WriteGeneratorToFile(endClient, clientFilePath);
+        generatedFiles.Add(Path.GetRelativePath(_outputDirectory, clientFilePath));
         Console.WriteLine($"  Generated {endClient.TypeInfo.Name} interface");
 
         // Write builders
         foreach (var builder in endClient.BuilderGenerators)
         {
-            WriteGeneratorToFile(builder, GetOutputFilePath(builder.TypeInfo));
+            var builderFilePath = GetOutputFilePath(builder.TypeInfo);
+            WriteGeneratorToFile(builder, builderFilePath);
+            generatedFiles.Add(Path.GetRelativePath(_outputDirectory, builderFilePath));
             Console.WriteLine($"  Generated builder: {builder.TypeInfo.Name}");
         }
+
+        return generatedFiles;
     }
 
-    private void GenerateModels(GeneratorContext context)
+    private void GenerateModels(GeneratorContext context, List<string> generatedFiles)
     {
         if (_document.Components?.Schemas == null)
             return;
@@ -71,7 +79,9 @@ public class OpenApiGenerator
             else
                 generator = new ObjectGenerator(name, schema, context);
 
-            WriteGeneratorToFile(generator, GetOutputFilePath(generator.TypeInfo));
+            var filePath = GetOutputFilePath(generator.TypeInfo);
+            WriteGeneratorToFile(generator, filePath);
+            generatedFiles.Add(Path.GetRelativePath(_outputDirectory, filePath));
             Console.WriteLine($"  Generated model: {name}");
         }
     }
@@ -93,7 +103,7 @@ public class OpenApiGenerator
         File.WriteAllText(filePath, writer.ToString());
     }
 
-    private void GenerateIOpenApiBuilderInterface()
+    private void GenerateIOpenApiBuilderInterface(List<string> generatedFiles)
     {
         var builderInterface = $$"""
 namespace {{_namespace}};
@@ -109,10 +119,11 @@ public interface IOpenApiBuilder
 
         var filePath = Path.Combine(_outputDirectory, "IOpenApiBuilder.cs");
         File.WriteAllText(filePath, builderInterface);
+        generatedFiles.Add(Path.GetRelativePath(_outputDirectory, filePath));
         Console.WriteLine("  Generated IOpenApiBuilder interface");
     }
 
-    private void GenerateIOpenApiClientInterface()
+    private void GenerateIOpenApiClientInterface(List<string> generatedFiles)
     {
         var apiClinet = $$"""
 namespace {{_namespace}};
@@ -130,6 +141,7 @@ public interface IOpenApiClient : IOpenApiBuilder
 
         var filePath = Path.Combine(_outputDirectory, "IOpenApiClient.cs");
         File.WriteAllText(filePath, apiClinet);
+        generatedFiles.Add(Path.GetRelativePath(_outputDirectory, filePath));
         Console.WriteLine("  Generated IOpenApiClient interface");
     }
 }
