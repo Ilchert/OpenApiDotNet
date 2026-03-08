@@ -165,9 +165,9 @@ static async Task Generate(FileInfo openApiFile, DirectoryInfo outputDirectory, 
     Console.WriteLine();
 
     var generator = new OpenApiGenerator(openApiDocument, namespaceName, outputDirectory.FullName, namespacePrefix, clientName, new TypeMappingConfig(typeMappings));
-    generator.Generate();
+    var generatedFiles = generator.Generate();
 
-    SaveConfig(openApiFile, outputDirectory, namespaceName, namespacePrefix, clientName, overlayFiles, typeMappings);
+    SaveConfig(openApiFile, outputDirectory, namespaceName, namespacePrefix, clientName, overlayFiles, typeMappings, generatedFiles);
 
     Console.WriteLine();
     Console.WriteLine("✓ Client generation complete!");
@@ -197,11 +197,20 @@ static async Task Update(FileInfo configFile)
         .Select(o => new FileInfo(o))
         .ToArray();
 
+    var previousFiles = config.GeneratedFiles;
+
     Console.WriteLine($"Updating from configuration: {configFile.FullName}");
     await Generate(new FileInfo(openApiFilePath), new DirectoryInfo(outputDirectoryPath), config.Namespace, config.NamespacePrefix, config.ClientName, overlayFiles, config.TypeMappings);
+
+    // Read the updated config to get the new list of generated files
+    var updatedJson = File.ReadAllText(configFile.FullName);
+    var updatedConfig = JsonSerializer.Deserialize<GenerationConfig>(updatedJson);
+    var currentFiles = updatedConfig?.GeneratedFiles;
+
+    CleanupRemovedFiles(outputDirectoryPath, previousFiles, currentFiles);
 }
 
-static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, string? clientName, FileInfo[] overlayFiles, Dictionary<string, string>? typeMappings)
+static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, string? clientName, FileInfo[] overlayFiles, Dictionary<string, string>? typeMappings, List<string> generatedFiles)
 {
     var config = new GenerationConfig
     {
@@ -211,7 +220,8 @@ static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, stri
         NamespacePrefix = namespacePrefix,
         ClientName = clientName,
         OverlayFiles = overlayFiles.Select(f => Path.GetRelativePath(outputDirectory.FullName, f.FullName)).ToList(),
-        TypeMappings = typeMappings
+        TypeMappings = typeMappings,
+        GeneratedFiles = generatedFiles
     };
 
     var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
@@ -219,6 +229,42 @@ static void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, stri
     var configPath = Path.Combine(outputDirectory.FullName, GenerationConfig.FileName);
     File.WriteAllText(configPath, json);
     Console.WriteLine($"  Saved configuration: {GenerationConfig.FileName}");
+}
+
+static void CleanupRemovedFiles(string outputDirectory, List<string>? previousFiles, List<string>? currentFiles)
+{
+    if (previousFiles is null or [])
+        return;
+
+    var currentSet = new HashSet<string>(currentFiles ?? [], StringComparer.OrdinalIgnoreCase);
+    var removedFiles = previousFiles.Where(f => !currentSet.Contains(f)).ToList();
+
+    if (removedFiles.Count == 0)
+        return;
+
+    Console.WriteLine();
+    Console.WriteLine("Cleaning up removed files:");
+    foreach (var relativePath in removedFiles)
+    {
+        var fullPath = Path.Combine(outputDirectory, relativePath);
+        if (File.Exists(fullPath))
+        {
+            File.Delete(fullPath);
+            Console.WriteLine($"  Deleted: {relativePath}");
+
+            // Remove empty parent directories up to the output directory
+            var directory = Path.GetDirectoryName(fullPath);
+            while (directory != null
+                && !string.Equals(Path.GetFullPath(directory), Path.GetFullPath(outputDirectory), StringComparison.OrdinalIgnoreCase)
+                && Directory.Exists(directory)
+                && !Directory.EnumerateFileSystemEntries(directory).Any())
+            {
+                Directory.Delete(directory);
+                Console.WriteLine($"  Removed empty directory: {Path.GetRelativePath(outputDirectory, directory)}");
+                directory = Path.GetDirectoryName(directory);
+            }
+        }
+    }
 }
 
 static async Task Convert(FileInfo inputFile, FileInfo outputFile, string version, string format)

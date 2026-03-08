@@ -26,4 +26,7 @@ public class GenerationConfig
 
     [JsonPropertyName("typeMappings")]
     public Dictionary<string, string>? TypeMappings { get; set; }
+
+    [JsonPropertyName("generatedFiles")]
+    public List<string>? GeneratedFiles { get; set; }
 }

@@ -157,6 +157,8 @@ openapi-dotnet-generator update ./Generated/.openapidotnet.json
 |---|---|---|
 | `[config-file]` | Path to the `.openapidotnet.json` configuration file | `.openapidotnet.json` |
 
+The `update` command automatically tracks generated files. When the OpenAPI specification changes (e.g., schemas or endpoints are removed), files that are no longer needed are automatically deleted and empty directories are cleaned up.
+
 ### Convert Command
 
 Convert an OpenAPI specification to a different version and/or format:
@@ -289,7 +291,15 @@ The `.openapidotnet.json` file stores the generation parameters so the client ca
   "typeMappings": {
     "string:date-time": "DateTimeOffset",
     "integer": "long"
-  }
+  },
+  "generatedFiles": [
+    "Models/Pet.cs",
+    "Models/NewPet.cs",
+    "IOpenApiBuilder.cs",
+    "IOpenApiClient.cs",
+    "IPetStoreClient.cs",
+    "Builders/PetsBuilder.cs"
+  ]
 }
 ```
 
