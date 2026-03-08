@@ -37,6 +37,7 @@ public class OpenApiGenerator
     /// </summary>
     public void Generate()
     {
+        Directory.CreateDirectory(_outputDirectory);
         var context = new GeneratorContext(_namespace, _clientName, _namespacePrefix, _typeMappingConfig);
 
         GenerateModels(context);
@@ -46,14 +47,13 @@ public class OpenApiGenerator
         var endClient = new ClientGenerator(_document, context);
 
         // Write named client interface
-        WriteGeneratorToFile(endClient, Path.Combine(_outputDirectory, $"{endClient.TypeInfo.Name}.cs"));
+        WriteGeneratorToFile(endClient, GetOutputFilePath(endClient.TypeInfo));
         Console.WriteLine($"  Generated {endClient.TypeInfo.Name} interface");
 
         // Write builders
-        var buildersDirectory = Path.Combine(_outputDirectory, "Builders");
         foreach (var builder in endClient.BuilderGenerators)
         {
-            WriteGeneratorToFile(builder, Path.Combine(buildersDirectory, $"{builder.TypeInfo.Name}.cs"));
+            WriteGeneratorToFile(builder, GetOutputFilePath(builder.TypeInfo));
             Console.WriteLine($"  Generated builder: {builder.TypeInfo.Name}");
         }
     }
@@ -71,18 +71,23 @@ public class OpenApiGenerator
             else
                 generator = new ObjectGenerator(name, schema, context);
 
-            // trim namespace prefix from model file path if specified and present in the model's namespace
-            var modelFile = generator.TypeInfo.FullName.Replace('.', Path.DirectorySeparatorChar) + ".cs";
-            if (modelFile.StartsWith(_namespace + Path.DirectorySeparatorChar))
-                modelFile = modelFile[(_namespace.Length + 1)..];
-
-            WriteGeneratorToFile(generator, Path.Combine(_outputDirectory, modelFile));
+            WriteGeneratorToFile(generator, GetOutputFilePath(generator.TypeInfo));
             Console.WriteLine($"  Generated model: {name}");
         }
     }
+    private string GetOutputFilePath(GeneratedTypeInfo typeInfo)
+    {
+        var relativePath = typeInfo.FullName.Replace('.', Path.DirectorySeparatorChar) + ".cs";
+        var nsPrefix = _namespace.Replace('.', Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (relativePath.StartsWith(nsPrefix))
+            relativePath = relativePath[nsPrefix.Length..];
+
+        return Path.Combine(_outputDirectory, relativePath);
+    }
+
     private static void WriteGeneratorToFile(BaseGenerator generator, string filePath)
     {
-        Directory.CreateDirectory(Path.GetFullPath(filePath));
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(filePath))!);
         var writer = new CodeWriter();
         generator.WriteWithNamespace(writer);
         File.WriteAllText(filePath, writer.ToString());

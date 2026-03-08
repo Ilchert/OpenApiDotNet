@@ -7,7 +7,7 @@ namespace OpenApiDotNet;
 /// Represents a segment in the API path tree. Each node corresponds to a static segment
 /// (e.g., "pets") or a parameterized segment (e.g., "{petId}").
 /// </summary>
-public class PathSegmentNode
+internal class PathSegmentNode
 {
     public string SegmentName { get; set; } = "";
     public bool IsParameter { get; set; }
@@ -15,19 +15,19 @@ public class PathSegmentNode
     public IOpenApiSchema? ParameterSchema { get; set; }
     public Dictionary<string, PathSegmentNode> Children { get; } = new();
     public List<(HttpMethod Method, OpenApiOperation Operation)> Operations { get; } = [];
-    public string BuilderName { get; set; } = "";
+    public GeneratedTypeInfo BuilderName { get; set; } = new("", "");
 }
 
 /// <summary>
 /// Builds a tree of <see cref="PathSegmentNode"/> from OpenAPI path definitions
 /// and resolves unique builder class names for each node.
 /// </summary>
-public static class PathTreeBuilder
+internal static class PathTreeBuilder
 {
     /// <summary>
     /// Parses all paths from the OpenAPI document into a tree structure and resolves builder names.
     /// </summary>
-    public static PathSegmentNode Build(OpenApiPaths? paths)
+    public static PathSegmentNode Build(OpenApiPaths? paths, GeneratorContext context)
     {
         var root = new PathSegmentNode();
 
@@ -66,7 +66,7 @@ public static class PathTreeBuilder
             }
         }
 
-        ResolveBuilderNames(root);
+        ResolveBuilderNames(root, $"{context.DefaultNamespace}.Builders");
         return root;
     }
 
@@ -102,64 +102,37 @@ public static class PathTreeBuilder
     }
 
     /// <summary>
-    /// Resolves unique builder class names for every node in the tree.
-    /// Uses simple names when possible, falls back to context-prefixed names on collision.
+    /// Resolves builder class names for every node in the tree using dot-separated
+    /// hierarchical names. Each path segment contributes a namespace part so that
+    /// short class names (e.g. <c>IdBuilder</c>) live in distinct namespaces.
     /// </summary>
-    private static void ResolveBuilderNames(PathSegmentNode root)
+    private static void ResolveBuilderNames(PathSegmentNode root, string buildersNamespace)
     {
-        // First pass: compute simple and context-prefixed names for all nodes
-        var allNodes = new List<(PathSegmentNode node, string simpleName, string contextName)>();
-        CollectNodes(root, "", allNodes);
-
-        // Detect collisions in simple names
-        var nameGroups = allNodes.GroupBy(n => n.simpleName).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
-
-        // Assign final names
-        foreach (var (node, simpleName, contextName) in allNodes)
-        {
-            node.BuilderName = nameGroups.Contains(simpleName) ? contextName : simpleName;
-        }
+        AssignBuilderNames(root, buildersNamespace);
     }
 
-    private static void CollectNodes(PathSegmentNode node, string contextPrefix,
-        List<(PathSegmentNode node, string simpleName, string contextName)> result)
+    private static void AssignBuilderNames(PathSegmentNode node, string currentNamespace)
     {
         foreach (var (_, child) in node.Children)
         {
-            string simpleName;
-            string contextName;
-            string nextContextPrefix;
+            string shortName;
+            string childNamespace;
 
             if (child.IsParameter)
             {
-                // Find the parent static segment name for naming
-                var parentStaticName = GetParentStaticSegmentName(node);
-                simpleName = $"{parentStaticName}IdBuilder";
-                // contextPrefix already includes the parent segment name, so just append "Id"
-                contextName = $"{contextPrefix}IdBuilder";
-                nextContextPrefix = $"{contextPrefix}Id";
+                shortName = "IdBuilder";
+                childNamespace = $"{currentNamespace}.Id";
             }
             else
             {
                 var pascalSegment = GeneratorContext.ToPascalCase(child.SegmentName);
-                simpleName = $"{pascalSegment}Builder";
-                contextName = $"{contextPrefix}{pascalSegment}Builder";
-                nextContextPrefix = $"{contextPrefix}{pascalSegment}";
+                shortName = $"{pascalSegment}Builder";
+                childNamespace = $"{currentNamespace}.{pascalSegment}";
             }
 
-            result.Add((child, simpleName, contextName));
-            CollectNodes(child, nextContextPrefix, result);
+            child.BuilderName = new GeneratedTypeInfo(currentNamespace, shortName);
+            AssignBuilderNames(child, childNamespace);
         }
-    }
-
-    private static string GetParentStaticSegmentName(PathSegmentNode parentNode)
-    {
-        // The parent node is the one containing this child. If the parent is a static segment, use its name.
-        // If the parent is the root, use a fallback.
-        if (!string.IsNullOrEmpty(parentNode.SegmentName) && !parentNode.IsParameter)
-            return GeneratorContext.ToPascalCase(parentNode.SegmentName);
-
-        return "Item";
     }
 
     /// <summary>

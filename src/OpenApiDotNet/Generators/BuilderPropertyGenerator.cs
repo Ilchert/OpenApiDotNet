@@ -6,7 +6,7 @@ internal abstract class BuilderPropertyGenerator
 
     public BuilderPropertyGenerator(PathSegmentNode node, GeneratorContext context)
     {
-        BuilderTypeInfo = context.GetNameAndNamespace(node.BuilderName, GeneratorCategory.Builder);
+        BuilderTypeInfo = node.BuilderName;
     }
 
     public static BuilderPropertyGenerator Create(PathSegmentNode node, GeneratorContext context) =>

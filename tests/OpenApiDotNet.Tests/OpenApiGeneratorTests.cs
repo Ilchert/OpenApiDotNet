@@ -171,10 +171,10 @@ public class OpenApiGeneratorTests : IDisposable
         petsContent.Should().Contain("System.Threading.CancellationToken cancellationToken = default");
         petsContent.Should().Contain("Client.HttpClient.GetAsync");
         petsContent.Should().Contain("HttpClientJsonExtensions.PostAsJsonAsync");
-        petsContent.Should().Contain("PetsIdBuilder this[long petId]");
+        petsContent.Should().Contain("Pets.IdBuilder this[long petId]");
 
-        // PetsIdBuilder should have Get and Delete operations
-        var petsIdContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "PetsIdBuilder.cs"));
+        // IdBuilder (under Pets namespace) should have Get and Delete operations
+        var petsIdContent = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "Pets", "IdBuilder.cs"));
         petsIdContent.Should().Contain("public virtual async System.Threading.Tasks.Task<PetStore.Client.Models.Pet> Get");
         petsIdContent.Should().Contain("public virtual async System.Threading.Tasks.Task Delete");
         petsIdContent.Should().Contain("Client.HttpClient.DeleteAsync");
@@ -581,7 +581,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsIdBuilder.cs"));
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "Items", "IdBuilder.cs"));
 
         // Return type should be the referenced model
         content.Should().Contain("System.Threading.Tasks.Task<Test.Client.Models.Item>");
@@ -674,7 +674,7 @@ public class OpenApiGeneratorTests : IDisposable
 
         generator.Generate();
 
-        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "ItemsIdBuilder.cs"));
+        var content = File.ReadAllText(Path.Combine(_outputDirectory, "Builders", "Items", "IdBuilder.cs"));
 
         // Return type should be bool
         content.Should().Contain("System.Threading.Tasks.Task<bool>");

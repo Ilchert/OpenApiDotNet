@@ -30,8 +30,8 @@ public class PathParameterTests
             // Act
             generator.Generate();
 
-            // Assert - PetsIdBuilder should have Get operation and petId in constructor
-            var builderPath = Path.Combine(outputDirectory, "Builders", "PetsIdBuilder.cs");
+            // Assert - IdBuilder (under Pets namespace) should have Get operation and petId in constructor
+            var builderPath = Path.Combine(outputDirectory, "Builders", "Pets", "IdBuilder.cs");
             var content = File.ReadAllText(builderPath);
 
             // Path parameter is captured in the builder constructor
@@ -65,10 +65,10 @@ public class PathParameterTests
             generator.Generate();
 
             // Assert - Path parameters are distributed across builders
-            var petsIdContent = File.ReadAllText(Path.Combine(outputDirectory, "Builders", "PetsIdBuilder.cs"));
+            var petsIdContent = File.ReadAllText(Path.Combine(outputDirectory, "Builders", "Pets", "IdBuilder.cs"));
             petsIdContent.Should().Contain("long petId");
 
-            var photosIdContent = File.ReadAllText(Path.Combine(outputDirectory, "Builders", "PhotosIdBuilder.cs"));
+            var photosIdContent = File.ReadAllText(Path.Combine(outputDirectory, "Builders", "Pets", "Id", "Photos", "IdBuilder.cs"));
             photosIdContent.Should().Contain("Get");
             photosIdContent.Should().Contain("Guid photoId");
         }
@@ -99,11 +99,11 @@ public class PathParameterTests
             generator.Generate();
 
             // Assert - Check builder for GetOwnerPet with correct parameter types
-            var ownersIdContent = File.ReadAllText(Path.Combine(outputDirectory, "Builders", "OwnersIdBuilder.cs"));
+            var ownersIdContent = File.ReadAllText(Path.Combine(outputDirectory, "Builders", "Owners", "IdBuilder.cs"));
             ownersIdContent.Should().Contain("string ownerId");
 
-            // pets under owners/{ownerId} gets a context-prefixed name due to collision
-            var ownersIdPetsIdContent = File.ReadAllText(Path.Combine(outputDirectory, "Builders", "OwnersIdPetsIdBuilder.cs"));
+            // pets under owners/{ownerId} uses short name in nested namespace
+            var ownersIdPetsIdContent = File.ReadAllText(Path.Combine(outputDirectory, "Builders", "Owners", "Id", "Pets", "IdBuilder.cs"));
             ownersIdPetsIdContent.Should().Contain("Get");
             ownersIdPetsIdContent.Should().Contain("long petId");
         }

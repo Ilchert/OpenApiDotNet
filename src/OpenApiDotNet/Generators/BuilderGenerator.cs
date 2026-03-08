@@ -12,7 +12,7 @@ internal class BuilderGenerator : BaseGenerator
     public List<BuilderOperationGenerator> Operations { get; } = [];
     public BuilderGenerator(PathSegmentNode node, GeneratorContext context) : base(context)
     {
-        TypeInfo = Context.GetNameAndNamespace(node.BuilderName, GeneratorCategory.Builder);
+        TypeInfo = node.BuilderName;
         IsParameter = node.IsParameter;
         SegmentName = node.SegmentName;
         

@@ -17,7 +17,7 @@ internal class ClientGenerator : BaseGenerator
         TypeInfo = new GeneratedTypeInfo(context.DefaultNamespace, $"I{ClientName}");
         Description = document.Info?.Description ?? document.Info?.Title;
 
-        var root = PathTreeBuilder.Build(document.Paths);
+        var root = PathTreeBuilder.Build(document.Paths, context);
         BuilderGenerators = [];
 
         // root level operations and properties are added directly to the client interface, they will be implemented by the root builder
