@@ -17,13 +17,13 @@ public class TypeMappingConfigTests
     }
 
     [Fact]
-    public void Resolve_DefaultStringWithDateTimeFormat_ReturnsInstant()
+    public void Resolve_DefaultStringWithDateTimeFormat_ReturnsDateTimeOffset()
     {
         var config = new TypeMappingConfig();
 
         var result = config.Resolve(JsonSchemaType.String, "date-time");
 
-        Assert.Equal("NodaTime.Instant", result);
+        Assert.Equal("System.DateTimeOffset", result);
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public class TypeMappingConfigTests
         var config = new TypeMappingConfig(customMappings);
 
         // Other string format mappings should remain unchanged
-        Assert.Equal("NodaTime.LocalDate", config.Resolve(JsonSchemaType.String, "date"));
+        Assert.Equal("System.DateOnly", config.Resolve(JsonSchemaType.String, "date"));
         Assert.Equal("System.Guid", config.Resolve(JsonSchemaType.String, "uuid"));
         Assert.Equal("string", config.Resolve(JsonSchemaType.String, null));
     }
@@ -131,7 +131,7 @@ public class TypeMappingConfigTests
         Assert.True(defaults.ContainsKey("string"));
         Assert.Equal("string", defaults["string"]);
         Assert.True(defaults.ContainsKey("string:date-time"));
-        Assert.Equal("NodaTime.Instant", defaults["string:date-time"]);
+        Assert.Equal("System.DateTimeOffset", defaults["string:date-time"]);
         Assert.True(defaults.ContainsKey("string:uuid"));
         Assert.Equal("System.Guid", defaults["string:uuid"]);
         Assert.True(defaults.ContainsKey("integer"));

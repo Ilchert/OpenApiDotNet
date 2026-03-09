@@ -22,7 +22,7 @@ public class TypeMappingTests
     }
 
     [Fact]
-    public void GetCSharpType_StringWithDateTimeFormat_ReturnsInstant()
+    public void GetCSharpType_StringWithDateTimeFormat_ReturnsDateTimeOffset()
     {
         // Arrange
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" };
@@ -32,11 +32,11 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        Assert.Equal("NodaTime.Instant", result.FullName);
+        Assert.Equal("System.DateTimeOffset", result.FullName);
     }
 
     [Fact]
-    public void GetCSharpType_StringWithDateFormat_ReturnsLocalDate()
+    public void GetCSharpType_StringWithDateFormat_ReturnsDateOnly()
     {
         // Arrange
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date" };
@@ -46,11 +46,11 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        Assert.Equal("NodaTime.LocalDate", result.FullName);
+        Assert.Equal("System.DateOnly", result.FullName);
     }
 
     [Fact]
-    public void GetCSharpType_StringWithTimeFormat_ReturnsLocalTime()
+    public void GetCSharpType_StringWithTimeFormat_ReturnsTimeOnly()
     {
         // Arrange
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "time" };
@@ -60,7 +60,7 @@ public class TypeMappingTests
         var result = context.GetCSharpType(schema);
 
         // Assert
-        Assert.Equal("NodaTime.LocalTime", result.FullName);
+        Assert.Equal("System.TimeOnly", result.FullName);
     }
 
     [Fact]
@@ -215,36 +215,36 @@ public class TypeMappingTests
     }
 
     [Fact]
-    public void GetCSharpType_StringWithDurationFormat_ReturnsDuration()
+    public void GetCSharpType_StringWithDurationFormat_ReturnsTimeSpan()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "duration" };
         var context = CreateContext();
 
         var result = context.GetCSharpType(schema);
 
-        Assert.Equal("NodaTime.Duration", result.FullName);
+        Assert.Equal("System.TimeSpan", result.FullName);
     }
 
     [Fact]
-    public void GetCSharpType_StringWithDateTimeLocalFormat_ReturnsLocalDateTime()
+    public void GetCSharpType_StringWithDateTimeLocalFormat_ReturnsDateTime()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time-local" };
         var context = CreateContext();
 
         var result = context.GetCSharpType(schema);
 
-        Assert.Equal("NodaTime.LocalDateTime", result.FullName);
+        Assert.Equal("System.DateTime", result.FullName);
     }
 
     [Fact]
-    public void GetCSharpType_StringWithTimeLocalFormat_ReturnsLocalTime()
+    public void GetCSharpType_StringWithTimeLocalFormat_ReturnsTimeOnly()
     {
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "time-local" };
         var context = CreateContext();
 
         var result = context.GetCSharpType(schema);
 
-        Assert.Equal("NodaTime.LocalTime", result.FullName);
+        Assert.Equal("System.TimeOnly", result.FullName);
     }
 
     [Fact]

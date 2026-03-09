@@ -32,8 +32,7 @@ public class GenerationServiceTests
         var specFile = CreateSpecFileInfo("petstore.json");
 
         var generatedFiles = await _service.GenerateAsync(
-            specFile, _output, "PetStore.Client",
-            namespacePrefix: null, clientName: null, overlayFiles: [], typeMappings: null);
+            specFile, _output, new GenerationConfig { Namespace = "PetStore.Client" }, overlayFiles: []);
 
         Assert.NotEmpty(generatedFiles);
         foreach (var file in generatedFiles)
@@ -48,8 +47,7 @@ public class GenerationServiceTests
         var specFile = CreateSpecFileInfo("petstore.json");
 
         await _service.GenerateAsync(
-            specFile, _output, "PetStore.Client",
-            namespacePrefix: null, clientName: null, overlayFiles: [], typeMappings: null);
+            specFile, _output, new GenerationConfig { Namespace = "PetStore.Client" }, overlayFiles: []);
 
         Assert.True(_output.Files.ContainsKey(GenerationConfig.FileName));
         var config = DeserializeConfig();
@@ -65,8 +63,7 @@ public class GenerationServiceTests
         var specFile = CreateSpecFileInfo("petstore.json");
 
         await _service.GenerateAsync(
-            specFile, _output, "PetStore.Client",
-            namespacePrefix: null, clientName: "MyPetClient", overlayFiles: [], typeMappings: null);
+            specFile, _output, new GenerationConfig { Namespace = "PetStore.Client", ClientName = "MyPetClient" }, overlayFiles: []);
 
         var config = DeserializeConfig();
         Assert.Equal("MyPetClient", config!.ClientName);
@@ -78,11 +75,10 @@ public class GenerationServiceTests
         var specFile = CreateSpecFileInfo("petstore.json");
 
         var generatedFiles = await _service.GenerateAsync(
-            specFile, _output, "PetStore.Client",
-            namespacePrefix: null, clientName: null, overlayFiles: [], typeMappings: null);
+            specFile, _output, new GenerationConfig { Namespace = "PetStore.Client" }, overlayFiles: []);
 
         var config = DeserializeConfig();
-        Assert.Equivalent(generatedFiles.Select(Normalize), config!.GeneratedFiles!.Select(Normalize));
+        Assert.Equivalent(generatedFiles.Select(Normalize), config!.GeneratedFiles.Select(Normalize));
     }
 
     [Fact]
@@ -146,8 +142,7 @@ public class GenerationServiceTests
         var overlayFile = CreateSpecFileInfo("remove-pets-post.overlay.json");
 
         var generatedFiles = await _service.GenerateAsync(
-            specFile, _output, "PetStore.Client",
-            namespacePrefix: null, clientName: null, overlayFiles: [overlayFile], typeMappings: null);
+            specFile, _output, new GenerationConfig { Namespace = "PetStore.Client" }, overlayFiles: [overlayFile]);
 
         Assert.NotEmpty(generatedFiles);
         var petsBuilderKey = generatedFiles.Select(Normalize).First(f => f.EndsWith("PetsBuilder.cs"));

@@ -28,9 +28,9 @@ public class GenerationConfig
     public string? ClientName { get; set; }
 
     [JsonPropertyName("typeMappings")]
-    public Dictionary<string, string>? TypeMappings { get; set; }
+    public Dictionary<string, string> TypeMappings { get; set; } = [];
 
     [JsonPropertyName("generatedFiles")]
     [JsonConverter(typeof(UnifiedPathListJsonConverter))]
-    public List<string>? GeneratedFiles { get; set; }
+    public List<string> GeneratedFiles { get; set; } = [];
 }

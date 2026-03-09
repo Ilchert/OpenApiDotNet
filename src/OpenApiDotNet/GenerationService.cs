@@ -26,7 +26,7 @@ internal class GenerationService
         return settings;
     }
 
-    public async Task<List<string>> GenerateAsync(IFileInfo openApiFile, IWritableFileProvider outputProvider, string namespaceName, string? namespacePrefix, string? clientName, IFileInfo[] overlayFiles, Dictionary<string, string>? typeMappings)
+    public async Task<List<string>> GenerateAsync(IFileInfo openApiFile, IWritableFileProvider outputProvider, GenerationConfig config, IFileInfo[] overlayFiles)
     {
         var displayPath = openApiFile.PhysicalPath ?? openApiFile.Name;
         Logger.LogInformation("Reading OpenAPI specification from: {FilePath}", displayPath);
@@ -38,18 +38,17 @@ internal class GenerationService
         Logger.LogInformation("Title: {Title}", openApiDocument.Info.Title);
         Logger.LogInformation("Version: {Version}", openApiDocument.Info.Version);
         Logger.LogInformation("Output: {OutputPath}", outputProvider.Root);
-        Logger.LogInformation("Namespace: {Namespace}", namespaceName);
-        if (namespacePrefix != null)
-            Logger.LogInformation("Namespace prefix: {NamespacePrefix}", namespacePrefix);
-        if (clientName != null)
-            Logger.LogInformation("Client name: {ClientName}", clientName);
+        Logger.LogInformation("Namespace: {Namespace}", config.Namespace);
+        Logger.LogInformation("Namespace prefix: {NamespacePrefix}", config.NamespacePrefix);
+        Logger.LogInformation("Client name: {ClientName}", config.ClientName);
 
         Logger.LogInformation("Generating client code...");
 
-        var generator = new OpenApiGenerator(openApiDocument, namespaceName, outputProvider, namespacePrefix, clientName, new TypeMappingConfig(typeMappings));
+        var typeMappingConfig = new TypeMappingConfig(config.TypeMappings);
+        var generator = new OpenApiGenerator(openApiDocument, config.Namespace, outputProvider, config.NamespacePrefix, config.ClientName, typeMappingConfig);
         var generatedFiles = generator.Generate();
 
-        SaveConfig(openApiFile, outputProvider, namespaceName, namespacePrefix, clientName, overlayFiles, typeMappings, generatedFiles);
+        SaveConfig(openApiFile, outputProvider, config, overlayFiles, generatedFiles);
 
         Logger.LogInformation("✓ Client generation complete!");
         return generatedFiles;
@@ -86,7 +85,7 @@ internal class GenerationService
         Directory.CreateDirectory(outputDirectoryPath);
         using var outputProvider = new PhysicalWritableFileProvider(outputDirectoryPath);
         var openApiFileInfo = new PhysicalWritableFileInfo(new FileInfo(openApiFilePath));
-        var currentFiles = await GenerateAsync(openApiFileInfo, outputProvider, config.Namespace, config.NamespacePrefix, config.ClientName, overlayFileInfos, config.TypeMappings);
+        var currentFiles = await GenerateAsync(openApiFileInfo, outputProvider, config, overlayFileInfos);
 
         CleanupRemovedFiles(outputProvider, previousFiles, currentFiles);
     }
@@ -113,22 +112,23 @@ internal class GenerationService
         Logger.LogInformation("✓ Converted to OpenAPI {Version} ({Format}): {OutputFile}", version, format, outputFile.PhysicalPath ?? outputFile.Name);
     }
 
-    private void SaveConfig(IFileInfo openApiFile, IWritableFileProvider outputProvider, string namespaceName, string? namespacePrefix, string? clientName, IFileInfo[] overlayFiles, Dictionary<string, string>? typeMappings, List<string> generatedFiles)
+    private void SaveConfig(IFileInfo openApiFile, IWritableFileProvider outputProvider, GenerationConfig config, IFileInfo[] overlayFiles, List<string> generatedFiles)
     {
         var root = outputProvider.Root;
-        var config = new GenerationConfig
+
+        var savedConfig = new GenerationConfig
         {
             OpenApiFile = openApiFile.PhysicalPath is not null ? Path.GetRelativePath(root, openApiFile.PhysicalPath) : openApiFile.Name,
             OutputDirectory = ".",
-            Namespace = namespaceName,
-            NamespacePrefix = namespacePrefix,
-            ClientName = clientName,
+            Namespace = config.Namespace,
+            NamespacePrefix = config.NamespacePrefix,
+            ClientName = config.ClientName,
             OverlayFiles = overlayFiles.Select(f => f.PhysicalPath is not null ? Path.GetRelativePath(root, f.PhysicalPath) : f.Name).ToList(),
-            TypeMappings = typeMappings,
+            TypeMappings = config.TypeMappings,
             GeneratedFiles = generatedFiles
         };
 
-        var json = JsonSerializer.Serialize(config, s_jsonSerializerOptions);
+        var json = JsonSerializer.Serialize(savedConfig, s_jsonSerializerOptions);
         outputProvider.GetFileInfo(GenerationConfig.FileName).WriteAllText(json);
         Logger.LogInformation("  Saved configuration: {FileName}", GenerationConfig.FileName);
     }

@@ -87,8 +87,8 @@ public class OpenApiGeneratorTests
         Assert.Contains("public required long Id", content);
         Assert.Contains("public required string Name", content);
         Assert.Contains("public string? Tag", content);
-        Assert.Contains("public NodaTime.LocalDate? BirthDate", content);
-        Assert.Contains("public NodaTime.Instant? CreatedAt", content);
+        Assert.Contains("public System.DateOnly? BirthDate", content);
+        Assert.Contains("public System.DateTimeOffset? CreatedAt", content);
         Assert.Contains("public bool? Vaccinated", content);
         Assert.Contains("public double? Weight", content);
         Assert.DoesNotContain("using NodaTime;", content);
@@ -400,7 +400,7 @@ public class OpenApiGeneratorTests
         Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"activeCount\")]", content);
         Assert.Contains("public int? ActiveCount", content);
         Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"lastUpdated\")]", content);
-        Assert.Contains("public NodaTime.Instant? LastUpdated", content);
+        Assert.Contains("public System.DateTimeOffset? LastUpdated", content);
     }
 
     [Fact]

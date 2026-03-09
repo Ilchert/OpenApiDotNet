@@ -14,12 +14,10 @@ public class TypeMappingConfig
     {
         _mappings = GetDefaults();
 
-        if (customMappings != null)
+        if (customMappings is { Count: > 0 })
         {
             foreach (var mapping in customMappings)
-            {
                 _mappings[mapping.Key] = mapping.Value;
-            }
         }
     }
 
@@ -57,18 +55,18 @@ public class TypeMappingConfig
     };
 
     /// <summary>
-    /// Returns the default OpenAPI to .NET type mappings.
+    /// Returns the default OpenAPI to .NET type mappings using built-in .NET types.
     /// </summary>
     public static Dictionary<string, string> GetDefaults() => new()
     {
         // String types
         ["string"] = "string",
-        ["string:date-time"] = "NodaTime.Instant",
-        ["string:date"] = "NodaTime.LocalDate",
-        ["string:time"] = "NodaTime.LocalTime",
-        ["string:time-local"] = "NodaTime.LocalTime",
-        ["string:date-time-local"] = "NodaTime.LocalDateTime",
-        ["string:duration"] = "NodaTime.Duration",
+        ["string:date-time"] = "System.DateTimeOffset",
+        ["string:date"] = "System.DateOnly",
+        ["string:time"] = "System.TimeOnly",
+        ["string:time-local"] = "System.TimeOnly",
+        ["string:date-time-local"] = "System.DateTime",
+        ["string:duration"] = "System.TimeSpan",
         ["string:uuid"] = "System.Guid",
         ["string:uri"] = "System.Uri",
         ["string:uri-reference"] = "System.Uri",
@@ -100,5 +98,19 @@ public class TypeMappingConfig
 
         // Boolean
         ["boolean"] = "bool",
+    };
+
+    /// <summary>
+    /// Returns only the NodaTime-specific overrides for date/time formats.
+    /// Apply these on top of <see cref="GetDefaults"/> to get a full NodaTime-enabled mapping set.
+    /// </summary>
+    public static Dictionary<string, string> GetNodaTimeOverrides() => new()
+    {
+        ["string:date-time"] = "NodaTime.Instant",
+        ["string:date"] = "NodaTime.LocalDate",
+        ["string:time"] = "NodaTime.LocalTime",
+        ["string:time-local"] = "NodaTime.LocalTime",
+        ["string:date-time-local"] = "NodaTime.LocalDateTime",
+        ["string:duration"] = "NodaTime.Duration",
     };
 }

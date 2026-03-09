@@ -1,11 +1,12 @@
 # OpenAPI .NET Client Generator
 
-A modern OpenAPI/Swagger client code generator for .NET that produces high-quality, strongly-typed HTTP clients with full NodaTime support for date and time handling.
+A modern OpenAPI/Swagger client code generator for .NET that produces high-quality, strongly-typed HTTP clients using built-in .NET types by default, with optional NodaTime support for date and time handling.
 
 ## Features
 
 - 🚀 **Modern .NET**: Built for .NET 10 with C# 14.0
-- 🕐 **NodaTime Integration**: Automatic mapping of date/time formats to NodaTime types (`Instant`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Duration`)
+- 🕐 **Built-in .NET Types**: Uses `DateTimeOffset`, `DateOnly`, `TimeOnly`, `DateTime`, `TimeSpan` for date/time mappings by default — no extra packages needed
+- 🕐 **NodaTime Integration**: Optional `--use-nodatime` flag to use NodaTime types (`Instant`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Duration`)
 - ⚡ **System.Text.Json**: Native JSON serialization with optimal performance
 - 🛡️ **Type-Safe**: Generates strongly-typed models and client methods
 - 🧱 **Fluent Builder API**: Navigate resources naturally — `client.Pets[123].Photos[photoId].Get()`
@@ -28,14 +29,14 @@ The generator maps OpenAPI types and formats to idiomatic C# types following the
 
 ### String Formats
 
-| OpenAPI Format | C# Type | Notes |
-|---|---|---|
-| `date-time` | `NodaTime.Instant` | NodaTime — RFC 3339 date-time |
-| `date` | `NodaTime.LocalDate` | NodaTime — RFC 3339 full-date |
-| `time` | `NodaTime.LocalTime` | NodaTime — RFC 3339 full-time |
-| `time-local` | `NodaTime.LocalTime` | NodaTime — time without timezone |
-| `date-time-local` | `NodaTime.LocalDateTime` | NodaTime — date-time without timezone |
-| `duration` | `NodaTime.Duration` | NodaTime — RFC 3339 duration |
+| OpenAPI Format | C# Type (default) | C# Type (`--use-nodatime`) | Notes |
+|---|---|---|---|
+| `date-time` | `DateTimeOffset` | `NodaTime.Instant` | RFC 3339 date-time |
+| `date` | `DateOnly` | `NodaTime.LocalDate` | RFC 3339 full-date |
+| `time` | `TimeOnly` | `NodaTime.LocalTime` | RFC 3339 full-time |
+| `time-local` | `TimeOnly` | `NodaTime.LocalTime` | Time without timezone |
+| `date-time-local` | `DateTime` | `NodaTime.LocalDateTime` | Date-time without timezone |
+| `duration` | `TimeSpan` | `NodaTime.Duration` | RFC 3339 duration |
 | `uuid` | `Guid` | RFC 4122 UUID |
 | `uri` | `Uri` | RFC 3986 URI |
 | `uri-reference` | `Uri` | RFC 3986 URI reference |
@@ -133,6 +134,7 @@ openapi-dotnet-generator <openapi-file> [options]
 | `-p`, `--namespace-prefix <prefix>` | Strip this dotted prefix from schema names when generating namespaces | *none* |
 | `-c`, `--client-name <name>` | Custom name for the generated client class | Derived from API title |
 | `--overlay <file>` | Path to overlay file(s) to apply before generation (repeatable) | *none* |
+| `--use-nodatime` | Use NodaTime types instead of built-in .NET types for date/time mappings | `false` |
 
 Built-in flags provided by `System.CommandLine`:
 
@@ -241,6 +243,12 @@ openapi-dotnet-generator api.yaml -n MyCompany.Client -p Commerce
 openapi-dotnet-generator petstore.yaml -c PetStoreClient
 ```
 
+**With NodaTime Types:**
+```bash
+# Use NodaTime.Instant, NodaTime.LocalDate, etc. instead of built-in .NET types
+openapi-dotnet-generator petstore.yaml --use-nodatime
+```
+
 **Re-generate from Saved Configuration:**
 ```bash
 # After initial generation, update from the saved config (overlay paths are preserved)
@@ -292,7 +300,10 @@ The `.openapidotnet.json` file stores the generation parameters so the client ca
   "namespacePrefix": "Commerce",
   "clientName": "PetStoreClient",
   "typeMappings": {
-    "string:date-time": "DateTimeOffset",
+    "string": "string",
+    "string:date-time": "NodaTime.Instant",
+    "string:date": "NodaTime.LocalDate",
+    "string:uuid": "System.Guid",
     "integer": "long"
   },
   "generatedFiles": [
@@ -318,8 +329,8 @@ Only specified keys are overridden; all other defaults remain intact.
   "outputDirectory": ".",
   "namespace": "MyApp",
   "typeMappings": {
-    "string:date-time": "DateTimeOffset",
-    "string:date": "DateTime",
+    "string:date-time": "NodaTime.Instant",
+    "string:date": "NodaTime.LocalDate",
     "string:email": "EmailAddress",
     "integer": "long"
   }
@@ -327,8 +338,8 @@ Only specified keys are overridden; all other defaults remain intact.
 ```
 
 In the example above:
-- `string` with format `date-time` maps to `DateTimeOffset` instead of the default `NodaTime.Instant`
-- `string` with format `date` maps to `DateTime` instead of the default `NodaTime.LocalDate`
+- `string` with format `date-time` maps to `NodaTime.Instant` (via `--use-nodatime`)
+- `string` with format `date` maps to `NodaTime.LocalDate` (via `--use-nodatime`)
 - `string` with format `email` is a new custom mapping (no built-in default)
 - `integer` without a format maps to `long` instead of the default `int`
 
@@ -358,14 +369,24 @@ public partial class Pet
     /// Birth date of the pet
     /// </summary>
     [System.Text.Json.Serialization.JsonPropertyName("birthDate")]
-    public NodaTime.LocalDate? BirthDate { get; set; }
+    public System.DateOnly? BirthDate { get; set; }
 
     /// <summary>
     /// When the pet was created
     /// </summary>
     [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
-    public NodaTime.Instant? CreatedAt { get; set; }
+    public System.DateTimeOffset? CreatedAt { get; set; }
 }
+```
+
+With `--use-nodatime`, the same model uses NodaTime types:
+
+```csharp
+    [System.Text.Json.Serialization.JsonPropertyName("birthDate")]
+    public NodaTime.LocalDate? BirthDate { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
+    public NodaTime.Instant? CreatedAt { get; set; }
 ```
 
 ### Example Generated Enum
@@ -583,7 +604,7 @@ public partial class StatsBuilder : IOpenApiBuilder
         public int? ActiveCount { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("lastUpdated")]
-        public NodaTime.Instant? LastUpdated { get; set; }
+        public System.DateTimeOffset? LastUpdated { get; set; }  // or NodaTime.Instant? with --use-nodatime
     }
 }
 ```
@@ -640,7 +661,9 @@ var pets = await client.Pets.Get(limit: 10, status: "available & active");
 
 ### 1. Add Required NuGet Packages
 
-Add these packages to your project:
+**Default mode** — no additional packages are needed. All generated types (`DateTimeOffset`, `DateOnly`, `TimeOnly`, `DateTime`, `TimeSpan`) are built into .NET.
+
+**With `--use-nodatime`** — add these packages to your project:
 
 ```xml
 <PackageReference Include="NodaTime" Version="3.3.0" />
@@ -785,12 +808,12 @@ The generator maps OpenAPI types and [format registry](https://spec.openapis.org
 ```
 String formats
   "string"                             → string
-  "string" (format: "date-time")       → NodaTime.Instant
-  "string" (format: "date")            → NodaTime.LocalDate
-  "string" (format: "time")            → NodaTime.LocalTime
-  "string" (format: "time-local")      → NodaTime.LocalTime
-  "string" (format: "date-time-local") → NodaTime.LocalDateTime
-  "string" (format: "duration")        → NodaTime.Duration
+  "string" (format: "date-time")       → DateTimeOffset (or NodaTime.Instant with --use-nodatime)
+  "string" (format: "date")            → DateOnly (or NodaTime.LocalDate)
+  "string" (format: "time")            → TimeOnly (or NodaTime.LocalTime)
+  "string" (format: "time-local")      → TimeOnly (or NodaTime.LocalTime)
+  "string" (format: "date-time-local") → DateTime (or NodaTime.LocalDateTime)
+  "string" (format: "duration")        → TimeSpan (or NodaTime.Duration)
   "string" (format: "uuid")            → Guid
   "string" (format: "uri/iri")         → Uri
   "string" (format: "byte/binary")     → byte[]
@@ -880,9 +903,11 @@ The generator automatically converts:
 - System.CommandLine (2.0.3)
 
 ### Generated Code Dependencies
-Projects using the generated code need:
+Projects using the generated code need (with `--use-nodatime`):
 - NodaTime (3.3.0)
 - NodaTime.Serialization.SystemTextJson (1.3.0)
+
+With the default built-in types mode, no additional packages are required.
 
 ## Contributing
 

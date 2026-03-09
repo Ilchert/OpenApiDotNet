@@ -42,6 +42,12 @@ var overlayOption = new Option<FileInfo[]>("--overlay")
     CompletionSources = { JsonYamlCompletion }
 }.AcceptExistingOnly();
 
+var useBuiltInTypesOption = new Option<bool>("--use-nodatime")
+{
+    Description = "Use NodaTime types (Instant, LocalDate, LocalTime, etc.) instead of built-in .NET types for date/time mappings",
+    DefaultValueFactory = _ => false
+};
+
 var rootCommand = new RootCommand
 {
     openApiFileArgument,
@@ -50,6 +56,7 @@ var rootCommand = new RootCommand
     namespacePrefixOption,
     clientNameOption,
     overlayOption,
+    useBuiltInTypesOption,
 };
 
 rootCommand.SetAction(async parseResult =>
@@ -60,11 +67,25 @@ rootCommand.SetAction(async parseResult =>
     var namespacePrefix = parseResult.GetValue(namespacePrefixOption);
     var clientName = parseResult.GetValue(clientNameOption);
     var overlayFiles = parseResult.GetValue(overlayOption) ?? [];
+    var useNodaTime = parseResult.GetValue(useBuiltInTypesOption);
     Directory.CreateDirectory(outputDirectory.FullName);
     using var outputProvider = new PhysicalWritableFileProvider(outputDirectory.FullName);
     var openApiFileInfo = new PhysicalWritableFileInfo(openApiFile);
     var overlayFileInfos = overlayFiles.Select(f => (IFileInfo)new PhysicalWritableFileInfo(f)).ToArray();
-    await service.GenerateAsync(openApiFileInfo, outputProvider, namespaceName, namespacePrefix, clientName, overlayFileInfos, null);
+    var typeMappings = TypeMappingConfig.GetDefaults();
+    if (useNodaTime)
+    {
+        foreach (var mapping in TypeMappingConfig.GetNodaTimeOverrides())
+            typeMappings[mapping.Key] = mapping.Value;
+    }
+    var config = new GenerationConfig
+    {
+        Namespace = namespaceName,
+        NamespacePrefix = namespacePrefix,
+        ClientName = clientName,
+        TypeMappings = typeMappings,
+    };
+    await service.GenerateAsync(openApiFileInfo, outputProvider, config, overlayFileInfos);
 });
 
 
