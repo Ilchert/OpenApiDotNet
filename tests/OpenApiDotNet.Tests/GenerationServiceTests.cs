@@ -1,5 +1,4 @@
 using System.Text.Json;
-using FluentAssertions;
 using Microsoft.Extensions.FileProviders;
 using OpenApiDotNet.IO;
 using OpenApiDotNet.Tests.IO;
@@ -36,10 +35,10 @@ public class GenerationServiceTests
             specFile, _output, "PetStore.Client",
             namespacePrefix: null, clientName: null, overlayFiles: [], typeMappings: null);
 
-        generatedFiles.Should().NotBeEmpty();
+        Assert.NotEmpty(generatedFiles);
         foreach (var file in generatedFiles)
         {
-            _output.Files.Should().ContainKey(Normalize(file));
+            Assert.True(_output.Files.ContainsKey(Normalize(file)));
         }
     }
 
@@ -52,12 +51,12 @@ public class GenerationServiceTests
             specFile, _output, "PetStore.Client",
             namespacePrefix: null, clientName: null, overlayFiles: [], typeMappings: null);
 
-        _output.Files.Should().ContainKey(GenerationConfig.FileName);
+        Assert.True(_output.Files.ContainsKey(GenerationConfig.FileName));
         var config = DeserializeConfig();
-        config.Should().NotBeNull();
-        config!.Namespace.Should().Be("PetStore.Client");
-        config.OutputDirectory.Should().Be(".");
-        config.GeneratedFiles.Should().NotBeEmpty();
+        Assert.NotNull(config);
+        Assert.Equal("PetStore.Client", config!.Namespace);
+        Assert.Equal(".", config.OutputDirectory);
+        Assert.NotEmpty(config.GeneratedFiles);
     }
 
     [Fact]
@@ -70,7 +69,7 @@ public class GenerationServiceTests
             namespacePrefix: null, clientName: "MyPetClient", overlayFiles: [], typeMappings: null);
 
         var config = DeserializeConfig();
-        config!.ClientName.Should().Be("MyPetClient");
+        Assert.Equal("MyPetClient", config!.ClientName);
     }
 
     [Fact]
@@ -83,7 +82,7 @@ public class GenerationServiceTests
             namespacePrefix: null, clientName: null, overlayFiles: [], typeMappings: null);
 
         var config = DeserializeConfig();
-        config!.GeneratedFiles!.Select(Normalize).Should().BeEquivalentTo(generatedFiles.Select(Normalize));
+        Assert.Equivalent(generatedFiles.Select(Normalize), config!.GeneratedFiles!.Select(Normalize));
     }
 
     [Fact]
@@ -98,9 +97,9 @@ public class GenerationServiceTests
 
         _service.CleanupRemovedFiles(_output, previousFiles, currentFiles);
 
-        _output.Files.Should().ContainKey("Models/Pet.cs");
-        _output.Files.Should().NotContainKey("Models/Order.cs");
-        _output.Files.Should().NotContainKey("Models/User.cs");
+        Assert.True(_output.Files.ContainsKey("Models/Pet.cs"));
+        Assert.False(_output.Files.ContainsKey("Models/Order.cs"));
+        Assert.False(_output.Files.ContainsKey("Models/User.cs"));
     }
 
     [Fact]
@@ -110,7 +109,7 @@ public class GenerationServiceTests
 
         _service.CleanupRemovedFiles(_output, previousFiles: null, currentFiles: ["Models/Pet.cs"]);
 
-        _output.Files.Should().ContainKey("Models/Pet.cs");
+        Assert.True(_output.Files.ContainsKey("Models/Pet.cs"));
     }
 
     [Fact]
@@ -123,7 +122,7 @@ public class GenerationServiceTests
 
         _service.CleanupRemovedFiles(_output, previousFiles: files, currentFiles: files);
 
-        _output.Files.Should().HaveCount(2);
+        Assert.Equal(2, _output.Files.Count);
     }
 
     [Fact]
@@ -135,9 +134,9 @@ public class GenerationServiceTests
 
         _service.CleanupRemovedFiles(_output, previousFiles, currentFiles: []);
 
-        _output.Files.Should().BeEmpty();
-        _output.GetDirectoryContents("Models/Nested").Exists.Should().BeFalse();
-        _output.GetDirectoryContents("Models").Exists.Should().BeFalse();
+        Assert.Empty(_output.Files);
+        Assert.False(_output.GetDirectoryContents("Models/Nested").Exists);
+        Assert.False(_output.GetDirectoryContents("Models").Exists);
     }
 
     [Fact]
@@ -150,10 +149,10 @@ public class GenerationServiceTests
             specFile, _output, "PetStore.Client",
             namespacePrefix: null, clientName: null, overlayFiles: [overlayFile], typeMappings: null);
 
-        generatedFiles.Should().NotBeEmpty();
+        Assert.NotEmpty(generatedFiles);
         var petsBuilderKey = generatedFiles.Select(Normalize).First(f => f.EndsWith("PetsBuilder.cs"));
-        _output.Files[petsBuilderKey].Should().NotContain("createPet")
-            .And.NotContain("Post(");
+        Assert.DoesNotContain("createPet", _output.Files[petsBuilderKey]);
+        Assert.DoesNotContain("Post(", _output.Files[petsBuilderKey]);
     }
 
     [Fact]
@@ -164,10 +163,10 @@ public class GenerationServiceTests
 
         await _service.ConvertAsync(inputFile, outputFile, "3.0", "json");
 
-        _output.Files.Should().ContainKey("converted.json");
+        Assert.True(_output.Files.ContainsKey("converted.json"));
         var content = _output.Files["converted.json"].TrimStart('\uFEFF');
-        content.Should().Contain("\"openapi\":");
-        content.Should().Contain("\"3.0.");
+        Assert.Contains("\"openapi\":", content);
+        Assert.Contains("\"3.0.", content);
     }
 
     [Fact]
@@ -178,7 +177,7 @@ public class GenerationServiceTests
 
         var act = () => _service.ConvertAsync(inputFile, outputFile, "1.0", "json");
 
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*Unsupported OpenAPI version*");
+        var ex = await Assert.ThrowsAsync<ArgumentException>(act);
+        Assert.Contains("Unsupported OpenAPI version", ex.Message);
     }
 }

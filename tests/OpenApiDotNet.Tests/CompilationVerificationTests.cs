@@ -1,4 +1,3 @@
-using FluentAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.OpenApi;
@@ -32,7 +31,7 @@ public class CompilationVerificationTests
 
         using var stream = File.OpenRead(specPath);
         var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream);
-        diagnostic?.Errors.Should().BeEmpty();
+        Assert.Empty(diagnostic?.Errors ?? []);
 
         var output = new InMemoryWritableFileProvider();
         var generator = new OpenApiGenerator(document, "PetStore.Client", output);
@@ -41,7 +40,7 @@ public class CompilationVerificationTests
         generator.Generate();
 
         // Collect all generated .cs files from the in-memory provider
-        output.Files.Should().NotBeEmpty("generator should produce at least one .cs file");
+        Assert.NotEmpty(output.Files);
 
         var syntaxTrees = output.Files
             .Where(f => f.Key.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
@@ -78,8 +77,6 @@ public class CompilationVerificationTests
             .Where(d => d.Severity >= DiagnosticSeverity.Warning)
             .ToList();
 
-        diagnostics.Should().BeEmpty(
-            $"generated code should compile without warnings or errors, but got:\n" +
-            string.Join("\n", diagnostics.Select(d => $"  [{d.Severity}] {d.Id}: {d.GetMessage()} ({d.Location})")));
+        Assert.Empty(diagnostics);
     }
 }

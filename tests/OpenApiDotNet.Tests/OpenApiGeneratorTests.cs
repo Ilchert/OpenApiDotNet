@@ -1,5 +1,4 @@
 using System.Text;
-using FluentAssertions;
 using Microsoft.OpenApi;
 using OpenApiDotNet.Tests.IO;
 
@@ -16,7 +15,7 @@ public class OpenApiGeneratorTests
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(specJson));
         var (document, diagnostic) = OpenApiDocument.Load(stream);
-        diagnostic?.Errors.Should().BeEmpty();
+        Assert.Empty(diagnostic?.Errors ?? []);
         return new OpenApiGenerator(document, namespaceName, _output, namespacePrefix: namespacePrefix);
     }
 
@@ -44,12 +43,12 @@ public class OpenApiGeneratorTests
 
         generator.Generate();
 
-        _output.Files.Should().ContainKey("Models/Pet.cs");
-        _output.Files.Should().ContainKey("Models/NewPet.cs");
-        _output.Files.Should().ContainKey("IOpenApiBuilder.cs");
-        _output.Files.Should().ContainKey("IOpenApiClient.cs");
-        _output.Files.Should().ContainKey("IPetStoreAPIClient.cs");
-        _output.Files.Should().ContainKey("Builders/PetsBuilder.cs");
+        Assert.True(_output.Files.ContainsKey("Models/Pet.cs"));
+        Assert.True(_output.Files.ContainsKey("Models/NewPet.cs"));
+        Assert.True(_output.Files.ContainsKey("IOpenApiBuilder.cs"));
+        Assert.True(_output.Files.ContainsKey("IOpenApiClient.cs"));
+        Assert.True(_output.Files.ContainsKey("IPetStoreAPIClient.cs"));
+        Assert.True(_output.Files.ContainsKey("Builders/PetsBuilder.cs"));
     }
 
     [Fact]
@@ -85,17 +84,17 @@ public class OpenApiGeneratorTests
 
         var content = _output.Files["Models/Pet.cs"];
 
-        content.Should().Contain("public required long Id");
-        content.Should().Contain("public required string Name");
-        content.Should().Contain("public string? Tag");
-        content.Should().Contain("public NodaTime.LocalDate? BirthDate");
-        content.Should().Contain("public NodaTime.Instant? CreatedAt");
-        content.Should().Contain("public bool? Vaccinated");
-        content.Should().Contain("public double? Weight");
-        content.Should().NotContain("using NodaTime;");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"id\")]");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"birthDate\")]");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"createdAt\")]");
+        Assert.Contains("public required long Id", content);
+        Assert.Contains("public required string Name", content);
+        Assert.Contains("public string? Tag", content);
+        Assert.Contains("public NodaTime.LocalDate? BirthDate", content);
+        Assert.Contains("public NodaTime.Instant? CreatedAt", content);
+        Assert.Contains("public bool? Vaccinated", content);
+        Assert.Contains("public double? Weight", content);
+        Assert.DoesNotContain("using NodaTime;", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"id\")]", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"birthDate\")]", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"createdAt\")]", content);
     }
 
     [Fact]
@@ -145,31 +144,31 @@ public class OpenApiGeneratorTests
 
         // IOpenApiClient should have HttpClient and JsonOptions but no navigation properties
         var clientContent = _output.Files["IOpenApiClient.cs"];
-        clientContent.Should().Contain("HttpClient HttpClient");
-        clientContent.Should().Contain("JsonSerializerOptions JsonOptions");
-        clientContent.Should().NotContain("PetsBuilder Pets");
+        Assert.Contains("HttpClient HttpClient", clientContent);
+        Assert.Contains("JsonSerializerOptions JsonOptions", clientContent);
+        Assert.DoesNotContain("PetsBuilder Pets", clientContent);
 
         // Named client interface should have navigation property for Pets
         var namedClientContent = _output.Files["IPetStoreAPIClient.cs"];
-        namedClientContent.Should().Contain("PetsBuilder Pets");
-        namedClientContent.Should().Contain(": IOpenApiClient");
+        Assert.Contains("PetsBuilder Pets", namedClientContent);
+        Assert.Contains(": IOpenApiClient", namedClientContent);
 
         // PetsBuilder should have Get and Post operations
         var petsContent = _output.Files["Builders/PetsBuilder.cs"];
-        petsContent.Should().Contain("public virtual async System.Threading.Tasks.Task<System.Collections.Generic.List<PetStore.Client.Models.Pet>> Get");
-        petsContent.Should().Contain("public virtual async System.Threading.Tasks.Task<PetStore.Client.Models.Pet> Post");
-        petsContent.Should().Contain("int? limit");
-        petsContent.Should().Contain("PetStore.Client.Models.NewPet request");
-        petsContent.Should().Contain("System.Threading.CancellationToken cancellationToken = default");
-        petsContent.Should().Contain("Client.HttpClient.GetAsync");
-        petsContent.Should().Contain("HttpClientJsonExtensions.PostAsJsonAsync");
-        petsContent.Should().Contain("Pets.IdBuilder this[long petId]");
+        Assert.Contains("public virtual async System.Threading.Tasks.Task<System.Collections.Generic.List<PetStore.Client.Models.Pet>> Get", petsContent);
+        Assert.Contains("public virtual async System.Threading.Tasks.Task<PetStore.Client.Models.Pet> Post", petsContent);
+        Assert.Contains("int? limit", petsContent);
+        Assert.Contains("PetStore.Client.Models.NewPet request", petsContent);
+        Assert.Contains("System.Threading.CancellationToken cancellationToken = default", petsContent);
+        Assert.Contains("Client.HttpClient.GetAsync", petsContent);
+        Assert.Contains("HttpClientJsonExtensions.PostAsJsonAsync", petsContent);
+        Assert.Contains("Pets.IdBuilder this[long petId]", petsContent);
 
         // IdBuilder (under Pets namespace) should have Get and Delete operations
         var petsIdContent = _output.Files["Builders/Pets/IdBuilder.cs"];
-        petsIdContent.Should().Contain("public virtual async System.Threading.Tasks.Task<PetStore.Client.Models.Pet> Get");
-        petsIdContent.Should().Contain("public virtual async System.Threading.Tasks.Task Delete");
-        petsIdContent.Should().Contain("Client.HttpClient.DeleteAsync");
+        Assert.Contains("public virtual async System.Threading.Tasks.Task<PetStore.Client.Models.Pet> Get", petsIdContent);
+        Assert.Contains("public virtual async System.Threading.Tasks.Task Delete", petsIdContent);
+        Assert.Contains("Client.HttpClient.DeleteAsync", petsIdContent);
     }
 
     [Fact]
@@ -195,9 +194,9 @@ public class OpenApiGeneratorTests
         generator.Generate();
 
         var content = _output.Files["Builders/ItemsBuilder.cs"];
-        content.Should().Contain("var queryString = new System.Collections.Generic.List<string>();");
-        content.Should().Contain("if (limit is {} limitValue)");
-        content.Should().Contain("System.Uri.EscapeDataString");
+        Assert.Contains("var queryString = new System.Collections.Generic.List<string>();", content);
+        Assert.Contains("if (limit is {} limitValue)", content);
+        Assert.Contains("System.Uri.EscapeDataString", content);
     }
 
     [Fact]
@@ -228,19 +227,19 @@ public class OpenApiGeneratorTests
         var content = _output.Files["Builders/ItemsBuilder.cs"];
 
         // Required parameter should be non-nullable
-        content.Should().Contain("string category");
-        content.Should().NotContain("string? category");
-        content.Should().NotContain("string category = default");
+        Assert.Contains("string category", content);
+        Assert.DoesNotContain("string? category", content);
+        Assert.DoesNotContain("string category = default", content);
 
         // Optional parameter should be nullable
-        content.Should().Contain("int? limit");
+        Assert.Contains("int? limit", content);
 
         // Required parameter should always be added to query string (no null check)
-        content.Should().Contain("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(category, Client.JsonOptions)");
-        content.Should().NotContain("if (category != null)");
+        Assert.Contains("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(category, Client.JsonOptions)", content);
+        Assert.DoesNotContain("if (category != null)", content);
 
         // Optional parameter should have null check using pattern matching (avoids CS8604)
-        content.Should().Contain("if (limit is {} limitValue)");
+        Assert.Contains("if (limit is {} limitValue)", content);
     }
 
     [Fact]
@@ -272,25 +271,25 @@ public class OpenApiGeneratorTests
         var content = _output.Files["Builders/ItemsBuilder.cs"];
 
         // Optional list parameter should be nullable
-        content.Should().Contain("System.Collections.Generic.List<string>? tags");
+        Assert.Contains("System.Collections.Generic.List<string>? tags", content);
 
         // Required list parameter should be non-nullable
-        content.Should().Contain("System.Collections.Generic.List<string> statuses");
-        content.Should().NotContain("System.Collections.Generic.List<string>? statuses");
+        Assert.Contains("System.Collections.Generic.List<string> statuses", content);
+        Assert.DoesNotContain("System.Collections.Generic.List<string>? statuses", content);
 
         // Optional list parameter should have null check before foreach
-        content.Should().Contain("if (tags != null)");
-        content.Should().Contain("foreach (var item in tags)");
+        Assert.Contains("if (tags != null)", content);
+        Assert.Contains("foreach (var item in tags)", content);
 
         // Required list parameter should iterate without null check
-        content.Should().Contain("foreach (var item in statuses)");
+        Assert.Contains("foreach (var item in statuses)", content);
 
         // Each item should be individually escaped and added with the parameter name
-        content.Should().Contain("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(item, Client.JsonOptions)");
+        Assert.Contains("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(item, Client.JsonOptions)", content);
 
         // Scalar parameter should use pattern matching to avoid CS8604
-        content.Should().Contain("if (limit is {} limitValue)");
-        content.Should().Contain("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(limitValue, Client.JsonOptions)");
+        Assert.Contains("if (limit is {} limitValue)", content);
+        Assert.Contains("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(limitValue, Client.JsonOptions)", content);
     }
 
     [Fact]
@@ -336,18 +335,18 @@ public class OpenApiGeneratorTests
         var offsetPos = signature.IndexOf("int? offset");
         var ctPos = signature.IndexOf("System.Threading.CancellationToken cancellationToken");
 
-        categoryPos.Should().BePositive();
-        requestPos.Should().BePositive();
-        limitPos.Should().BePositive();
-        offsetPos.Should().BePositive();
-        ctPos.Should().BePositive();
+        Assert.True(categoryPos > 0);
+        Assert.True(requestPos > 0);
+        Assert.True(limitPos > 0);
+        Assert.True(offsetPos > 0);
+        Assert.True(ctPos > 0);
 
         // Required params before optional params
-        categoryPos.Should().BeLessThan(limitPos);
-        categoryPos.Should().BeLessThan(offsetPos);
-        requestPos.Should().BeLessThan(limitPos);
-        requestPos.Should().BeLessThan(offsetPos);
-        requestPos.Should().BeLessThan(ctPos);
+        Assert.True(categoryPos < limitPos);
+        Assert.True(categoryPos < offsetPos);
+        Assert.True(requestPos < limitPos);
+        Assert.True(requestPos < offsetPos);
+        Assert.True(requestPos < ctPos);
     }
 
     [Fact]
@@ -391,17 +390,17 @@ public class OpenApiGeneratorTests
         var content = _output.Files["Builders/StatsBuilder.cs"];
 
         // Return type should reference the nested class
-        content.Should().Contain("System.Threading.Tasks.Task<GetResponse>");
-        content.Should().Contain("Get");
+        Assert.Contains("System.Threading.Tasks.Task<GetResponse>", content);
+        Assert.Contains("Get", content);
 
         // Nested class should be generated with properties
-        content.Should().Contain("public partial class GetResponse");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"totalCount\")]");
-        content.Should().Contain("public int? TotalCount");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"activeCount\")]");
-        content.Should().Contain("public int? ActiveCount");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"lastUpdated\")]");
-        content.Should().Contain("public NodaTime.Instant? LastUpdated");
+        Assert.Contains("public partial class GetResponse", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"totalCount\")]", content);
+        Assert.Contains("public int? TotalCount", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"activeCount\")]", content);
+        Assert.Contains("public int? ActiveCount", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"lastUpdated\")]", content);
+        Assert.Contains("public NodaTime.Instant? LastUpdated", content);
     }
 
     [Fact]
@@ -443,14 +442,14 @@ public class OpenApiGeneratorTests
         var content = _output.Files["Builders/FeedbackBuilder.cs"];
 
         // Request body should use the nested class
-        content.Should().Contain("PostRequest request");
+        Assert.Contains("PostRequest request", content);
 
         // Nested class should be generated with properties
-        content.Should().Contain("public partial class PostRequest");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"message\")]");
-        content.Should().Contain("public required string Message");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"rating\")]");
-        content.Should().Contain("public int? Rating");
+        Assert.Contains("public partial class PostRequest", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"message\")]", content);
+        Assert.Contains("public required string Message", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"rating\")]", content);
+        Assert.Contains("public int? Rating", content);
     }
 
     [Fact]
@@ -490,7 +489,7 @@ public class OpenApiGeneratorTests
 
         var content = _output.Files["Builders/NumbersBuilder.cs"];
 
-        content.Should().Contain("System.Collections.Generic.List<int> request");
+        Assert.Contains("System.Collections.Generic.List<int> request", content);
     }
 
     [Fact]
@@ -530,9 +529,9 @@ public class OpenApiGeneratorTests
 
         var content = _output.Files["Builders/PetsBuilder.cs"];
 
-        content.Should().Contain("newPet");
-        content.Should().NotContain("Pet request");
-        content.Should().Contain("PostAsJsonAsync(Client.HttpClient, url, newPet,");
+        Assert.Contains("newPet", content);
+        Assert.DoesNotContain("Pet request", content);
+        Assert.Contains("PostAsJsonAsync(Client.HttpClient, url, newPet,", content);
     }
 
     [Fact]
@@ -572,11 +571,11 @@ public class OpenApiGeneratorTests
         generator.Generate();
 
         var content = _output.Files["Builders/Items/IdBuilder.cs"];
-        content.Should().Contain("System.Threading.Tasks.Task<Test.Client.Models.Item>");
+        Assert.Contains("System.Threading.Tasks.Task<Test.Client.Models.Item>", content);
 
         // Should read from JSON and return the result
-        content.Should().Contain("ReadFromJsonAsync<Test.Client.Models.Item>");
-        content.Should().Contain("Client.HttpClient.DeleteAsync");
+        Assert.Contains("ReadFromJsonAsync<Test.Client.Models.Item>", content);
+        Assert.Contains("Client.HttpClient.DeleteAsync", content);
     }
 
     [Fact]
@@ -620,12 +619,12 @@ public class OpenApiGeneratorTests
         var content = _output.Files["Builders/DataBuilder.cs"];
 
         // Return type should be object (not void, not a nested class)
-        content.Should().Contain("System.Threading.Tasks.Task<object>");
-        content.Should().NotContain("System.Threading.Tasks.Task<GetResponse>");
-        content.Should().NotContain("public partial class GetResponse");
+        Assert.Contains("System.Threading.Tasks.Task<object>", content);
+        Assert.DoesNotContain("System.Threading.Tasks.Task<GetResponse>", content);
+        Assert.DoesNotContain("public partial class GetResponse", content);
 
         // Should read from JSON as object
-        content.Should().Contain("ReadFromJsonAsync<object>");
+        Assert.Contains("ReadFromJsonAsync<object>", content);
     }
 
     [Fact]
@@ -665,13 +664,13 @@ public class OpenApiGeneratorTests
         var content = _output.Files["Builders/Items/IdBuilder.cs"];
 
         // Return type should be bool
-        content.Should().Contain("System.Threading.Tasks.Task<bool>");
+        Assert.Contains("System.Threading.Tasks.Task<bool>", content);
 
         // Uses is {} pattern which works uniformly for both value types and reference types
-        content.Should().Contain("var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<bool>(response.Content, Client.JsonOptions, cancellationToken);");
-        content.Should().Contain("if (deserializedResponse is { } deserializedResponseValue)");
-        content.Should().Contain("    return deserializedResponseValue;");
-        content.Should().Contain("throw new System.InvalidOperationException($\"Response from {url} is null\");");
+        Assert.Contains("var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<bool>(response.Content, Client.JsonOptions, cancellationToken);", content);
+        Assert.Contains("if (deserializedResponse is { } deserializedResponseValue)", content);
+        Assert.Contains("    return deserializedResponseValue;", content);
+        Assert.Contains("throw new System.InvalidOperationException($\"Response from {url} is null\");", content);
     }
 
     [Fact]
@@ -681,8 +680,8 @@ public class OpenApiGeneratorTests
         var act = () => new OpenApiGenerator(null!, "TestNamespace", _output);
 
         // Assert
-        act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("document");
+        var ex = Assert.Throws<ArgumentNullException>(() => act());
+        Assert.Equal("document", ex.ParamName);
     }
 
     [Fact]
@@ -698,8 +697,8 @@ public class OpenApiGeneratorTests
         var act = () => new OpenApiGenerator(document, null!, _output);
 
         // Assert
-        act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("namespaceName");
+        var ex = Assert.Throws<ArgumentNullException>(() => act());
+        Assert.Equal("namespaceName", ex.ParamName);
     }
 
     [Fact]
@@ -715,8 +714,8 @@ public class OpenApiGeneratorTests
         var act = () => new OpenApiGenerator(document, "TestNamespace", null!);
 
         // Assert
-        act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("output");
+        var ex = Assert.Throws<ArgumentNullException>(() => act());
+        Assert.Equal("output", ex.ParamName);
     }
 
     [Fact]
@@ -739,8 +738,8 @@ public class OpenApiGeneratorTests
 
         generator.Generate();
 
-        _output.Files.Should().ContainKey("Models/PetStatus.cs");
-        _output.Files.Should().ContainKey("Models/PetSize.cs");
+        Assert.True(_output.Files.ContainsKey("Models/PetStatus.cs"));
+        Assert.True(_output.Files.ContainsKey("Models/PetSize.cs"));
     }
 
     [Fact]
@@ -767,12 +766,12 @@ public class OpenApiGeneratorTests
         generator.Generate();
 
         var content = _output.Files["Models/PetStatus.cs"];
-        content.Should().Contain("public enum PetStatus");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]");
-        content.Should().Contain("Available,");
-        content.Should().Contain("Pending,");
-        content.Should().Contain("Sold,");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonStringEnumMemberName(\"available\")]");
+        Assert.Contains("public enum PetStatus", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]", content);
+        Assert.Contains("Available,", content);
+        Assert.Contains("Pending,", content);
+        Assert.Contains("Sold,", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonStringEnumMemberName(\"available\")]", content);
     }
 
     [Fact]
@@ -795,12 +794,12 @@ public class OpenApiGeneratorTests
         generator.Generate();
 
         var content = _output.Files["Models/PetSize.cs"];
-        content.Should().Contain("public enum PetSize");
-        content.Should().Contain("Small,");
-        content.Should().Contain("Medium,");
-        content.Should().Contain("Large,");
-        content.Should().Contain("ExtraLarge,");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonStringEnumMemberName(\"extra-large\")]");
+        Assert.Contains("public enum PetSize", content);
+        Assert.Contains("Small,", content);
+        Assert.Contains("Medium,", content);
+        Assert.Contains("Large,", content);
+        Assert.Contains("ExtraLarge,", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonStringEnumMemberName(\"extra-large\")]", content);
     }
 
     [Fact]
@@ -831,8 +830,8 @@ public class OpenApiGeneratorTests
         generator.Generate();
 
         var content = _output.Files["Models/Pet.cs"];
-        content.Should().Contain("public Test.Client.Models.PetStatus? Status");
-        content.Should().Contain("public Test.Client.Models.PetSize? Size");
+        Assert.Contains("public Test.Client.Models.PetStatus? Status", content);
+        Assert.Contains("public Test.Client.Models.PetSize? Size", content);
     }
 
     [Fact]
@@ -862,11 +861,11 @@ public class OpenApiGeneratorTests
 
         generator.Generate();
 
-        _output.Files.Should().ContainKey("Models/Commerce/Order.cs");
-        _output.Files.Should().ContainKey("Models/Commerce/NewOrder.cs");
-        _output.Files.Should().ContainKey("Models/Commerce/OrderStatus.cs");
-        _output.Files.Should().ContainKey("Models/Identity/Customer.cs");
-        _output.Files.Should().ContainKey("Models/SimpleModel.cs");
+        Assert.True(_output.Files.ContainsKey("Models/Commerce/Order.cs"));
+        Assert.True(_output.Files.ContainsKey("Models/Commerce/NewOrder.cs"));
+        Assert.True(_output.Files.ContainsKey("Models/Commerce/OrderStatus.cs"));
+        Assert.True(_output.Files.ContainsKey("Models/Identity/Customer.cs"));
+        Assert.True(_output.Files.ContainsKey("Models/SimpleModel.cs"));
     }
 
     [Fact]
@@ -896,9 +895,9 @@ public class OpenApiGeneratorTests
         generator.Generate();
 
         var content = _output.Files["Models/Commerce/Order.cs"];
-        content.Should().Contain("public partial class Order");
-        content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
-        content.Should().NotContain("using DottedNames.Client.Models");
+        Assert.Contains("public partial class Order", content);
+        Assert.Contains("namespace DottedNames.Client.Models.Commerce;", content);
+        Assert.DoesNotContain("using DottedNames.Client.Models", content);
     }
 
     [Fact]
@@ -921,12 +920,12 @@ public class OpenApiGeneratorTests
         generator.Generate();
 
         var content = _output.Files["Models/Commerce/OrderStatus.cs"];
-        content.Should().Contain("public enum OrderStatus");
-        content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]");
-        content.Should().Contain("Pending,");
-        content.Should().Contain("Confirmed,");
-        content.Should().Contain("Shipped,");
+        Assert.Contains("public enum OrderStatus", content);
+        Assert.Contains("namespace DottedNames.Client.Models.Commerce;", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]", content);
+        Assert.Contains("Pending,", content);
+        Assert.Contains("Confirmed,", content);
+        Assert.Contains("Shipped,", content);
     }
 
     [Fact]
@@ -963,8 +962,8 @@ public class OpenApiGeneratorTests
         generator.Generate();
 
         var content = _output.Files["Models/Commerce/Order.cs"];
-        content.Should().Contain("public required DottedNames.Client.Models.Commerce.OrderStatus Status");
-        content.Should().Contain("public DottedNames.Client.Models.Identity.Customer? Customer");
+        Assert.Contains("public required DottedNames.Client.Models.Commerce.OrderStatus Status", content);
+        Assert.Contains("public DottedNames.Client.Models.Identity.Customer? Customer", content);
     }
 
     [Fact]
@@ -1001,10 +1000,10 @@ public class OpenApiGeneratorTests
         generator.Generate();
 
         var builderContent = _output.Files["Builders/OrdersBuilder.cs"];
-        builderContent.Should().NotContain("using DottedNames.Client.Models");
-        builderContent.Should().Contain("System.Threading.Tasks.Task<System.Collections.Generic.List<DottedNames.Client.Models.Commerce.Order>>");
-        builderContent.Should().Contain("System.Threading.Tasks.Task<DottedNames.Client.Models.Commerce.Order>");
-        builderContent.Should().Contain("DottedNames.Client.Models.Commerce.NewOrder request");
+        Assert.DoesNotContain("using DottedNames.Client.Models", builderContent);
+        Assert.Contains("System.Threading.Tasks.Task<System.Collections.Generic.List<DottedNames.Client.Models.Commerce.Order>>", builderContent);
+        Assert.Contains("System.Threading.Tasks.Task<DottedNames.Client.Models.Commerce.Order>", builderContent);
+        Assert.Contains("DottedNames.Client.Models.Commerce.NewOrder request", builderContent);
     }
 
     [Fact]
@@ -1027,8 +1026,8 @@ public class OpenApiGeneratorTests
         generator.Generate();
 
         var content = _output.Files["Models/SimpleModel.cs"];
-        content.Should().Contain("namespace DottedNames.Client.Models;");
-        content.Should().Contain("public partial class SimpleModel");
+        Assert.Contains("namespace DottedNames.Client.Models;", content);
+        Assert.Contains("public partial class SimpleModel", content);
     }
 
     [Fact]
@@ -1061,18 +1060,18 @@ public class OpenApiGeneratorTests
 
         generator.Generate();
 
-        _output.Files.Should().ContainKey("Models/Order.cs");
-        _output.Files.Should().ContainKey("Models/NewOrder.cs");
-        _output.Files.Should().ContainKey("Models/OrderStatus.cs");
-        _output.Files.Should().ContainKey("Models/Identity/Customer.cs");
-        _output.Files.Should().ContainKey("Models/SimpleModel.cs");
+        Assert.True(_output.Files.ContainsKey("Models/Order.cs"));
+        Assert.True(_output.Files.ContainsKey("Models/NewOrder.cs"));
+        Assert.True(_output.Files.ContainsKey("Models/OrderStatus.cs"));
+        Assert.True(_output.Files.ContainsKey("Models/Identity/Customer.cs"));
+        Assert.True(_output.Files.ContainsKey("Models/SimpleModel.cs"));
 
         var orderContent = _output.Files["Models/Order.cs"];
-        orderContent.Should().Contain("namespace DottedNames.Client.Models;");
-        orderContent.Should().Contain("public partial class Order");
+        Assert.Contains("namespace DottedNames.Client.Models;", orderContent);
+        Assert.Contains("public partial class Order", orderContent);
 
         var customerContent = _output.Files["Models/Identity/Customer.cs"];
-        customerContent.Should().Contain("namespace DottedNames.Client.Models.Identity;");
+        Assert.Contains("namespace DottedNames.Client.Models.Identity;", customerContent);
     }
 
     [Fact]
@@ -1108,12 +1107,12 @@ public class OpenApiGeneratorTests
 
         var content = _output.Files["Models/Order.cs"];
 
-        content.Should().Contain("public OrderAddress? Address");
-        content.Should().Contain("public partial class OrderAddress");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"street\")]");
-        content.Should().Contain("public string? Street");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"city\")]");
-        content.Should().Contain("public string? City");
+        Assert.Contains("public OrderAddress? Address", content);
+        Assert.Contains("public partial class OrderAddress", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"street\")]", content);
+        Assert.Contains("public string? Street", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"city\")]", content);
+        Assert.Contains("public string? City", content);
     }
 
     [Fact]
@@ -1146,12 +1145,12 @@ public class OpenApiGeneratorTests
 
         var content = _output.Files["Models/Pet.cs"];
 
-        content.Should().Contain("public PetStatus? Status");
-        content.Should().Contain("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]");
-        content.Should().Contain("public enum PetStatus");
-        content.Should().Contain("Available,");
-        content.Should().Contain("Pending,");
-        content.Should().Contain("Sold,");
+        Assert.Contains("public PetStatus? Status", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]", content);
+        Assert.Contains("public enum PetStatus", content);
+        Assert.Contains("Available,", content);
+        Assert.Contains("Pending,", content);
+        Assert.Contains("Sold,", content);
     }
 
     [Fact]
@@ -1183,10 +1182,10 @@ public class OpenApiGeneratorTests
 
         var content = _output.Files["Models/Order.cs"];
 
-        content.Should().Contain("public OrderType? Type");
-        content.Should().Contain("public enum OrderType");
-        content.Should().Contain("Buy,");
-        content.Should().Contain("Sell,");
+        Assert.Contains("public OrderType? Type", content);
+        Assert.Contains("public enum OrderType", content);
+        Assert.Contains("Buy,", content);
+        Assert.Contains("Sell,", content);
     }
 
     [Fact]
@@ -1213,13 +1212,13 @@ public class OpenApiGeneratorTests
 
         var generatedFiles = generator.Generate();
 
-        generatedFiles.Should().NotBeEmpty();
-        generatedFiles.Should().Contain(Path.Combine("Models", "Pet.cs"));
-        generatedFiles.Should().Contain(Path.Combine("Models", "NewPet.cs"));
-        generatedFiles.Should().Contain("IOpenApiBuilder.cs");
-        generatedFiles.Should().Contain("IOpenApiClient.cs");
-        generatedFiles.Should().Contain("IPetStoreAPIClient.cs");
-        generatedFiles.Should().Contain(Path.Combine("Builders", "PetsBuilder.cs"));
+        Assert.NotEmpty(generatedFiles);
+        Assert.Contains(Path.Combine("Models", "Pet.cs"), generatedFiles);
+        Assert.Contains(Path.Combine("Models", "NewPet.cs"), generatedFiles);
+        Assert.Contains("IOpenApiBuilder.cs", generatedFiles);
+        Assert.Contains("IOpenApiClient.cs", generatedFiles);
+        Assert.Contains("IPetStoreAPIClient.cs", generatedFiles);
+        Assert.Contains(Path.Combine("Builders", "PetsBuilder.cs"), generatedFiles);
     }
 
     [Fact]
@@ -1262,13 +1261,13 @@ public class OpenApiGeneratorTests
         var firstGenerator = CreateGenerator(specWithTwoSchemas, "PetStore.Client");
         var firstFiles = firstGenerator.Generate();
 
-        firstFiles.Should().Contain(Path.Combine("Models", "NewPet.cs"));
-        _output.Files.Should().ContainKey("Models/NewPet.cs");
+        Assert.Contains(Path.Combine("Models", "NewPet.cs"), firstFiles);
+        Assert.True(_output.Files.ContainsKey("Models/NewPet.cs"));
 
         var secondGenerator = CreateGenerator(specWithOneSchema, "PetStore.Client");
         var secondFiles = secondGenerator.Generate();
 
-        secondFiles.Should().NotContain(Path.Combine("Models", "NewPet.cs"));
-        secondFiles.Should().Contain(Path.Combine("Models", "Pet.cs"));
+        Assert.DoesNotContain(Path.Combine("Models", "NewPet.cs"), secondFiles);
+        Assert.Contains(Path.Combine("Models", "Pet.cs"), secondFiles);
     }
 }

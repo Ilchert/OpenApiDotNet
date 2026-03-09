@@ -1,4 +1,3 @@
-using FluentAssertions;
 using Microsoft.OpenApi;
 using OpenApiDotNet.Tests.IO;
 
@@ -33,8 +32,8 @@ public class PathParameterTests
         var content = output.Files["Builders/Pets/IdBuilder.cs"];
 
         // Path parameter is captured in the builder constructor
-        content.Should().Contain("long petId");
-        content.Should().Contain("Get");
+        Assert.Contains("long petId", content);
+        Assert.Contains("Get", content);
     }
 
     [Fact]
@@ -54,11 +53,11 @@ public class PathParameterTests
 
         // Assert - Path parameters are distributed across builders
         var petsIdContent = output.Files["Builders/Pets/IdBuilder.cs"];
-        petsIdContent.Should().Contain("long petId");
+        Assert.Contains("long petId", petsIdContent);
 
         var photosIdContent = output.Files["Builders/Pets/Id/Photos/IdBuilder.cs"];
-        photosIdContent.Should().Contain("Get");
-        photosIdContent.Should().Contain("Guid photoId");
+        Assert.Contains("Get", photosIdContent);
+        Assert.Contains("Guid photoId", photosIdContent);
     }
 
     [Fact]
@@ -78,12 +77,12 @@ public class PathParameterTests
 
         // Assert - Check builder for GetOwnerPet with correct parameter types
         var ownersIdContent = output.Files["Builders/Owners/IdBuilder.cs"];
-        ownersIdContent.Should().Contain("string ownerId");
+        Assert.Contains("string ownerId", ownersIdContent);
 
         // pets under owners/{ownerId} uses short name in nested namespace
         var ownersIdPetsIdContent = output.Files["Builders/Owners/Id/Pets/IdBuilder.cs"];
-        ownersIdPetsIdContent.Should().Contain("Get");
-        ownersIdPetsIdContent.Should().Contain("long petId");
+        Assert.Contains("Get", ownersIdPetsIdContent);
+        Assert.Contains("long petId", ownersIdPetsIdContent);
     }
 
     [Fact]
@@ -104,8 +103,8 @@ public class PathParameterTests
         // Assert - ListPets on PetsBuilder should have query parameters with encoding
         var content = output.Files["Builders/PetsBuilder.cs"];
 
-        content.Should().Contain("Get");
-        content.Should().Contain("int? limit");
-        content.Should().Contain("Uri.EscapeDataString");
+        Assert.Contains("Get", content);
+        Assert.Contains("int? limit", content);
+        Assert.Contains("Uri.EscapeDataString", content);
     }
 }
