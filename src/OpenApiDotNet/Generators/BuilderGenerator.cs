@@ -33,7 +33,7 @@ internal class BuilderGenerator : BaseGenerator
     public override void Write(CodeWriter writer)
     {
         writer.WriteLine($$"""
-public class {{TypeInfo.Name}} : IOpenApiBuilder
+public partial class {{TypeInfo.Name}} : IOpenApiBuilder
 {
     private readonly IOpenApiBuilder _parentBuilder;
 

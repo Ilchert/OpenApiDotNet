@@ -1,6 +1,6 @@
-namespace PetStore.Builders.Pets;
+﻿namespace PetStore.Builders.Pets;
 
-public class CountBuilder : IOpenApiBuilder
+public partial class CountBuilder : IOpenApiBuilder
 {
     private readonly IOpenApiBuilder _parentBuilder;
 

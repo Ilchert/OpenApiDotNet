@@ -1,9 +1,32 @@
-{
-  "openApiFile": "..\\..\\..\\tests\\OpenApiDotNet.Tests\\Fixtures\\petstore.json",
+﻿{
+  "openApiFile": "../../../tests/OpenApiDotNet.Tests/Fixtures/petstore.json",
   "outputDirectory": ".",
   "namespace": "PetStore",
   "overlayFiles": [],
   "namespacePrefix": null,
   "clientName": "PetStoreApi",
-  "typeMappings": null
+  "typeMappings": null,
+  "generatedFiles": [
+    "Models/Pet.cs",
+    "Models/PetStatus.cs",
+    "Models/PetSize.cs",
+    "Models/NewPet.cs",
+    "Models/PetReport.cs",
+    "Models/Clinic.cs",
+    "IOpenApiBuilder.cs",
+    "IOpenApiClient.cs",
+    "IPetStoreApi.cs",
+    "Builders/PetsBuilder.cs",
+    "Builders/Pets/IdBuilder.cs",
+    "Builders/Pets/Id/PhotosBuilder.cs",
+    "Builders/Pets/Id/Photos/IdBuilder.cs",
+    "Builders/Pets/CountBuilder.cs",
+    "Builders/ReportsBuilder.cs",
+    "Builders/OwnersBuilder.cs",
+    "Builders/Owners/IdBuilder.cs",
+    "Builders/Owners/Id/PetsBuilder.cs",
+    "Builders/Owners/Id/Pets/IdBuilder.cs",
+    "Builders/SearchBuilder.cs",
+    "Builders/ClinicsBuilder.cs"
+  ]
 }

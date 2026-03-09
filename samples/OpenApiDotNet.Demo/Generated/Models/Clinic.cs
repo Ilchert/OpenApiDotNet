@@ -1,9 +1,9 @@
-namespace PetStore.Models;
+﻿namespace PetStore.Models;
 
 /// <summary>
 /// Tests: component object schema with explicit $id; exercises the schema.Id code path in GetSchemaName
 /// </summary>
-public class Clinic
+public partial class Clinic
 {
     /// <summary>
     /// Name of the clinic

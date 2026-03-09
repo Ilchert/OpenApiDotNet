@@ -395,7 +395,7 @@ public class OpenApiGeneratorTests
         content.Should().Contain("Get");
 
         // Nested class should be generated with properties
-        content.Should().Contain("public class GetResponse");
+        content.Should().Contain("public partial class GetResponse");
         content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"totalCount\")]");
         content.Should().Contain("public int? TotalCount");
         content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"activeCount\")]");
@@ -446,7 +446,7 @@ public class OpenApiGeneratorTests
         content.Should().Contain("PostRequest request");
 
         // Nested class should be generated with properties
-        content.Should().Contain("public class PostRequest");
+        content.Should().Contain("public partial class PostRequest");
         content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"message\")]");
         content.Should().Contain("public required string Message");
         content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"rating\")]");
@@ -622,7 +622,7 @@ public class OpenApiGeneratorTests
         // Return type should be object (not void, not a nested class)
         content.Should().Contain("System.Threading.Tasks.Task<object>");
         content.Should().NotContain("System.Threading.Tasks.Task<GetResponse>");
-        content.Should().NotContain("public class GetResponse");
+        content.Should().NotContain("public partial class GetResponse");
 
         // Should read from JSON as object
         content.Should().Contain("ReadFromJsonAsync<object>");
@@ -896,7 +896,7 @@ public class OpenApiGeneratorTests
         generator.Generate();
 
         var content = _output.Files["Models/Commerce/Order.cs"];
-        content.Should().Contain("public class Order");
+        content.Should().Contain("public partial class Order");
         content.Should().Contain("namespace DottedNames.Client.Models.Commerce;");
         content.Should().NotContain("using DottedNames.Client.Models");
     }
@@ -1028,7 +1028,7 @@ public class OpenApiGeneratorTests
 
         var content = _output.Files["Models/SimpleModel.cs"];
         content.Should().Contain("namespace DottedNames.Client.Models;");
-        content.Should().Contain("public class SimpleModel");
+        content.Should().Contain("public partial class SimpleModel");
     }
 
     [Fact]
@@ -1069,7 +1069,7 @@ public class OpenApiGeneratorTests
 
         var orderContent = _output.Files["Models/Order.cs"];
         orderContent.Should().Contain("namespace DottedNames.Client.Models;");
-        orderContent.Should().Contain("public class Order");
+        orderContent.Should().Contain("public partial class Order");
 
         var customerContent = _output.Files["Models/Identity/Customer.cs"];
         customerContent.Should().Contain("namespace DottedNames.Client.Models.Identity;");
@@ -1109,7 +1109,7 @@ public class OpenApiGeneratorTests
         var content = _output.Files["Models/Order.cs"];
 
         content.Should().Contain("public OrderAddress? Address");
-        content.Should().Contain("public class OrderAddress");
+        content.Should().Contain("public partial class OrderAddress");
         content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"street\")]");
         content.Should().Contain("public string? Street");
         content.Should().Contain("[System.Text.Json.Serialization.JsonPropertyName(\"city\")]");

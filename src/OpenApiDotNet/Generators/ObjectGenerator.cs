@@ -27,7 +27,7 @@ internal class ObjectGenerator : BaseGenerator
     {
         WriteSummary(writer, _schema.Description);
 
-        writer.WriteLine($"public class {TypeInfo.Name}");
+        writer.WriteLine($"public partial class {TypeInfo.Name}");
         writer.WriteLine("{");
         writer.Indent();
         Properties.ForEach(p => p.Write(writer));

@@ -1,6 +1,6 @@
-namespace PetStore.Builders.Pets.Id.Photos;
+﻿namespace PetStore.Builders.Pets.Id.Photos;
 
-public class IdBuilder : IOpenApiBuilder
+public partial class IdBuilder : IOpenApiBuilder
 {
     private readonly IOpenApiBuilder _parentBuilder;
 
@@ -35,7 +35,7 @@ public class IdBuilder : IOpenApiBuilder
         throw new System.InvalidOperationException($"Response from {url} is null");
     }
 
-    public class GetResponse
+    public partial class GetResponse
     {
         [System.Text.Json.Serialization.JsonPropertyName("url")]
         public string? Url { get; set; }

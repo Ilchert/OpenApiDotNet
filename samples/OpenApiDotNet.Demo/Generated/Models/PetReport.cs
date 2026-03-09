@@ -1,9 +1,9 @@
-namespace PetStore.Models;
+﻿namespace PetStore.Models;
 
 /// <summary>
 /// Tests: component object schema with an inline enum property (priority) generating a nested enum type inside the model class; inline object property (location) generating a nested class inside the model class
 /// </summary>
-public class PetReport
+public partial class PetReport
 {
     /// <summary>
     /// ID of the reported pet
@@ -42,7 +42,7 @@ public class PetReport
     /// <summary>
     /// Location where the pet was found
     /// </summary>
-    public class PetReportLocation
+    public partial class PetReportLocation
     {
         [System.Text.Json.Serialization.JsonPropertyName("latitude")]
         public double? Latitude { get; set; }

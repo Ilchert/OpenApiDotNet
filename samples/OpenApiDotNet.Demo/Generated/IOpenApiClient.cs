@@ -1,4 +1,5 @@
-namespace PetStore;
+﻿namespace PetStore;
+
 /// <summary>
 /// Base interface for all OpenAPI clients
 /// </summary>
