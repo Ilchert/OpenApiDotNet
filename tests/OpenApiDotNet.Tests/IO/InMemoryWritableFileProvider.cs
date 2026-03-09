@@ -9,6 +9,13 @@ internal sealed class InMemoryWritableFileProvider : IWritableFileProvider
     private readonly Dictionary<string, string> _files = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _directories = new(StringComparer.OrdinalIgnoreCase);
 
+    public InMemoryWritableFileProvider(string root = "/")
+    {
+        Root = root;
+    }
+
+    public string Root { get; }
+
     /// <summary>
     /// All written files keyed by normalized subpath.
     /// </summary>

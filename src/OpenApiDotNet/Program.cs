@@ -1,6 +1,8 @@
 using System.CommandLine;
 using System.CommandLine.Completions;
+using Microsoft.Extensions.FileProviders;
 using OpenApiDotNet;
+using OpenApiDotNet.IO;
 
 var service = new GenerationService();
 
@@ -58,7 +60,11 @@ rootCommand.SetAction(async parseResult =>
     var namespacePrefix = parseResult.GetValue(namespacePrefixOption);
     var clientName = parseResult.GetValue(clientNameOption);
     var overlayFiles = parseResult.GetValue(overlayOption) ?? [];
-    await service.GenerateAsync(openApiFile, outputDirectory, namespaceName, namespacePrefix, clientName, overlayFiles, null);
+    Directory.CreateDirectory(outputDirectory.FullName);
+    using var outputProvider = new PhysicalWritableFileProvider(outputDirectory.FullName);
+    var openApiFileInfo = new PhysicalWritableFileInfo(openApiFile);
+    var overlayFileInfos = overlayFiles.Select(f => (IFileInfo)new PhysicalWritableFileInfo(f)).ToArray();
+    await service.GenerateAsync(openApiFileInfo, outputProvider, namespaceName, namespacePrefix, clientName, overlayFileInfos, null);
 });
 
 
@@ -113,7 +119,9 @@ convertCommand.SetAction(async parseResult =>
     var outputFile = parseResult.GetValue(convertOutputArgument)!;
     var version = parseResult.GetValue(versionOption)!;
     var format = parseResult.GetValue(formatOption)!;
-    await service.ConvertAsync(inputFile, outputFile, version, format);
+    var inputFileInfo = new PhysicalWritableFileInfo(inputFile);
+    var outputFileInfo = new PhysicalWritableFileInfo(outputFile);
+    await service.ConvertAsync(inputFileInfo, outputFileInfo, version, format);
 });
 
 rootCommand.Subcommands.Add(convertCommand);

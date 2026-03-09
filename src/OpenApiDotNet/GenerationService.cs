@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BinkyLabs.OpenApi.Overlays;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi;
 using Microsoft.OpenApi.Reader;
@@ -25,9 +26,10 @@ internal class GenerationService
         return settings;
     }
 
-    public async Task GenerateAsync(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, string? clientName, FileInfo[] overlayFiles, Dictionary<string, string>? typeMappings)
+    public async Task<List<string>> GenerateAsync(IFileInfo openApiFile, IWritableFileProvider outputProvider, string namespaceName, string? namespacePrefix, string? clientName, IFileInfo[] overlayFiles, Dictionary<string, string>? typeMappings)
     {
-        Logger.LogInformation("Reading OpenAPI specification from: {FilePath}", openApiFile.FullName);
+        var displayPath = openApiFile.PhysicalPath ?? openApiFile.Name;
+        Logger.LogInformation("Reading OpenAPI specification from: {FilePath}", displayPath);
 
         var openApiDocument = overlayFiles.Length > 0
              ? await ApplyOverlaysAsync(openApiFile, overlayFiles)
@@ -35,7 +37,7 @@ internal class GenerationService
 
         Logger.LogInformation("Title: {Title}", openApiDocument.Info.Title);
         Logger.LogInformation("Version: {Version}", openApiDocument.Info.Version);
-        Logger.LogInformation("Output: {OutputDirectory}", outputDirectory.FullName);
+        Logger.LogInformation("Output: {OutputPath}", outputProvider.Root);
         Logger.LogInformation("Namespace: {Namespace}", namespaceName);
         if (namespacePrefix != null)
             Logger.LogInformation("Namespace prefix: {NamespacePrefix}", namespacePrefix);
@@ -44,14 +46,13 @@ internal class GenerationService
 
         Logger.LogInformation("Generating client code...");
 
-        Directory.CreateDirectory(outputDirectory.FullName);
-        using var outputProvider = new PhysicalWritableFileProvider(outputDirectory.FullName);
         var generator = new OpenApiGenerator(openApiDocument, namespaceName, outputProvider, namespacePrefix, clientName, new TypeMappingConfig(typeMappings));
         var generatedFiles = generator.Generate();
 
-        SaveConfig(openApiFile, outputDirectory, namespaceName, namespacePrefix, clientName, overlayFiles, typeMappings, generatedFiles);
+        SaveConfig(openApiFile, outputProvider, namespaceName, namespacePrefix, clientName, overlayFiles, typeMappings, generatedFiles);
 
         Logger.LogInformation("✓ Client generation complete!");
+        return generatedFiles;
     }
 
     public async Task UpdateAsync(FileInfo configFile)
@@ -73,27 +74,27 @@ internal class GenerationService
             ? config.OutputDirectory
             : Path.GetFullPath(Path.Combine(baseDirectory, config.OutputDirectory));
 
-        var overlayFiles = config.OverlayFiles
+        var overlayFileInfos = config.OverlayFiles
             .Select(o => Path.IsPathRooted(o) ? o : Path.GetFullPath(Path.Combine(baseDirectory, o)))
-            .Select(o => new FileInfo(o))
+            .Select(o => (IFileInfo)new PhysicalWritableFileInfo(new FileInfo(o)))
             .ToArray();
 
         var previousFiles = config.GeneratedFiles;
 
         Logger.LogInformation("Updating from configuration: {ConfigFile}", configFile.FullName);
-        await GenerateAsync(new FileInfo(openApiFilePath), new DirectoryInfo(outputDirectoryPath), config.Namespace, config.NamespacePrefix, config.ClientName, overlayFiles, config.TypeMappings);
 
-        // Read the updated config to get the new list of generated files
-        var updatedJson = File.ReadAllText(configFile.FullName);
-        var updatedConfig = JsonSerializer.Deserialize<GenerationConfig>(updatedJson, s_jsonSerializerOptions);
-        var currentFiles = updatedConfig?.GeneratedFiles;
+        Directory.CreateDirectory(outputDirectoryPath);
+        using var outputProvider = new PhysicalWritableFileProvider(outputDirectoryPath);
+        var openApiFileInfo = new PhysicalWritableFileInfo(new FileInfo(openApiFilePath));
+        var currentFiles = await GenerateAsync(openApiFileInfo, outputProvider, config.Namespace, config.NamespacePrefix, config.ClientName, overlayFileInfos, config.TypeMappings);
 
-        CleanupRemovedFiles(outputDirectoryPath, previousFiles, currentFiles);
+        CleanupRemovedFiles(outputProvider, previousFiles, currentFiles);
     }
 
-    public async Task ConvertAsync(FileInfo inputFile, FileInfo outputFile, string version, string format)
+    public async Task ConvertAsync(IFileInfo inputFile, IWritableFileInfo outputFile, string version, string format)
     {
-        Logger.LogInformation("Reading OpenAPI specification from: {FilePath}", inputFile.FullName);
+        var displayPath = inputFile.PhysicalPath ?? inputFile.Name;
+        Logger.LogInformation("Reading OpenAPI specification from: {FilePath}", displayPath);
 
         var openApiDocument = await LoadOpenApiDocumentAsync(inputFile);
 
@@ -106,37 +107,33 @@ internal class GenerationService
             _ => throw new ArgumentException($"Unsupported OpenAPI version: {version}")
         };
 
-        var outputDirectory = Path.GetDirectoryName(outputFile.FullName);
-        if (!string.IsNullOrEmpty(outputDirectory))
-            Directory.CreateDirectory(outputDirectory);
-
-        await using var outStream = outputFile.Create();
+        await using var outStream = outputFile.CreateWriteStream();
         await openApiDocument.SerializeAsync(outStream, specVersion, format, default);
 
-        Logger.LogInformation("✓ Converted to OpenAPI {Version} ({Format}): {OutputFile}", version, format, outputFile.FullName);
+        Logger.LogInformation("✓ Converted to OpenAPI {Version} ({Format}): {OutputFile}", version, format, outputFile.PhysicalPath ?? outputFile.Name);
     }
 
-    private void SaveConfig(FileInfo openApiFile, DirectoryInfo outputDirectory, string namespaceName, string? namespacePrefix, string? clientName, FileInfo[] overlayFiles, Dictionary<string, string>? typeMappings, List<string> generatedFiles)
+    private void SaveConfig(IFileInfo openApiFile, IWritableFileProvider outputProvider, string namespaceName, string? namespacePrefix, string? clientName, IFileInfo[] overlayFiles, Dictionary<string, string>? typeMappings, List<string> generatedFiles)
     {
+        var root = outputProvider.Root;
         var config = new GenerationConfig
         {
-            OpenApiFile = Path.GetRelativePath(outputDirectory.FullName, openApiFile.FullName),
+            OpenApiFile = openApiFile.PhysicalPath is not null ? Path.GetRelativePath(root, openApiFile.PhysicalPath) : openApiFile.Name,
             OutputDirectory = ".",
             Namespace = namespaceName,
             NamespacePrefix = namespacePrefix,
             ClientName = clientName,
-            OverlayFiles = overlayFiles.Select(f => Path.GetRelativePath(outputDirectory.FullName, f.FullName)).ToList(),
+            OverlayFiles = overlayFiles.Select(f => f.PhysicalPath is not null ? Path.GetRelativePath(root, f.PhysicalPath) : f.Name).ToList(),
             TypeMappings = typeMappings,
             GeneratedFiles = generatedFiles
         };
 
         var json = JsonSerializer.Serialize(config, s_jsonSerializerOptions);
-        var configPath = Path.Combine(outputDirectory.FullName, GenerationConfig.FileName);
-        File.WriteAllText(configPath, json);
+        outputProvider.GetFileInfo(GenerationConfig.FileName).WriteAllText(json);
         Logger.LogInformation("  Saved configuration: {FileName}", GenerationConfig.FileName);
     }
 
-    private void CleanupRemovedFiles(string outputDirectory, List<string>? previousFiles, List<string>? currentFiles)
+    internal void CleanupRemovedFiles(IWritableFileProvider outputProvider, List<string>? previousFiles, List<string>? currentFiles)
     {
         if (previousFiles is null or [])
             return;
@@ -146,9 +143,6 @@ internal class GenerationService
 
         if (removedFiles.Count == 0)
             return;
-
-        Directory.CreateDirectory(outputDirectory);
-        using var outputProvider = new PhysicalWritableFileProvider(outputDirectory);
 
         Logger.LogInformation("Cleaning up removed files:");
         foreach (var relativePath in removedFiles)
@@ -179,7 +173,7 @@ internal class GenerationService
         }
     }
 
-    private async Task<OpenApiDocument> ApplyOverlaysAsync(FileInfo openApiFile, FileInfo[] overlayFiles)
+    private async Task<OpenApiDocument> ApplyOverlaysAsync(IFileInfo openApiFile, IFileInfo[] overlayFiles)
     {
         var readerSettings = new OverlayReaderSettings() { OpenApiSettings = s_openApiReaderSettings };
 
@@ -187,17 +181,19 @@ internal class GenerationService
 
         foreach (var overlayFile in overlayFiles)
         {
-            var (overlay, diagnostic) = await OverlayDocument.LoadFromUrlAsync(overlayFile.FullName, readerSettings);
+            var overlayDisplayPath = overlayFile.PhysicalPath ?? overlayFile.Name;
+            using var overlayStream = overlayFile.CreateReadStream();
+            var (overlay, diagnostic) = await OverlayDocument.LoadFromStreamAsync(overlayStream, DetectFormat(overlayFile.Name), readerSettings);
             if (diagnostic?.Errors.Count > 0)
             {
-                Logger.LogError("Errors found in overlay '{OverlayFile}':", overlayFile.FullName);
+                Logger.LogError("Errors found in overlay '{OverlayFile}':", overlayDisplayPath);
                 foreach (var error in diagnostic.Errors)
                     Logger.LogError("  - {ErrorMessage}", error.Message);
             }
 
             if (diagnostic?.Warnings.Count > 0)
             {
-                Logger.LogWarning("Warnings found in overlay '{OverlayFile}':", overlayFile.FullName);
+                Logger.LogWarning("Warnings found in overlay '{OverlayFile}':", overlayDisplayPath);
                 foreach (var warning in diagnostic.Warnings)
                     Logger.LogWarning("  - {WarningMessage}", warning.Message);
             }
@@ -206,7 +202,8 @@ internal class GenerationService
                 overlayDocument = overlayDocument.CombineWith(overlay);
         }
 
-        var (result, overlayDiagnostic) = await overlayDocument.ApplyToDocumentAndLoadAsync(openApiFile.FullName, readerSettings: readerSettings);
+        using var openApiStream = openApiFile.CreateReadStream();
+        var (result, overlayDiagnostic) = await overlayDocument.ApplyToDocumentStreamAndLoadAsync(openApiStream, new Uri(openApiFile.PhysicalPath ?? "file:///document"), DetectFormat(openApiFile.Name), readerSettings);
 
         if (overlayDiagnostic?.Errors.Count > 0)
         {
@@ -225,9 +222,10 @@ internal class GenerationService
         return result ?? throw new InvalidOperationException("Can not load document after applying overlays");
     }
 
-    private async Task<OpenApiDocument> LoadOpenApiDocumentAsync(FileInfo openApiFile)
+    private async Task<OpenApiDocument> LoadOpenApiDocumentAsync(IFileInfo openApiFile)
     {
-        var (document, diagnostic) = await OpenApiDocument.LoadAsync(openApiFile.FullName, settings: s_openApiReaderSettings);
+        using var stream = openApiFile.CreateReadStream();
+        var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, DetectFormat(openApiFile.Name), s_openApiReaderSettings);
 
         if (diagnostic?.Errors.Count > 0)
         {
@@ -243,6 +241,11 @@ internal class GenerationService
                 Logger.LogWarning("  - {WarningMessage}", warning.Message);
         }
 
-        return document ?? throw new InvalidOperationException($"Can not load document from file {openApiFile.FullName}");
+        return document ?? throw new InvalidOperationException($"Can not load document from {openApiFile.PhysicalPath ?? openApiFile.Name}");
     }
+
+    private static string? DetectFormat(string fileName) =>
+        fileName.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase) || fileName.EndsWith(".yml", StringComparison.OrdinalIgnoreCase)
+            ? "yaml"
+            : null;
 }
