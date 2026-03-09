@@ -156,6 +156,35 @@ public class GenerationServiceTests
     }
 
     [Fact]
+    public async Task GenerateAsync_WithV2Spec_GeneratesClient()
+    {
+        var specFile = CreateSpecFileInfo("petstore-v2.json");
+
+        var generatedFiles = await _service.GenerateAsync(
+            specFile, _output, "PetStore.Client",
+            namespacePrefix: null, clientName: null, overlayFiles: [], typeMappings: null);
+
+        Assert.NotEmpty(generatedFiles);
+        var petsBuilderKey = generatedFiles.Select(Normalize).First(f => f.EndsWith("PetsBuilder.cs"));
+        Assert.Contains("Post(", _output.Files[petsBuilderKey]);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_WithV2SpecAndOverlay_ConvertsToV3ThenAppliesOverlay()
+    {
+        var specFile = CreateSpecFileInfo("petstore-v2.json");
+        var overlayFile = CreateSpecFileInfo("remove-pets-post.overlay.json");
+
+        var generatedFiles = await _service.GenerateAsync(
+            specFile, _output, "PetStore.Client",
+            namespacePrefix: null, clientName: null, overlayFiles: [overlayFile], typeMappings: null);
+
+        Assert.NotEmpty(generatedFiles);
+        var petsBuilderKey = generatedFiles.Select(Normalize).First(f => f.EndsWith("PetsBuilder.cs"));
+        Assert.DoesNotContain("Post(", _output.Files[petsBuilderKey]);
+    }
+
+    [Fact]
     public async Task ConvertAsync_ConvertsDocumentToSpecifiedVersion()
     {
         var inputFile = CreateSpecFileInfo("petstore.json");

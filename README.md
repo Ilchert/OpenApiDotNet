@@ -20,7 +20,7 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 - 💾 **Configuration Persistence**: Saves generation parameters to a JSON config file for easy re-generation via `update` command
 - 🔧 **Configurable Type Mappings**: Override default OpenAPI-to-.NET type mappings via the configuration file
 - 🔄 **Spec Conversion**: Convert OpenAPI specifications between versions (2.0, 3.0, 3.1, 3.2) and formats (JSON, YAML)
-- 🧩 **OpenAPI Overlays**: Apply [OpenAPI Overlay](https://spec.openapis.org/overlay/latest.html) documents to patch specifications before generation — powered by [BinkyLabs.OpenApi.Overlays](https://www.nuget.org/packages/BinkyLabs.OpenApi.Overlays)
+- 🧩 **OpenAPI Overlays**: Apply [OpenAPI Overlay](https://spec.openapis.org/overlay/latest.html) documents to patch specifications before generation — powered by [BinkyLabs.OpenApi.Overlays](https://www.nuget.org/packages/BinkyLabs.OpenApi.Overlays). Swagger 2.0 (v2) specs are automatically converted to OpenAPI 3.1 before overlays are applied.
 
 ## Type Mapping
 
@@ -225,6 +225,9 @@ openapi-dotnet-generator petstore.yaml --overlay remove-deprecated.yaml
 
 # Apply multiple overlays (applied in order)
 openapi-dotnet-generator petstore.yaml --overlay base-overlay.yaml --overlay team-overlay.yaml
+
+# Apply an overlay to a Swagger 2.0 (v2) spec — automatically converted to OpenAPI 3.1 first
+openapi-dotnet-generator swagger.json --overlay remove-deprecated.yaml
 ```
 
 **With Namespace Prefix Stripping:**
@@ -843,7 +846,7 @@ Other types
 - ✅ [OpenAPI Format Registry](https://spec.openapis.org/registry/format/index.html) type mappings
 - ✅ Configurable type mappings via `.openapidotnet.json`
 - ✅ Specification conversion between OpenAPI versions and formats
-- ✅ [OpenAPI Overlay Specification](https://spec.openapis.org/overlay/latest.html) support (single or multiple overlays)
+- ✅ [OpenAPI Overlay Specification](https://spec.openapis.org/overlay/latest.html) support (single or multiple overlays; Swagger 2.0 specs are auto-converted to OpenAPI 3.1 before overlays are applied)
 - ✅ Namespace prefix stripping for dotted schema names
 
 ## Naming Conventions

@@ -43,3 +43,26 @@ Console.WriteLine();
 Console.WriteLine("=== Get owner's pet ===");
 var ownerPet = await client.Owners["owner-42"].Pets[1].Get();
 Console.WriteLine($"  Owner's pet: #{ownerPet.Id} {ownerPet.Name}");
+
+// ════════════════════════════════════════════════════════════════════════════
+// Overlay + Swagger 2.0 (v2) Example
+// ════════════════════════════════════════════════════════════════════════════
+//
+// This demo includes swagger.json (a Swagger 2.0 spec) and
+// remove-create-pet.overlay.json (an OpenAPI overlay that removes POST /pets).
+//
+// To regenerate the client from the v2 spec with the overlay applied, run:
+//
+//   openapi-dotnet-generator swagger.json \
+//     --overlay remove-create-pet.overlay.json \
+//     -o ./GeneratedFromSwagger \
+//     -n PetStore.Swagger
+//
+// The tool automatically converts the Swagger 2.0 spec to OpenAPI 3.1 before
+// applying the overlay, so the overlay targets the v3 JSON path syntax:
+//
+//   { "target": "$.paths['/pets'].post", "remove": true }
+//
+// After generation the client will only expose GET /pets and /pets/{petId},
+// with the createPet (POST) operation removed by the overlay.
+
