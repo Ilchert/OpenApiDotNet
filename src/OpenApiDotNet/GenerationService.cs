@@ -221,7 +221,7 @@ internal class GenerationService
         if (overlayResult.Document is null)
             throw new InvalidOperationException("Can not load document after applying overlays");
         using var resultStream = new MemoryStream();
-        using (var writer = new System.Text.Json.Utf8JsonWriter(resultStream))
+        await using (var writer = new Utf8JsonWriter(resultStream))
             overlayResult.Document.WriteTo(writer);
         resultStream.Position = 0;
         return await LoadOpenApiDocumentFromStreamAsync(resultStream, "json");
