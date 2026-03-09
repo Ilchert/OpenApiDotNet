@@ -1,6 +1,6 @@
-namespace PetStore.Builders.Owners.Id;
+﻿namespace PetStore.Builders.Owners.Id;
 
-public class PetsBuilder : IOpenApiBuilder
+public partial class PetsBuilder : IOpenApiBuilder
 {
     private readonly IOpenApiBuilder _parentBuilder;
 

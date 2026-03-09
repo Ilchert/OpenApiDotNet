@@ -1,9 +1,9 @@
-namespace PetStore.Models;
+﻿namespace PetStore.Models;
 
 /// <summary>
 /// Tests: component object schema used as a $ref request body; one required string property; optional string and date properties
 /// </summary>
-public class NewPet
+public partial class NewPet
 {
     /// <summary>
     /// Name of the pet

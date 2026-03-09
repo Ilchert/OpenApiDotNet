@@ -1,6 +1,6 @@
-namespace PetStore.Builders;
+﻿namespace PetStore.Builders;
 
-public class ReportsBuilder : IOpenApiBuilder
+public partial class ReportsBuilder : IOpenApiBuilder
 {
     private readonly IOpenApiBuilder _parentBuilder;
 
@@ -33,7 +33,7 @@ public class ReportsBuilder : IOpenApiBuilder
         throw new System.InvalidOperationException($"Response from {url} is null");
     }
 
-    public class PostRequest
+    public partial class PostRequest
     {
         /// <summary>
         /// Report title
@@ -64,7 +64,7 @@ public class ReportsBuilder : IOpenApiBuilder
 
         }
     }
-    public class PostResponse
+    public partial class PostResponse
     {
         /// <summary>
         /// Report ID
