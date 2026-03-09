@@ -216,23 +216,15 @@ internal class GenerationService
             : openApiFile.CreateReadStream();
         var openApiFormat = isV2 ? "json" : DetectFormat(openApiFile.Name);
 
-        var (result, overlayDiagnostic) = await overlayDocument.ApplyToDocumentStreamAndLoadAsync(openApiStream, new Uri(openApiFile.PhysicalPath ?? "file:///document"), openApiFormat, readerSettings);
-
-        if (overlayDiagnostic?.Errors.Count > 0)
-        {
-            Logger.LogError("Errors found after applying overlays:");
-            foreach (var error in overlayDiagnostic.Errors)
-                Logger.LogError("  - {ErrorMessage}", error.Message);
-        }
-
-        if (overlayDiagnostic?.Warnings.Count > 0)
-        {
-            Logger.LogWarning("Warnings:");
-            foreach (var warning in overlayDiagnostic.Warnings)
-                Logger.LogWarning("  - {WarningMessage}", warning.Message);
-        }
-
-        return result ?? throw new InvalidOperationException("Can not load document after applying overlays");
+        // Apply overlays at the JSON level, then load the resulting document through the unified loading path.
+        var overlayResult = await overlayDocument.ApplyToDocumentStreamAsync(openApiStream, openApiFormat, readerSettings);
+        if (overlayResult.Document is null)
+            throw new InvalidOperationException("Can not load document after applying overlays");
+        using var resultStream = new MemoryStream();
+        using (var writer = new System.Text.Json.Utf8JsonWriter(resultStream))
+            overlayResult.Document.WriteTo(writer);
+        resultStream.Position = 0;
+        return await LoadOpenApiDocumentFromStreamAsync(resultStream, "json");
     }
 
     private static async Task<MemoryStream> SerializeToV3StreamAsync(OpenApiDocument document)
@@ -246,7 +238,12 @@ internal class GenerationService
     private async Task<(OpenApiDocument, OpenApiDiagnostic?)> LoadOpenApiDocumentWithDiagnosticAsync(IFileInfo openApiFile)
     {
         using var stream = openApiFile.CreateReadStream();
-        var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, DetectFormat(openApiFile.Name), s_openApiReaderSettings);
+        return await LoadOpenApiDocumentWithDiagnosticFromStreamAsync(stream, DetectFormat(openApiFile.Name), openApiFile.PhysicalPath ?? openApiFile.Name);
+    }
+
+    private async Task<(OpenApiDocument, OpenApiDiagnostic?)> LoadOpenApiDocumentWithDiagnosticFromStreamAsync(Stream stream, string? format, string displayName)
+    {
+        var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, format, s_openApiReaderSettings);
 
         if (diagnostic?.Errors.Count > 0)
         {
@@ -262,7 +259,13 @@ internal class GenerationService
                 Logger.LogWarning("  - {WarningMessage}", warning.Message);
         }
 
-        return (document ?? throw new InvalidOperationException($"Can not load document from {openApiFile.PhysicalPath ?? openApiFile.Name}"), diagnostic);
+        return (document ?? throw new InvalidOperationException($"Can not load document from {displayName}"), diagnostic);
+    }
+
+    private async Task<OpenApiDocument> LoadOpenApiDocumentFromStreamAsync(Stream stream, string? format)
+    {
+        var (document, _) = await LoadOpenApiDocumentWithDiagnosticFromStreamAsync(stream, format, "stream");
+        return document;
     }
 
     private async Task<OpenApiDocument> LoadOpenApiDocumentAsync(IFileInfo openApiFile)
