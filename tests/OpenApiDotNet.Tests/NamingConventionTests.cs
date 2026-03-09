@@ -1,4 +1,3 @@
-using FluentAssertions;
 using OpenApiDotNet.Generators;
 
 namespace OpenApiDotNet.Tests;
@@ -25,7 +24,7 @@ public class NamingConventionTests
         var result = NamingConventions.ToPascalCase(input);
 
         // Assert
-        result.Should().Be(expected);
+        Assert.Equal(expected, result);
     }
 
     [Theory]
@@ -45,6 +44,6 @@ public class NamingConventionTests
         var result = NamingConventions.ToCamelCase(input);
 
         // Assert
-        result.Should().Be(expected);
+        Assert.Equal(expected, result);
     }
 }

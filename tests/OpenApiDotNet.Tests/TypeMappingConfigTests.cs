@@ -1,4 +1,3 @@
-using FluentAssertions;
 using Microsoft.OpenApi;
 using OpenApiDotNet;
 using OpenApiDotNet.Generators;
@@ -14,7 +13,7 @@ public class TypeMappingConfigTests
 
         var result = config.Resolve(JsonSchemaType.String, null);
 
-        result.Should().Be("string");
+        Assert.Equal("string", result);
     }
 
     [Fact]
@@ -24,7 +23,7 @@ public class TypeMappingConfigTests
 
         var result = config.Resolve(JsonSchemaType.String, "date-time");
 
-        result.Should().Be("NodaTime.Instant");
+        Assert.Equal("NodaTime.Instant", result);
     }
 
     [Fact]
@@ -34,7 +33,7 @@ public class TypeMappingConfigTests
 
         var result = config.Resolve(JsonSchemaType.Integer, null);
 
-        result.Should().Be("int");
+        Assert.Equal("int", result);
     }
 
     [Fact]
@@ -44,7 +43,7 @@ public class TypeMappingConfigTests
 
         var result = config.Resolve(JsonSchemaType.Boolean, null);
 
-        result.Should().Be("bool");
+        Assert.Equal("bool", result);
     }
 
     [Fact]
@@ -54,7 +53,7 @@ public class TypeMappingConfigTests
 
         var result = config.Resolve(JsonSchemaType.Array, null);
 
-        result.Should().BeNull();
+        Assert.Null(result);
     }
 
     [Fact]
@@ -64,7 +63,7 @@ public class TypeMappingConfigTests
 
         var result = config.Resolve(null, null);
 
-        result.Should().BeNull();
+        Assert.Null(result);
     }
 
     [Fact]
@@ -78,7 +77,7 @@ public class TypeMappingConfigTests
 
         var result = config.Resolve(JsonSchemaType.String, "date-time");
 
-        result.Should().Be("DateTimeOffset");
+        Assert.Equal("DateTimeOffset", result);
     }
 
     [Fact]
@@ -92,7 +91,7 @@ public class TypeMappingConfigTests
 
         var result = config.Resolve(JsonSchemaType.Integer, null);
 
-        result.Should().Be("long");
+        Assert.Equal("long", result);
     }
 
     [Fact]
@@ -106,7 +105,7 @@ public class TypeMappingConfigTests
 
         var result = config.Resolve(JsonSchemaType.String, "email");
 
-        result.Should().Be("EmailAddress");
+        Assert.Equal("EmailAddress", result);
     }
 
     [Fact]
@@ -119,9 +118,9 @@ public class TypeMappingConfigTests
         var config = new TypeMappingConfig(customMappings);
 
         // Other string format mappings should remain unchanged
-        config.Resolve(JsonSchemaType.String, "date").Should().Be("NodaTime.LocalDate");
-        config.Resolve(JsonSchemaType.String, "uuid").Should().Be("System.Guid");
-        config.Resolve(JsonSchemaType.String, null).Should().Be("string");
+        Assert.Equal("NodaTime.LocalDate", config.Resolve(JsonSchemaType.String, "date"));
+        Assert.Equal("System.Guid", config.Resolve(JsonSchemaType.String, "uuid"));
+        Assert.Equal("string", config.Resolve(JsonSchemaType.String, null));
     }
 
     [Fact]
@@ -129,14 +128,22 @@ public class TypeMappingConfigTests
     {
         var defaults = TypeMappingConfig.GetDefaults();
 
-        defaults.Should().ContainKey("string").WhoseValue.Should().Be("string");
-        defaults.Should().ContainKey("string:date-time").WhoseValue.Should().Be("NodaTime.Instant");
-        defaults.Should().ContainKey("string:uuid").WhoseValue.Should().Be("System.Guid");
-        defaults.Should().ContainKey("integer").WhoseValue.Should().Be("int");
-        defaults.Should().ContainKey("integer:int64").WhoseValue.Should().Be("long");
-        defaults.Should().ContainKey("number").WhoseValue.Should().Be("double");
-        defaults.Should().ContainKey("number:float").WhoseValue.Should().Be("float");
-        defaults.Should().ContainKey("boolean").WhoseValue.Should().Be("bool");
+        Assert.True(defaults.ContainsKey("string"));
+        Assert.Equal("string", defaults["string"]);
+        Assert.True(defaults.ContainsKey("string:date-time"));
+        Assert.Equal("NodaTime.Instant", defaults["string:date-time"]);
+        Assert.True(defaults.ContainsKey("string:uuid"));
+        Assert.Equal("System.Guid", defaults["string:uuid"]);
+        Assert.True(defaults.ContainsKey("integer"));
+        Assert.Equal("int", defaults["integer"]);
+        Assert.True(defaults.ContainsKey("integer:int64"));
+        Assert.Equal("long", defaults["integer:int64"]);
+        Assert.True(defaults.ContainsKey("number"));
+        Assert.Equal("double", defaults["number"]);
+        Assert.True(defaults.ContainsKey("number:float"));
+        Assert.Equal("float", defaults["number:float"]);
+        Assert.True(defaults.ContainsKey("boolean"));
+        Assert.Equal("bool", defaults["boolean"]);
     }
 
     [Fact]
@@ -151,7 +158,7 @@ public class TypeMappingConfigTests
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" };
         var result = context.GetCSharpType(schema);
 
-        result.FullName.Should().Be("DateTimeOffset");
+        Assert.Equal("DateTimeOffset", result.FullName);
     }
 
     [Fact]
@@ -167,6 +174,6 @@ public class TypeMappingConfigTests
         var schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" };
         var result = context.GetCSharpType(schema);
 
-        result.FullName.Should().Be("System.Guid");
+        Assert.Equal("System.Guid", result.FullName);
     }
 }
