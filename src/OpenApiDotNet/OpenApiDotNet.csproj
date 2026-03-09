@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
@@ -10,7 +10,8 @@
 		<ToolCommandName>openapi-dotnet-generator</ToolCommandName>
 
 		<!-- NuGet metadata -->
-		<PackageId>OpenApiDotNet</PackageId>
+		<PackageId>openapi-dotnet-generator</PackageId>
+    <Version>0.9.0</Version>
 		<Description>A modern OpenAPI client code generator for .NET with NodaTime support</Description>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>

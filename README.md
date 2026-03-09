@@ -96,11 +96,11 @@ Enum values are converted to PascalCase members (e.g., `extra-large` → `ExtraL
 
 ```bash
 # Install globally
-dotnet tool install -g OpenApiDotNet
+dotnet tool install -g openapi-dotnet-generator
 
 # Or install as a local tool
 dotnet new tool-manifest   # if you don't have one yet
-dotnet tool install OpenApiDotNet
+dotnet tool install openapi-dotnet-generator
 ```
 
 ### Build from Source
