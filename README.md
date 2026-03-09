@@ -164,7 +164,7 @@ The `update` command automatically tracks generated files. When the OpenAPI spec
 Convert an OpenAPI specification to a different version and/or format:
 
 ```bash
-# Convert to OpenAPI 3.1 JSON (default)
+# Convert to OpenAPI 3.2 JSON (default)
 openapi-dotnet-generator convert petstore.yaml output.json
 
 # Convert to OpenAPI 2.0 (Swagger) JSON
@@ -181,7 +181,7 @@ openapi-dotnet-generator convert api.yaml api-v32.yaml -v 3.2 -f yaml
 |---|---|---|
 | `<openapi-file>` | Path to the OpenAPI specification file to convert | *required* |
 | `<output-file>` | Path for the converted output file | *required* |
-| `-v`, `--version` | Target OpenAPI version (`2.0`, `3.0`, `3.1`, `3.2`) | `3.1` |
+| `-v`, `--version` | Target OpenAPI version (`2.0`, `3.0`, `3.1`, `3.2`) | `3.2` |
 | `-f`, `--format` | Output format (`json`, `yaml`) | `json` |
 
 ### Shell Tab-Completion
@@ -265,16 +265,19 @@ Generated/
 │   └── PetStatus.cs
 ├── Builders/
 │   ├── PetsBuilder.cs
-│   ├── PetsIdBuilder.cs
-│   ├── PhotosBuilder.cs
-│   └── PhotosIdBuilder.cs
+│   └── Pets/
+│       ├── IdBuilder.cs
+│       └── Id/
+│           ├── PhotosBuilder.cs
+│           └── Photos/
+│               └── IdBuilder.cs
 ├── IOpenApiBuilder.cs
 ├── IOpenApiClient.cs
 ├── IPetStoreClient.cs
 └── .openapidotnet.json
 ```
 
-Each API path segment gets its own builder class. Static segments (e.g., `/pets`) produce a `PetsBuilder`, while parameterized segments (e.g., `/{petId}`) produce a `PetsIdBuilder`. When the same segment name appears at different tree positions (e.g., `/pets` and `/owners/{ownerId}/pets`), the generator resolves collisions by prefixing with ancestor context (e.g., `OwnersIdPetsBuilder`).
+Each API path segment gets its own builder class. Static segments (e.g., `/pets`) produce a `PetsBuilder` in the `Builders` folder, while parameterized segments (e.g., `/{petId}`) produce an `IdBuilder` nested inside a subfolder matching the parent segment (e.g., `Builders/Pets/IdBuilder.cs`). When the same segment name appears at different tree positions (e.g., `/pets` and `/owners/{ownerId}/pets`), the nested folder structure naturally avoids collisions.
 
 The `.openapidotnet.json` file stores the generation parameters so the client can be re-generated with the `update` command:
 
@@ -337,7 +340,7 @@ namespace PetStoreClient.Models;
 /// <summary>
 /// A pet in the store
 /// </summary>
-public class Pet
+public partial class Pet
 {
     /// <summary>
     /// Unique identifier for the pet
@@ -426,23 +429,25 @@ public interface IPetStoreClient : IOpenApiClient
 ```csharp
 namespace PetStoreClient.Builders;
 
-public class PetsBuilder : IOpenApiBuilder
+public partial class PetsBuilder : IOpenApiBuilder
 {
     private readonly IOpenApiBuilder _parentBuilder;
 
-#pragma warning disable CS8618
+    #pragma warning disable CS8618
     protected PetsBuilder() { }
-#pragma warning restore CS8618
+    #pragma warning restore CS8618
 
     public PetsBuilder(IOpenApiBuilder parentBuilder)
     {
         _parentBuilder = parentBuilder;
     }
 
-    public IOpenApiClient Client => _parentBuilder.Client;
     public string GetPath() => $"{_parentBuilder.GetPath()}/pets";
 
-    public virtual PetStoreClient.Builders.PetsIdBuilder this[long petId]
+
+    public IOpenApiClient Client => _parentBuilder.Client;
+
+    public virtual PetStoreClient.Builders.Pets.IdBuilder this[long petId]
     {
         get => new(this, petId);
     }
@@ -475,27 +480,29 @@ public class PetsBuilder : IOpenApiBuilder
 ```
 
 ```csharp
-namespace PetStoreClient.Builders;
+namespace PetStoreClient.Builders.Pets;
 
-public class PetsIdBuilder : IOpenApiBuilder
+public partial class IdBuilder : IOpenApiBuilder
 {
     private readonly IOpenApiBuilder _parentBuilder;
+
+    #pragma warning disable CS8618
+    protected IdBuilder() { }
+    #pragma warning restore CS8618
+
     private readonly long _petId;
 
-#pragma warning disable CS8618
-    protected PetsIdBuilder() { }
-#pragma warning restore CS8618
-
-    public PetsIdBuilder(IOpenApiBuilder parentBuilder, long petId)
+    public IdBuilder(IOpenApiBuilder parentBuilder, long petId)
     {
         _parentBuilder = parentBuilder;
         _petId = petId;
     }
 
-    public IOpenApiClient Client => _parentBuilder.Client;
     public string GetPath() => $"{_parentBuilder.GetPath()}/{_petId}";
 
-    public virtual PetStoreClient.Builders.PhotosBuilder Photos => new(this);
+    public IOpenApiClient Client => _parentBuilder.Client;
+
+    public virtual PetStoreClient.Builders.Pets.Id.PhotosBuilder Photos => new(this);
 
     /// <summary>
     /// Get a pet by ID
@@ -545,7 +552,7 @@ When a response schema is defined inline (not via `$ref`), the generator creates
 
 ```csharp
 // Generated StatsBuilder.cs
-public class StatsBuilder : IOpenApiBuilder
+public partial class StatsBuilder : IOpenApiBuilder
 {
     // ... builder infrastructure ...
 
@@ -567,7 +574,7 @@ public class StatsBuilder : IOpenApiBuilder
         throw new System.InvalidOperationException($"Response from {url} is null");
     }
 
-    public class GetResponse
+    public partial class GetResponse
     {
         [System.Text.Json.Serialization.JsonPropertyName("totalCount")]
         public int? TotalCount { get; set; }
@@ -760,14 +767,14 @@ OpenAPI Schemas → Model Generator → Models/*.cs
 The path tree maps URL structure to builder hierarchy:
 
 ```
-/pets                          → PetsBuilder (operations: Get, Post)
-/pets/{petId}                  → PetsIdBuilder (operations: Get, Delete)
-/pets/{petId}/photos/{photoId} → PhotosBuilder + PhotosIdBuilder (operation: Get)
-/owners/{ownerId}/pets/{petId} → OwnersBuilder + OwnersIdBuilder
-                                 + OwnersIdPetsBuilder + OwnersIdPetsIdBuilder
+/pets                          → Builders.PetsBuilder (operations: Get, Post)
+/pets/{petId}                  → Builders.Pets.IdBuilder (operations: Get, Delete)
+/pets/{petId}/photos/{photoId} → Builders.Pets.Id.PhotosBuilder + Builders.Pets.Id.Photos.IdBuilder (operation: Get)
+/owners/{ownerId}/pets/{petId} → Builders.OwnersBuilder + Builders.Owners.IdBuilder
+                                 + Builders.Owners.Id.PetsBuilder + Builders.Owners.Id.Pets.IdBuilder
 ```
 
-When the same segment name appears at multiple tree positions, context-prefixed names are assigned automatically to avoid collisions.
+Static segments produce a named builder (e.g., `PetsBuilder`), while parameterized segments produce an `IdBuilder` nested inside a subfolder matching the parent segment. The nested folder structure naturally avoids collisions when the same segment name appears at different tree positions.
 
 ### Type Mapping Logic
 
@@ -851,8 +858,8 @@ Other types
 The generator follows standard .NET naming conventions:
 
 - **Model Classes**: PascalCase (e.g., `Pet`, `NewPet`)
-- **Builder Classes**: `{Segment}Builder` / `{Segment}IdBuilder` (e.g., `PetsBuilder`, `PetsIdBuilder`)
-- **Collision Resolution**: Context-prefixed names when the same segment appears at multiple tree positions (e.g., `OwnersIdPetsBuilder` for `/owners/{ownerId}/pets`)
+- **Builder Classes**: `{Segment}Builder` for static segments, `IdBuilder` in a nested namespace for parameterized segments (e.g., `Builders.PetsBuilder`, `Builders.Pets.IdBuilder`)
+- **Collision Resolution**: Nested folder/namespace structure naturally avoids collisions when the same segment name appears at different tree positions
 - **Properties**: PascalCase (e.g., `BirthDate`, `CreatedAt`)
 - **Method Parameters**: camelCase (e.g., `petId`, `limit`)
 - **JSON Properties**: Preserved from OpenAPI spec (typically camelCase)

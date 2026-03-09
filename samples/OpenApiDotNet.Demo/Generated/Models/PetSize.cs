@@ -1,4 +1,4 @@
-namespace PetStore.Models;
+﻿namespace PetStore.Models;
 
 /// <summary>
 /// Tests: component-level string enum with a hyphenated member name (extra-large) that requires JsonStringEnumMemberName to preserve the wire value
