@@ -203,16 +203,17 @@ internal class GenerationService
         }
 
         // OpenAPI Overlay spec only supports v3+.
-        // If the input is a Swagger 2.0 spec, convert it to OpenAPI 3.1 in-memory before applying overlays.
-        bool isV2 = await IsSwaggerV2Async(openApiFile);
+        // Load the document to check its version; if it is Swagger 2.0, convert it to OpenAPI 3.1
+        // in-memory before applying overlays so that overlay JSON-path targets work correctly.
+        var (loadedDocument, loadDiagnostic) = await LoadOpenApiDocumentWithDiagnosticAsync(openApiFile);
+        bool isV2 = loadDiagnostic?.SpecificationVersion == OpenApiSpecVersion.OpenApi2_0;
         if (isV2)
             Logger.LogInformation("OpenAPI v2 (Swagger) spec detected. Converting to OpenAPI 3.1 before applying overlays...");
 
-        // When isV2 is true, ownership of the MemoryStream is transferred here and disposed by the using statement.
-        using var openApiStream = isV2
-            ? await ConvertV2ToV3StreamAsync(openApiFile)
-            : openApiFile.CreateReadStream();
         // Converted v2 streams are always serialized as JSON; detect format only for original v3 files.
+        using var openApiStream = isV2
+            ? await SerializeToV3StreamAsync(loadedDocument)
+            : openApiFile.CreateReadStream();
         var openApiFormat = isV2 ? "json" : DetectFormat(openApiFile.Name);
 
         var (result, overlayDiagnostic) = await overlayDocument.ApplyToDocumentStreamAndLoadAsync(openApiStream, new Uri(openApiFile.PhysicalPath ?? "file:///document"), openApiFormat, readerSettings);
@@ -234,33 +235,15 @@ internal class GenerationService
         return result ?? throw new InvalidOperationException("Can not load document after applying overlays");
     }
 
-    private async Task<MemoryStream> ConvertV2ToV3StreamAsync(IFileInfo openApiFile)
+    private static async Task<MemoryStream> SerializeToV3StreamAsync(OpenApiDocument document)
     {
-        var document = await LoadOpenApiDocumentAsync(openApiFile);
         var memoryStream = new MemoryStream();
         await document.SerializeAsync(memoryStream, OpenApiSpecVersion.OpenApi3_1, "json", default);
         memoryStream.Position = 0;
         return memoryStream;
     }
 
-    private static async Task<bool> IsSwaggerV2Async(IFileInfo file)
-    {
-        using var stream = file.CreateReadStream();
-        using var reader = new StreamReader(stream, leaveOpen: false);
-        char[] buffer = new char[512];
-        int read = await reader.ReadBlockAsync(buffer, 0, buffer.Length);
-        var beginning = new string(buffer, 0, read);
-        // JSON Swagger 2.0 specs have a top-level "swagger": "2.0" field.
-        // YAML Swagger 2.0 specs have a top-level `swagger: "2.0"` or `swagger: '2.0'` field.
-        return beginning.Contains("\"swagger\"", StringComparison.OrdinalIgnoreCase)
-            && beginning.Contains("\"2.0\"", StringComparison.OrdinalIgnoreCase)
-            || beginning.Contains("swagger:", StringComparison.OrdinalIgnoreCase)
-            && (beginning.Contains("\"2.0\"", StringComparison.OrdinalIgnoreCase)
-                || beginning.Contains("'2.0'", StringComparison.OrdinalIgnoreCase)
-                || System.Text.RegularExpressions.Regex.IsMatch(beginning, @"swagger\s*:\s*2\.0", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
-    }
-
-    private async Task<OpenApiDocument> LoadOpenApiDocumentAsync(IFileInfo openApiFile)
+    private async Task<(OpenApiDocument, OpenApiDiagnostic?)> LoadOpenApiDocumentWithDiagnosticAsync(IFileInfo openApiFile)
     {
         using var stream = openApiFile.CreateReadStream();
         var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, DetectFormat(openApiFile.Name), s_openApiReaderSettings);
@@ -279,7 +262,13 @@ internal class GenerationService
                 Logger.LogWarning("  - {WarningMessage}", warning.Message);
         }
 
-        return document ?? throw new InvalidOperationException($"Can not load document from {openApiFile.PhysicalPath ?? openApiFile.Name}");
+        return (document ?? throw new InvalidOperationException($"Can not load document from {openApiFile.PhysicalPath ?? openApiFile.Name}"), diagnostic);
+    }
+
+    private async Task<OpenApiDocument> LoadOpenApiDocumentAsync(IFileInfo openApiFile)
+    {
+        var (document, _) = await LoadOpenApiDocumentWithDiagnosticAsync(openApiFile);
+        return document;
     }
 
     private static string? DetectFormat(string fileName) =>
