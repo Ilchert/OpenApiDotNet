@@ -11,7 +11,7 @@
 
 		<!-- NuGet metadata -->
 		<PackageId>openapi-dotnet-generator</PackageId>
-    <Version>0.10.0</Version>
+    <Version>0.11.0</Version>
 		<Description>A modern OpenAPI client code generator for .NET with NodaTime support</Description>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
