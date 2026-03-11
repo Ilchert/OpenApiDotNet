@@ -20,6 +20,9 @@ internal class ObjectPropertyGenerator
         Description = schema.Description;
         IsRequired = isRequired;
 
+        if (PropertyName == parentName)
+            PropertyName += "Value";
+
         (TypeName, NestedPropertyTypeGenerator) = GetPropertyType(schema, parentName);
     }
 

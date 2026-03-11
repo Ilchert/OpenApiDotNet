@@ -126,6 +126,27 @@ if (queryString.Count > 0)
                 ? $"var response = await System.Net.Http.Json.HttpClientJsonExtensions.PatchAsJsonAsync(Client.HttpClient, url, {_bodyGenerator!.ParameterName}, Client.JsonOptions, cancellationToken);"
                 : "var response = await Client.HttpClient.PatchAsync(url, null, cancellationToken);");
         }
+        else
+        {
+            var methodUpper = _httpMethod.Method.ToUpperInvariant();
+            if (hasBody)
+            {
+                writer.WriteLine($$"""
+var requestMessage = new System.Net.Http.HttpRequestMessage(new System.Net.Http.HttpMethod("{{methodUpper}}"), url)
+{
+    Content = System.Net.Http.Json.JsonContent.Create({{_bodyGenerator!.ParameterName}}, options: Client.JsonOptions)
+};
+var response = await Client.HttpClient.SendAsync(requestMessage, cancellationToken);
+""");
+            }
+            else
+            {
+                writer.WriteLine($$"""
+var requestMessage = new System.Net.Http.HttpRequestMessage(new System.Net.Http.HttpMethod("{{methodUpper}}"), url);
+var response = await Client.HttpClient.SendAsync(requestMessage, cancellationToken);
+""");
+            }
+        }
 
         writer.WriteLine("response.EnsureSuccessStatusCode();");
 

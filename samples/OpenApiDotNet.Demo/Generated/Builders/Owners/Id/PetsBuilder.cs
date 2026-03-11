@@ -1,4 +1,6 @@
-﻿namespace PetStore.Builders.Owners.Id;
+﻿#nullable enable
+
+namespace PetStore.Builders.Owners.Id;
 
 public partial class PetsBuilder : IOpenApiBuilder
 {

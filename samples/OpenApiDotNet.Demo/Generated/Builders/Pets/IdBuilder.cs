@@ -1,4 +1,6 @@
-﻿namespace PetStore.Builders.Pets;
+﻿#nullable enable
+
+namespace PetStore.Builders.Pets;
 
 public partial class IdBuilder : IOpenApiBuilder
 {
@@ -16,7 +18,7 @@ public partial class IdBuilder : IOpenApiBuilder
         _petId = petId;
     }
 
-    public string GetPath() => $"{_parentBuilder.GetPath()}/{_petId}";
+    public string GetPath() => $"{_parentBuilder.GetPath()}/{System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(_petId, Client.JsonOptions).Trim('"'))}";
 
     public IOpenApiClient Client => _parentBuilder.Client;
 

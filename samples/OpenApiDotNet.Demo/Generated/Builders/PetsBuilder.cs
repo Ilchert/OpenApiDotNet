@@ -1,4 +1,6 @@
-﻿namespace PetStore.Builders;
+﻿#nullable enable
+
+namespace PetStore.Builders;
 
 public partial class PetsBuilder : IOpenApiBuilder
 {
@@ -37,7 +39,7 @@ public partial class PetsBuilder : IOpenApiBuilder
             queryString.Add($"limit={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(limitValue, Client.JsonOptions).Trim('"'))}");
         if (tags != null)
             foreach (var item in tags)
-                queryString.Add($"tags={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(item, Client.JsonOptions).Trim('"'))}");
+                queryString.Add($"tags={System.Uri.EscapeDataString(item)}");
 
         if (status is {} statusValue)
             queryString.Add($"status={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(statusValue, Client.JsonOptions).Trim('"'))}");

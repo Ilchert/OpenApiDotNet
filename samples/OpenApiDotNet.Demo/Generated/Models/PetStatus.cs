@@ -1,4 +1,6 @@
-﻿namespace PetStore.Models;
+﻿#nullable enable
+
+namespace PetStore.Models;
 
 /// <summary>
 /// Tests: component-level string enum; all member names map directly to PascalCase without JsonStringEnumMemberName (available, pending, sold)

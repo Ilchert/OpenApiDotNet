@@ -234,8 +234,8 @@ public class OpenApiGeneratorTests
         // Optional parameter should be nullable
         Assert.Contains("int? limit", content);
 
-        // Required parameter should always be added to query string (no null check)
-        Assert.Contains("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(category, Client.JsonOptions)", content);
+        // Required string parameter should use EscapeDataString directly (no JsonSerializer)
+        Assert.Contains("System.Uri.EscapeDataString(category)", content);
         Assert.DoesNotContain("if (category != null)", content);
 
         // Optional parameter should have null check using pattern matching (avoids CS8604)
@@ -284,10 +284,10 @@ public class OpenApiGeneratorTests
         // Required list parameter should iterate without null check
         Assert.Contains("foreach (var item in statuses)", content);
 
-        // Each item should be individually escaped and added with the parameter name
-        Assert.Contains("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(item, Client.JsonOptions)", content);
+        // String items should use EscapeDataString directly (no JsonSerializer)
+        Assert.Contains("System.Uri.EscapeDataString(item)", content);
 
-        // Scalar parameter should use pattern matching to avoid CS8604
+        // Non-string scalar parameter should use JsonSerializer with pattern matching to avoid CS8604
         Assert.Contains("if (limit is {} limitValue)", content);
         Assert.Contains("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(limitValue, Client.JsonOptions)", content);
     }
@@ -1269,5 +1269,174 @@ public class OpenApiGeneratorTests
 
         Assert.DoesNotContain(Path.Combine("Models", "NewPet.cs"), secondFiles);
         Assert.Contains(Path.Combine("Models", "Pet.cs"), secondFiles);
+    }
+
+    [Fact]
+    public void Generate_PropertyNameMatchesTypeName_AppendsSuffix()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "Status": {
+                    "type": "object",
+                    "required": ["status"],
+                    "properties": {
+                      "status": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Models/Status.cs"];
+        Assert.Contains("public partial class Status", content);
+        Assert.Contains("public required string StatusValue", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"status\")]", content);
+    }
+
+    [Fact]
+    public void Generate_EnumWithDuplicatePascalCaseNames_Disambiguates()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "Style": {
+                    "type": "string",
+                    "enum": ["my_value", "my-value", "other"]
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Models/Style.cs"];
+        Assert.Contains("MyValue,", content);
+        Assert.Contains("MyValue2,", content);
+        Assert.Contains("Other,", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonStringEnumMemberName(\"my-value\")]", content);
+    }
+
+    [Fact]
+    public void Generate_WithKeywordParameterName_EscapesWithAtSign()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items": {
+                  "get": {
+                    "operationId": "listItems",
+                    "parameters": [
+                      { "name": "class", "in": "query", "required": true, "schema": { "type": "string" } }
+                    ],
+                    "responses": { "200": { "description": "ok" } }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Builders/ItemsBuilder.cs"];
+        Assert.Contains("string @class", content);
+    }
+
+    [Fact]
+    public void Generate_StringPathParameter_UrlEncodesInGetPath()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items/{slug}": {
+                  "get": {
+                    "operationId": "getItem",
+                    "parameters": [{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }],
+                    "responses": { "200": { "description": "ok" } }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Builders/Items/IdBuilder.cs"];
+        Assert.Contains("System.Uri.EscapeDataString(_slug)", content);
+    }
+
+    [Fact]
+    public void Generate_IntPathParameter_UsesJsonSerializerWithUrlEncoding()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items/{id}": {
+                  "get": {
+                    "operationId": "getItem",
+                    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+                    "responses": { "200": { "description": "ok" } }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Builders/Items/IdBuilder.cs"];
+        Assert.Contains("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(_id, Client.JsonOptions)", content);
+    }
+
+    [Fact]
+    public void Generate_AllFiles_ContainNullableEnableDirective()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/pets": {
+                  "get": { "operationId": "listPets", "responses": { "200": { "description": "ok" } } }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "Pet": { "type": "object", "properties": { "name": { "type": "string" } } }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        foreach (var (path, content) in _output.Files)
+        {
+            Assert.StartsWith("#nullable enable", content.TrimStart());
+        }
     }
 }

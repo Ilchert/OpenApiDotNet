@@ -1,4 +1,6 @@
-﻿namespace PetStore.Models;
+﻿#nullable enable
+
+namespace PetStore.Models;
 
 /// <summary>
 /// Tests: component object schema used as a $ref request body; one required string property; optional string and date properties

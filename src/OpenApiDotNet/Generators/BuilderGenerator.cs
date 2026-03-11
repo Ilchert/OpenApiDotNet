@@ -15,12 +15,13 @@ internal class BuilderGenerator : BaseGenerator
         TypeInfo = node.BuilderName;
         IsParameter = node.IsParameter;
         SegmentName = node.SegmentName;
-        
+
         if (node.IsParameter)
         {
             ParameterType = node.ParameterSchema != null ? context.GetCSharpType(node.ParameterSchema).FullName : "string";
             ParameterCamelName = NamingConventions.ToCamelCase(node.ParameterName ?? "id");
-            ParameterFieldName = $"_{ParameterCamelName}";
+            var rawCamelName = ParameterCamelName.TrimStart('@');
+            ParameterFieldName = $"_{rawCamelName}";
         }
 
         foreach (var (_, child) in node.Children)
@@ -46,6 +47,10 @@ public partial class {{TypeInfo.Name}} : IOpenApiBuilder
 
         if (IsParameter)
         {
+            var pathExpression = ParameterType == "string"
+                ? $"{{System.Uri.EscapeDataString({ParameterFieldName})}}"
+                : $"{{System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize({ParameterFieldName}, Client.JsonOptions).Trim('\"'))}}";
+
             writer.WriteLine($$"""
 private readonly {{ParameterType}} {{ParameterFieldName}};
 
@@ -55,7 +60,7 @@ public {{TypeInfo.Name}}(IOpenApiBuilder parentBuilder, {{ParameterType}} {{Para
     {{ParameterFieldName}} = {{ParameterCamelName}};
 }
 
-public string GetPath() => $"{_parentBuilder.GetPath()}/{{{ParameterFieldName}}}";
+public string GetPath() => $"{_parentBuilder.GetPath()}/{{pathExpression}}";
 """);
         }
         else

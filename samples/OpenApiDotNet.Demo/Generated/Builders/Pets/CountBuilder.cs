@@ -1,4 +1,6 @@
-﻿namespace PetStore.Builders.Pets;
+﻿#nullable enable
+
+namespace PetStore.Builders.Pets;
 
 public partial class CountBuilder : IOpenApiBuilder
 {
@@ -26,7 +28,7 @@ public partial class CountBuilder : IOpenApiBuilder
         var url = GetPath();
         var queryString = new System.Collections.Generic.List<string>();
 
-        queryString.Add($"species={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(species, Client.JsonOptions).Trim('"'))}");
+        queryString.Add($"species={System.Uri.EscapeDataString(species)}");
         queryString.Add($"minAge={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(minAge, Client.JsonOptions).Trim('"'))}");
         if (vaccinated is {} vaccinatedValue)
             queryString.Add($"vaccinated={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(vaccinatedValue, Client.JsonOptions).Trim('"'))}");

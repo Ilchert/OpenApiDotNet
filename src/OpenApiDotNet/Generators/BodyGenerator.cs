@@ -29,7 +29,7 @@ internal class BodyGenerator
         ParameterName = "request";
         if (requestBody.Extensions?.TryGetValue("x-bodyName", out var bodyNameExt) == true
             && bodyNameExt is JsonNodeExtension { Node: { } bodyNameNode })
-            ParameterName = bodyNameNode.GetValue<string>();
+            ParameterName = NamingConventions.ToCamelCase(bodyNameNode.GetValue<string>());
         IsRequired = requestBody.Required;
     }
 }

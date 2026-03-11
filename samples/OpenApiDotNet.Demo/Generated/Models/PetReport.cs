@@ -1,4 +1,6 @@
-﻿namespace PetStore.Models;
+﻿#nullable enable
+
+namespace PetStore.Models;
 
 /// <summary>
 /// Tests: component object schema with an inline enum property (priority) generating a nested enum type inside the model class; inline object property (location) generating a nested class inside the model class
