@@ -1270,4 +1270,174 @@ public class OpenApiGeneratorTests
         Assert.DoesNotContain(Path.Combine("Models", "NewPet.cs"), secondFiles);
         Assert.Contains(Path.Combine("Models", "Pet.cs"), secondFiles);
     }
+
+    [Fact]
+    public void Generate_PropertyNameMatchesTypeName_AppendsSuffix()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "Status": {
+                    "type": "object",
+                    "required": ["status"],
+                    "properties": {
+                      "status": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Models/Status.cs"];
+        Assert.Contains("public partial class Status", content);
+        Assert.Contains("public required string StatusValue", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonPropertyName(\"status\")]", content);
+    }
+
+    [Fact]
+    public void Generate_EnumWithDuplicatePascalCaseNames_Disambiguates()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {},
+              "components": {
+                "schemas": {
+                  "Style": {
+                    "type": "string",
+                    "enum": ["my_value", "my-value", "other"]
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Models/Style.cs"];
+        Assert.Contains("MyValue,", content);
+        Assert.Contains("MyValue2,", content);
+        Assert.Contains("Other,", content);
+        Assert.Contains("[System.Text.Json.Serialization.JsonStringEnumMemberName(\"my-value\")]", content);
+    }
+
+    [Fact]
+    public void Generate_WithKeywordParameterName_EscapesWithAtSign()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items": {
+                  "get": {
+                    "operationId": "listItems",
+                    "parameters": [
+                      { "name": "class", "in": "query", "required": true, "schema": { "type": "string" } }
+                    ],
+                    "responses": { "200": { "description": "ok" } }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Builders/ItemsBuilder.cs"];
+        Assert.Contains("string @class", content);
+    }
+
+    [Fact]
+    public void Generate_StringPathParameter_UrlEncodesInGetPath()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items/{slug}": {
+                  "get": {
+                    "operationId": "getItem",
+                    "parameters": [{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }],
+                    "responses": { "200": { "description": "ok" } }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Builders/Items/IdBuilder.cs"];
+        Assert.Contains("System.Uri.EscapeDataString(_slug)", content);
+    }
+
+    [Fact]
+    public void Generate_IntPathParameter_NoUrlEncoding()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items/{id}": {
+                  "get": {
+                    "operationId": "getItem",
+                    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+                    "responses": { "200": { "description": "ok" } }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Builders/Items/IdBuilder.cs"];
+        Assert.DoesNotContain("EscapeDataString", content);
+        Assert.Contains("{_id}", content);
+    }
+
+    [Fact]
+    public void Generate_AllFiles_ContainNullableEnableDirective()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/pets": {
+                  "get": { "operationId": "listPets", "responses": { "200": { "description": "ok" } } }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "Pet": { "type": "object", "properties": { "name": { "type": "string" } } }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        foreach (var (path, content) in _output.Files)
+        {
+            Assert.StartsWith("#nullable enable", content.TrimStart());
+        }
+    }
 }

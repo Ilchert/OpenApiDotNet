@@ -19,6 +19,8 @@ internal abstract class BaseGenerator
 
     public void WriteWithNamespace(CodeWriter writer)
     {
+        writer.WriteLine("#nullable enable");
+        writer.WriteLine();
         writer.WriteLine($"namespace {TypeInfo.Namespace};");
         writer.WriteLine();
         Write(writer);
