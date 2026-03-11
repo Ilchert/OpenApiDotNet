@@ -1,4 +1,6 @@
-﻿namespace PetStore.Models;
+﻿#nullable enable
+
+namespace PetStore.Models;
 
 /// <summary>
 /// Tests: component object schema; required properties (id: int64, name: string); optional properties of all scalar types (string, date, date-time, bool, double); optional enum $ref properties (PetStatus, PetSize)

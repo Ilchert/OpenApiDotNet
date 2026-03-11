@@ -1,4 +1,6 @@
-﻿namespace PetStore;
+﻿#nullable enable
+
+namespace PetStore;
 
 /// <summary>
 /// Base interface for all fluent API builders

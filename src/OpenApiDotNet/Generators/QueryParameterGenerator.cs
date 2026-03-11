@@ -10,16 +10,28 @@ internal class QueryParameterGenerator
     public string Name { get; }
     public bool IsRequired { get; }
     public bool IsCollection { get; }
+    private string ElementType { get; }
     public QueryParameterGenerator(IOpenApiParameter openApiParameter, GeneratorContext context)
     {
         Name = openApiParameter.Name ?? throw new InvalidOperationException("Parameter name is null");
         ParameterName = NamingConventions.ToCamelCase(openApiParameter.Name);
-        ParameterType = context.GetCSharpType(openApiParameter.Schema ?? throw new InvalidOperationException("Parameter schema is null")).FullName;
+        var schema = openApiParameter.Schema ?? throw new InvalidOperationException("Parameter schema is null");
+        ParameterType = context.GetCSharpType(schema).FullName;
         IsRequired = openApiParameter.Required;
-        IsCollection = openApiParameter.Schema.Type == JsonSchemaType.Array;
+        IsCollection = schema.Type == JsonSchemaType.Array;
+        ElementType = IsCollection && schema.Items != null
+            ? context.GetCSharpType(schema.Items).FullName
+            : ParameterType;
     }
+
+    private string FormatValueExpression(string valueName) =>
+        ElementType == "string"
+            ? $"System.Uri.EscapeDataString({valueName})"
+            : $"System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize({valueName}, Client.JsonOptions).Trim('\"'))";
     public void WriteAddToToQueryString(CodeWriter writer)
     {
+        var itemExpression = FormatValueExpression("item");
+
         if (IsCollection)
         {
             if (!IsRequired)
@@ -27,7 +39,7 @@ internal class QueryParameterGenerator
                 writer.WriteLine($$"""
 if ({{ParameterName}} != null)
     foreach (var item in {{ParameterName}})
-        queryString.Add($"{{Name}}={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(item, Client.JsonOptions).Trim('"'))}");
+        queryString.Add($"{{Name}}={{{itemExpression}}}");
 
 """);
             }
@@ -35,20 +47,22 @@ if ({{ParameterName}} != null)
             {
                 writer.WriteLine($$"""
 foreach (var item in {{ParameterName}})
-    queryString.Add($"{{Name}}={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(item, Client.JsonOptions).Trim('"'))}");
+    queryString.Add($"{{Name}}={{{itemExpression}}}");
 
 """);
             }
         }
         else if (IsRequired)
         {
-            writer.WriteLine($$"""queryString.Add($"{{Name}}={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize({{ParameterName}}, Client.JsonOptions).Trim('"'))}");""");
+            var valueExpression = FormatValueExpression(ParameterName);
+            writer.WriteLine($$"""queryString.Add($"{{Name}}={{{valueExpression}}}");""");
         }
         else
         {
+            var valueExpression = FormatValueExpression($"{ParameterName}Value");
             writer.WriteLine($$"""
 if ({{ParameterName}} is {} {{ParameterName}}Value)
-    queryString.Add($"{{Name}}={System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize({{ParameterName}}Value, Client.JsonOptions).Trim('"'))}");
+    queryString.Add($"{{Name}}={{{valueExpression}}}");
 """);
         }
     }

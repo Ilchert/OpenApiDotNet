@@ -1,4 +1,6 @@
-﻿namespace PetStore.Builders.Owners;
+﻿#nullable enable
+
+namespace PetStore.Builders.Owners;
 
 public partial class IdBuilder : IOpenApiBuilder
 {
@@ -16,7 +18,7 @@ public partial class IdBuilder : IOpenApiBuilder
         _ownerId = ownerId;
     }
 
-    public string GetPath() => $"{_parentBuilder.GetPath()}/{_ownerId}";
+    public string GetPath() => $"{_parentBuilder.GetPath()}/{System.Uri.EscapeDataString(_ownerId)}";
 
     public IOpenApiClient Client => _parentBuilder.Client;
 

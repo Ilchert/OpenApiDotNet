@@ -1,4 +1,6 @@
-﻿namespace PetStore.Builders;
+﻿#nullable enable
+
+namespace PetStore.Builders;
 
 public partial class ClinicsBuilder : IOpenApiBuilder
 {

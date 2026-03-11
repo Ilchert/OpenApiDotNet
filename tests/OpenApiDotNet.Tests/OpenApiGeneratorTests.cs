@@ -234,8 +234,8 @@ public class OpenApiGeneratorTests
         // Optional parameter should be nullable
         Assert.Contains("int? limit", content);
 
-        // Required parameter should always be added to query string (no null check)
-        Assert.Contains("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(category, Client.JsonOptions)", content);
+        // Required string parameter should use EscapeDataString directly (no JsonSerializer)
+        Assert.Contains("System.Uri.EscapeDataString(category)", content);
         Assert.DoesNotContain("if (category != null)", content);
 
         // Optional parameter should have null check using pattern matching (avoids CS8604)
@@ -284,10 +284,10 @@ public class OpenApiGeneratorTests
         // Required list parameter should iterate without null check
         Assert.Contains("foreach (var item in statuses)", content);
 
-        // Each item should be individually escaped and added with the parameter name
-        Assert.Contains("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(item, Client.JsonOptions)", content);
+        // String items should use EscapeDataString directly (no JsonSerializer)
+        Assert.Contains("System.Uri.EscapeDataString(item)", content);
 
-        // Scalar parameter should use pattern matching to avoid CS8604
+        // Non-string scalar parameter should use JsonSerializer with pattern matching to avoid CS8604
         Assert.Contains("if (limit is {} limitValue)", content);
         Assert.Contains("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(limitValue, Client.JsonOptions)", content);
     }
@@ -1386,7 +1386,7 @@ public class OpenApiGeneratorTests
     }
 
     [Fact]
-    public void Generate_IntPathParameter_NoUrlEncoding()
+    public void Generate_IntPathParameter_UsesJsonSerializerWithUrlEncoding()
     {
         var spec = """
             {
@@ -1408,8 +1408,7 @@ public class OpenApiGeneratorTests
         generator.Generate();
 
         var content = _output.Files["Builders/Items/IdBuilder.cs"];
-        Assert.DoesNotContain("EscapeDataString", content);
-        Assert.Contains("{_id}", content);
+        Assert.Contains("System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(_id, Client.JsonOptions)", content);
     }
 
     [Fact]

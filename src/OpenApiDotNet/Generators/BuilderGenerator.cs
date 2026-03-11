@@ -49,7 +49,7 @@ public partial class {{TypeInfo.Name}} : IOpenApiBuilder
         {
             var pathExpression = ParameterType == "string"
                 ? $"{{System.Uri.EscapeDataString({ParameterFieldName})}}"
-                : $"{{{ParameterFieldName}}}";
+                : $"{{System.Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize({ParameterFieldName}, Client.JsonOptions).Trim('\"'))}}";
 
             writer.WriteLine($$"""
 private readonly {{ParameterType}} {{ParameterFieldName}};
