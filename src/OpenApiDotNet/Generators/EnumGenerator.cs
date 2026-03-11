@@ -17,6 +17,22 @@ internal class EnumGenerator : BaseGenerator // Add oneOf support
             throw new InvalidOperationException("Enum schema must have an Enum property.");
         Description = schema.Description;
         EnumMembers = schema.Enum.Select(enumValue => new StringEnumMember(enumValue)).ToList();
+        DisambiguateDuplicateNames();
+    }
+
+    private void DisambiguateDuplicateNames()
+    {
+        var usedNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var member in EnumMembers)
+        {
+            if (!usedNames.Add(member.EnumMemberName))
+            {
+                var suffix = 2;
+                while (!usedNames.Add($"{member.EnumMemberName}{suffix}"))
+                    suffix++;
+                member.EnumMemberName = $"{member.EnumMemberName}{suffix}";
+            }
+        }
     }
 
     public override void Write(CodeWriter writer)

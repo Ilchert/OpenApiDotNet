@@ -5,7 +5,7 @@ namespace OpenApiDotNet.Generators;
 internal class StringEnumMember
 {
     public string Name { get; }
-    public string EnumMemberName { get; }
+    public string EnumMemberName { get; set; }
 
     public StringEnumMember(JsonNode jsonNode)
     {
