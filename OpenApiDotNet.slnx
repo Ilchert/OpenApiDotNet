@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/samples/">
     <Project Path="samples/OpenApiDotNet.Demo/OpenApiDotNet.Demo.csproj" />
+    <Project Path="samples/OpenApiDotNet.SourceGeneratorDemo/OpenApiDotNet.SourceGeneratorDemo.csproj" />
   </Folder>
   <Folder Name="/SolutionItems/">
     <File Path=".editorconfig" />
@@ -9,6 +10,9 @@
     <File Path="IMPLEMENTATION_SUMMARY.md" />
     <File Path="LICENSE" />
     <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/OpenApiDotNet.SourceGenerator/OpenApiDotNet.SourceGenerator.csproj" />
   </Folder>
   <Project Path="src/OpenApiDotNet/OpenApiDotNet.csproj" />
   <Project Path="tests/OpenApiDotNet.Tests/OpenApiDotNet.Tests.csproj" Id="6d7859f1-7362-4f9b-8d1c-3666a3a9a352" />

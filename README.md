@@ -22,6 +22,7 @@ A modern OpenAPI/Swagger client code generator for .NET that produces high-quali
 - 🔧 **Configurable Type Mappings**: Override default OpenAPI-to-.NET type mappings via the configuration file
 - 🔄 **Spec Conversion**: Convert OpenAPI specifications between versions (2.0, 3.0, 3.1, 3.2) and formats (JSON, YAML)
 - 🧩 **OpenAPI Overlays**: Apply [OpenAPI Overlay](https://spec.openapis.org/overlay/latest.html) documents to patch specifications before generation — powered by [BinkyLabs.OpenApi.Overlays](https://www.nuget.org/packages/BinkyLabs.OpenApi.Overlays)
+- 🏗️ **Build-Time Source Generation**: Generate client interfaces, builders, and models directly into consuming projects with the Roslyn source generator package
 
 ## Type Mapping
 
@@ -115,6 +116,69 @@ dotnet build
 ### Prerequisites
 
 - .NET 10.0 SDK or later
+
+## Source Generator
+
+The repository also includes `OpenApiDotNet.SourceGenerator`, a Roslyn analyzer/source generator that emits the same client interfaces, builder types, and models at build time from OpenAPI `AdditionalFiles`.
+
+The source generator keeps the shared generator code in [`src/OpenApiDotNet`](src/OpenApiDotNet) and links the required files into [`src/OpenApiDotNet.SourceGenerator`](src/OpenApiDotNet.SourceGenerator). Package dependencies needed at analyzer runtime are merged into the analyzer assembly with ILRepack so the NuGet package ships a single analyzer DLL.
+
+### Consuming the source generator
+
+Use a package reference after packing/publishing the analyzer, or a project reference while working in this repository:
+
+```xml
+<ItemGroup>
+  <PackageReference Include="OpenApiDotNet.SourceGenerator" Version="0.11.0" PrivateAssets="all" />
+  <AdditionalFiles Include="OpenApi\petstore.json" />
+</ItemGroup>
+```
+
+```xml
+<ItemGroup>
+  <ProjectReference Include="..\src\OpenApiDotNet.SourceGenerator\OpenApiDotNet.SourceGenerator.csproj"
+                    OutputItemType="Analyzer"
+                    ReferenceOutputAssembly="false" />
+  <AdditionalFiles Include="OpenApi\petstore.json" />
+</ItemGroup>
+```
+
+See [`samples/OpenApiDotNet.SourceGeneratorDemo/OpenApiDotNet.SourceGeneratorDemo.csproj`](samples/OpenApiDotNet.SourceGeneratorDemo/OpenApiDotNet.SourceGeneratorDemo.csproj) for the project-reference setup used in this repository.
+
+### Supported inputs
+
+- `AdditionalFiles` entries ending in `.json`, `.yaml`, or `.yml`
+- One OpenAPI document per consuming project build
+- Source-generator configuration through MSBuild properties
+
+### Supported options
+
+The source generator currently reads these MSBuild properties:
+
+| Property | Purpose | Notes |
+|---|---|---|
+| `RootNamespace` | Sets the generated namespace root | Falls back to `GeneratedClient` when omitted |
+| `OpenApiDotNetClientName` | Overrides the generated client interface name | Add a matching `CompilerVisibleProperty` item so the analyzer can read it |
+| `OpenApiDotNetUseNodaTime` | Switches date/time mappings to NodaTime overrides | Add a matching `CompilerVisibleProperty` item and reference `NodaTime` in the consuming project |
+
+Example:
+
+```xml
+<PropertyGroup>
+  <OpenApiDotNetClientName>PetStoreAPIClient</OpenApiDotNetClientName>
+</PropertyGroup>
+
+<ItemGroup>
+  <CompilerVisibleProperty Include="OpenApiDotNetClientName" />
+</ItemGroup>
+```
+
+### Current limitations
+
+- Source-generator mode does not create `.openapidotnet.json`
+- CLI-only features such as overlays, `update`, and `convert` are not available through the analyzer
+- If more than one supported OpenAPI file is included, the generator reports warning `OADNSG001` and uses the first matching file
+- Invalid or unreadable specs report error `OADNSG002`
 
 ## Usage
 

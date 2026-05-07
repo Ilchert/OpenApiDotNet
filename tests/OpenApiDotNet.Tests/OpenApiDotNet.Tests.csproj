@@ -32,6 +32,9 @@
 
   <ItemGroup>
 	<ProjectReference Include="..\..\src\OpenApiDotNet\OpenApiDotNet.csproj" />
+	<ProjectReference Include="..\..\src\OpenApiDotNet.SourceGenerator\OpenApiDotNet.SourceGenerator.csproj">
+	  <Aliases>sourcegen</Aliases>
+	</ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
