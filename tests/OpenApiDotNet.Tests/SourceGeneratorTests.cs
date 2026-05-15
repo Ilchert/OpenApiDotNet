@@ -1,6 +1,7 @@
 extern alias sourcegen;
 
 using System.IO.Compression;
+using System.Runtime.Versioning;
 using Microsoft.CodeAnalysis;
 using OpenApiSourceGenerator = sourcegen::OpenApiDotNet.SourceGenerator.OpenApiSourceGenerator;
 
@@ -159,6 +160,18 @@ public class SourceGeneratorTests
         var referencedAssemblies = typeof(OpenApiSourceGenerator).Assembly.GetReferencedAssemblies();
 
         Assert.DoesNotContain(referencedAssemblies, static assemblyName => string.Equals(assemblyName.Name, "Microsoft.Extensions.FileProviders.Abstractions", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void SourceGeneratorAssembly_TargetsNetStandard20()
+    {
+        var targetFramework = typeof(OpenApiSourceGenerator).Assembly
+            .GetCustomAttributes(typeof(TargetFrameworkAttribute), false)
+            .OfType<TargetFrameworkAttribute>()
+            .SingleOrDefault()?
+            .FrameworkName;
+
+        Assert.Equal(".NETStandard,Version=v2.0", targetFramework);
     }
 
     [Fact]

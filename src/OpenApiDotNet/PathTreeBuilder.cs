@@ -19,20 +19,22 @@ internal static class PathTreeBuilder
         if (paths == null)
             return root;
 
-        foreach (var (pathKey, pathItem) in paths)
+        foreach (var pathEntry in paths)
         {
+            var pathKey = pathEntry.Key;
+            var pathItem = pathEntry.Value;
             var current = root;
 
             foreach (var segment in pathKey.Split('/', StringSplitOptions.RemoveEmptyEntries))
             {
                 if (!current.Children.TryGetValue(segment, out var child))
                 {
-                    var isParam = segment is ['{', .., '}'];
+                    var isParam = segment.Length > 1 && segment[0] == '{' && segment[segment.Length - 1] == '}';
                     child = new PathSegmentNode
                     {
                         SegmentName = segment,
                         IsParameter = isParam,
-                        ParameterName = isParam ? segment[1..^1] : null
+                        ParameterName = isParam ? segment.Substring(1, segment.Length - 2) : null
                     };
                     current.Children[segment] = child;
                 }
@@ -49,9 +51,9 @@ internal static class PathTreeBuilder
             }
 
             // Attach operations to the terminal node
-            foreach (var (method, operation) in pathItem.Operations)
+            foreach (var operationEntry in pathItem.Operations)
             {
-                current.Operations.Add((method, operation));
+                current.Operations.Add((operationEntry.Key, operationEntry.Value));
             }
         }
 
@@ -66,8 +68,9 @@ internal static class PathTreeBuilder
     /// </summary>
     private static void ResolveBuilderNames(PathSegmentNode node, string currentNamespace)
     {
-        foreach (var (_, child) in node.Children)
+        foreach (var childEntry in node.Children)
         {
+            var child = childEntry.Value;
             string shortName;
             string childNamespace;
 
@@ -93,8 +96,9 @@ internal static class PathTreeBuilder
     /// </summary>
     public static IEnumerable<PathSegmentNode> GetAllNodes(PathSegmentNode root)
     {
-        foreach (var (_, child) in root.Children)
+        foreach (var childEntry in root.Children)
         {
+            var child = childEntry.Value;
             yield return child;
             foreach (var descendant in GetAllNodes(child))
                 yield return descendant;

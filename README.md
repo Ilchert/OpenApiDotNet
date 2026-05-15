@@ -121,7 +121,7 @@ dotnet build
 
 The repository also includes `OpenApiDotNet.SourceGenerator`, a Roslyn analyzer/source generator that emits the same client interfaces, builder types, and models at build time from OpenAPI `AdditionalFiles`.
 
-The source generator keeps the shared generator code in [`src/OpenApiDotNet`](src/OpenApiDotNet) and links the required files into [`src/OpenApiDotNet.SourceGenerator`](src/OpenApiDotNet.SourceGenerator). Package dependencies needed at analyzer runtime are merged into the analyzer assembly with ILRepack so the NuGet package ships a single analyzer DLL.
+The source generator keeps the shared generator code in [`src/OpenApiDotNet`](src/OpenApiDotNet) and links the required files into [`src/OpenApiDotNet.SourceGenerator`](src/OpenApiDotNet.SourceGenerator). The analyzer assembly targets `netstandard2.0` for broad Roslyn host compatibility, and package dependencies needed at analyzer runtime are merged into the analyzer assembly with ILRepack so the NuGet package ships a single analyzer DLL.
 
 ### Consuming the source generator
 
