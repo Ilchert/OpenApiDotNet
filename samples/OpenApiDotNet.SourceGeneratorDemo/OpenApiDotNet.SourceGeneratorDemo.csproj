@@ -14,6 +14,9 @@
                       ReferenceOutputAssembly="false" />
     <AdditionalFiles Include="..\..\tests\OpenApiDotNet.Tests\Fixtures\petstore.json"
                      Link="OpenApi\petstore.json" />
+    <AdditionalFiles Include="..\..\tests\OpenApiDotNet.Tests\Fixtures\remove-pets-post.overlay.json"
+                     Link="OpenApi\remove-pets-post.overlay.json"
+                     OpenApiOverlay="true" />
     <CompilerVisibleProperty Include="OpenApiDotNetClientName" />
   </ItemGroup>
 

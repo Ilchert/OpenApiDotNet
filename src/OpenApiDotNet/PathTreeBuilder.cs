@@ -25,7 +25,7 @@ internal static class PathTreeBuilder
             var pathItem = pathEntry.Value;
             var current = root;
 
-            foreach (var segment in pathKey.Split('/', StringSplitOptions.RemoveEmptyEntries))
+            foreach (var segment in pathKey.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 if (!current.Children.TryGetValue(segment, out var child))
                 {

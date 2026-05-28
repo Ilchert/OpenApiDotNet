@@ -25,7 +25,7 @@ internal static class SourceGeneratorTestHelper
             generators: [generator.AsSourceGenerator()],
             additionalTexts: additionalTexts,
             parseOptions: (CSharpParseOptions)compilation.SyntaxTrees[0].Options,
-            optionsProvider: new TestAnalyzerConfigOptionsProvider(globalOptions));
+            optionsProvider: new TestAnalyzerConfigOptionsProvider(globalOptions, additionalTexts));
 
         driver = driver.RunGenerators(compilation);
         return driver.GetRunResult();
@@ -80,23 +80,63 @@ internal static class SourceGeneratorTestHelper
             .ToArray();
     }
 
-    internal sealed class TestAdditionalText(string path, string content) : AdditionalText
+    internal sealed class TestAdditionalText : AdditionalText
     {
-        public override string Path { get; } = path;
+        private readonly string _content;
 
-        public override SourceText GetText(CancellationToken cancellationToken = default) => SourceText.From(content);
+        public TestAdditionalText(string path, string content, bool isOverlay = false)
+        {
+            Path = path;
+            _content = content;
+            IsOverlay = isOverlay;
+        }
+
+        public override string Path { get; }
+
+        public bool IsOverlay { get; }
+
+        public override SourceText GetText(CancellationToken cancellationToken = default) => SourceText.From(_content);
     }
 
-    private sealed class TestAnalyzerConfigOptionsProvider(IReadOnlyDictionary<string, string>? globalOptions) : AnalyzerConfigOptionsProvider
+    private sealed class TestAnalyzerConfigOptionsProvider : AnalyzerConfigOptionsProvider
     {
         private static readonly AnalyzerConfigOptions s_emptyOptions = new TestAnalyzerConfigOptions(null);
-        private readonly AnalyzerConfigOptions _globalOptions = new TestAnalyzerConfigOptions(globalOptions);
+        private readonly AnalyzerConfigOptions _globalOptions;
+        private readonly Dictionary<string, AnalyzerConfigOptions> _perFileOptions = new();
+
+        public TestAnalyzerConfigOptionsProvider(
+            IReadOnlyDictionary<string, string>? globalOptions,
+            IReadOnlyList<TestAdditionalText>? additionalTexts = null)
+        {
+            _globalOptions = new TestAnalyzerConfigOptions(globalOptions);
+
+            if (additionalTexts != null)
+            {
+                foreach (var additionalText in additionalTexts)
+                {
+                    if (additionalText.IsOverlay)
+                    {
+                        _perFileOptions[additionalText.Path] = new TestAnalyzerConfigOptions(
+                            new Dictionary<string, string>
+                            {
+                                ["build_metadata.AdditionalFiles.OpenApiOverlay"] = "true"
+                            });
+                    }
+                }
+            }
+        }
 
         public override AnalyzerConfigOptions GlobalOptions => _globalOptions;
 
         public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => s_emptyOptions;
 
-        public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => s_emptyOptions;
+        public override AnalyzerConfigOptions GetOptions(AdditionalText textFile)
+        {
+            if (_perFileOptions.TryGetValue(textFile.Path, out var options))
+                return options;
+
+            return s_emptyOptions;
+        }
     }
 
     private sealed class TestAnalyzerConfigOptions(IReadOnlyDictionary<string, string>? values) : AnalyzerConfigOptions

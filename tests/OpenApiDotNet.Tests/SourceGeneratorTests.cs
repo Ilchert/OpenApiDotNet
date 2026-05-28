@@ -85,6 +85,69 @@ public class SourceGeneratorTests
     }
 
     [Fact]
+    public void Generate_WithOverlay_AppliesOverlayChanges()
+    {
+        var runResult = SourceGeneratorTestHelper.RunGenerator(
+            new OpenApiSourceGenerator(),
+            [
+                new SourceGeneratorTestHelper.TestAdditionalText("petstore.json", ReadFixture("petstore.json")),
+                new SourceGeneratorTestHelper.TestAdditionalText("remove-pets-post.overlay.json", ReadFixture("remove-pets-post.overlay.json"), isOverlay: true)
+            ]);
+
+        var generatorResult = Assert.Single(runResult.Results);
+
+        Assert.Empty(runResult.Diagnostics);
+        Assert.Empty(generatorResult.Diagnostics);
+        Assert.NotEmpty(generatorResult.GeneratedSources);
+
+        var petsBuilder = generatorResult.GeneratedSources
+            .FirstOrDefault(source => source.HintName.Contains("PetsBuilder.cs"));
+
+        Assert.NotEqual(default, petsBuilder);
+
+        var petsBuilderSource = petsBuilder.SourceText.ToString();
+
+        Assert.NotNull(petsBuilderSource);
+        Assert.DoesNotContain("Post(", petsBuilderSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("createPet", petsBuilderSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_WithMultipleOverlays_AppliesInOrder()
+    {
+        var runResult = SourceGeneratorTestHelper.RunGenerator(
+            new OpenApiSourceGenerator(),
+            [
+                new SourceGeneratorTestHelper.TestAdditionalText("petstore.json", ReadFixture("petstore.json")),
+                new SourceGeneratorTestHelper.TestAdditionalText("overlay1.json", ReadFixture("remove-pets-post.overlay.json"), isOverlay: true),
+                new SourceGeneratorTestHelper.TestAdditionalText("overlay2.json", ReadFixture("remove-pets-post.overlay.json"), isOverlay: true)
+            ]);
+
+        var generatorResult = Assert.Single(runResult.Results);
+
+        Assert.Empty(runResult.Diagnostics);
+        Assert.Empty(generatorResult.Diagnostics);
+        Assert.NotEmpty(generatorResult.GeneratedSources);
+    }
+
+    [Fact]
+    public void Generate_WithTwoSpecsAndOneOverlay_WarnsAboutMultipleSpecs()
+    {
+        var runResult = SourceGeneratorTestHelper.RunGenerator(
+            new OpenApiSourceGenerator(),
+            [
+                new SourceGeneratorTestHelper.TestAdditionalText("petstore.json", ReadFixture("petstore.json")),
+                new SourceGeneratorTestHelper.TestAdditionalText("petstore2.json", ReadFixture("petstore.json")),
+                new SourceGeneratorTestHelper.TestAdditionalText("overlay.json", ReadFixture("remove-pets-post.overlay.json"), isOverlay: true)
+            ]);
+
+        var generatorResult = Assert.Single(runResult.Results);
+
+        Assert.Contains(runResult.Diagnostics, static diagnostic => diagnostic.Id == "OADNSG001" && diagnostic.Severity == DiagnosticSeverity.Warning);
+        Assert.NotEmpty(generatorResult.GeneratedSources);
+    }
+
+    [Fact]
     public void Generate_WithYamlAdditionalFile_CompilesWithoutDiagnostics()
     {
         const string yamlSpec = """

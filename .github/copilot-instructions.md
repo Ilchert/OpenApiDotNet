@@ -33,6 +33,10 @@ Generator hierarchy under `Generators/`:
 - Nullable reference types: **enabled**
 - Implicit usings: **enabled**
 
+### Source Generator
+- Target source generator projects to a single framework.
+- Do not use `NET8_0_OR_GREATER` conditional compilation symbols or multi-targeting in the generator project.
+
 ### Coding Conventions
 - Use **file-scoped namespaces** (`namespace Foo;`)
 - Source classes in `src/OpenApiDotNet/` are **`internal`** (exposed to tests via `InternalsVisibleTo`)

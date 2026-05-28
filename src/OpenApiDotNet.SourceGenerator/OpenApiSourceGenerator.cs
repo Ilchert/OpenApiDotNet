@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Text;
+using System.Text.Json;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
@@ -13,8 +14,8 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
 {
     private static readonly DiagnosticDescriptor s_multipleSpecsDescriptor = new(
         id: "OADNSG001",
-        title: "Multiple OpenAPI specs are not supported",
-        messageFormat: "OpenApiDotNet.SourceGenerator currently supports a single OpenAPI AdditionalFile. Using '{0}'.",
+        title: "Multiple OpenAPI specs found",
+        messageFormat: "Multiple OpenAPI specification files found in AdditionalFiles. Using '{0}' as the primary spec. Mark overlay files with OpenApiOverlay='true' metadata to avoid this warning.",
         category: "OpenApiDotNet.SourceGenerator",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
@@ -33,6 +34,13 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
     {
         var specs = context.AdditionalTextsProvider
             .Where(static file => IsSupportedSpec(file.Path))
+            .Combine(context.AnalyzerConfigOptionsProvider)
+            .Select(static (pair, _) =>
+            {
+                var (file, options) = pair;
+                options.GetOptions(file).TryGetValue("build_metadata.AdditionalFiles.OpenApiOverlay", out var isOverlay);
+                return (File: file, IsOverlay: string.Equals(isOverlay, "true", StringComparison.OrdinalIgnoreCase));
+            })
             .Collect();
 
         var combined = specs.Combine(context.AnalyzerConfigOptionsProvider);
@@ -41,24 +49,35 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
 
     private static void Generate(
         SourceProductionContext context,
-        ImmutableArray<AdditionalText> specs,
+        ImmutableArray<(AdditionalText File, bool IsOverlay)> specs,
         AnalyzerConfigOptionsProvider optionsProvider)
     {
         if (specs.IsDefaultOrEmpty)
             return;
 
-        var spec = specs[0];
-        if (specs.Length > 1)
+        var primarySpecs = specs.Where(s => !s.IsOverlay).ToList();
+        var overlaySpecs = specs.Where(s => s.IsOverlay).ToList();
+
+        if (primarySpecs.Count == 0)
+        {
+            // All files marked as overlays, treat first as primary
+            primarySpecs.Add(specs[0]);
+            overlaySpecs.RemoveAt(0);
+        }
+
+        var primarySpec = primarySpecs[0].File;
+
+        if (primarySpecs.Count > 1)
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 s_multipleSpecsDescriptor,
                 Location.None,
-                Path.GetFileName(spec.Path)));
+                Path.GetFileName(primarySpec.Path)));
         }
 
         try
         {
-            GenerateCore(context, spec, optionsProvider);
+            GenerateCore(context, primarySpec, overlaySpecs.Select(s => s.File).ToArray(), optionsProvider);
         }
         catch (Exception ex)
         {
@@ -72,9 +91,13 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
     private static void GenerateCore(
         SourceProductionContext context,
         AdditionalText spec,
+        AdditionalText[] overlays,
         AnalyzerConfigOptionsProvider optionsProvider)
     {
-        var document = LoadOpenApiDocument(spec);
+        var document = overlays.Length > 0
+            ? LoadOpenApiDocumentWithOverlays(spec, overlays)
+            : LoadOpenApiDocument(spec);
+
         var provider = new InMemoryGeneratedFileProvider();
         var generator = new OpenApiGenerator(
             document,
@@ -108,6 +131,116 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
             throw new InvalidOperationException(string.Join(Environment.NewLine, diagnostic.Errors.Select(static error => error.Message)));
 
         return document ?? throw new InvalidOperationException($"Unable to load OpenAPI spec '{spec.Path}'.");
+    }
+
+    private static OpenApiDocument LoadOpenApiDocumentWithOverlays(AdditionalText spec, AdditionalText[] overlays)
+    {
+        var document = LoadOpenApiDocument(spec);
+
+        foreach (var overlay in overlays)
+        {
+            var overlaySourceText = overlay.GetText();
+            if (overlaySourceText is null)
+                throw new InvalidOperationException($"Unable to read overlay file '{overlay.Path}'.");
+
+            ApplyOverlay(document, overlaySourceText.ToString(), overlay.Path);
+        }
+
+        return document;
+    }
+
+    private static void ApplyOverlay(OpenApiDocument document, string overlayJson, string overlayPath)
+    {
+        using var json = JsonDocument.Parse(overlayJson);
+
+        if (!json.RootElement.TryGetProperty("actions", out var actions) || actions.ValueKind != JsonValueKind.Array)
+            throw new InvalidOperationException($"Overlay file '{overlayPath}' does not contain an 'actions' array.");
+
+        foreach (var action in actions.EnumerateArray())
+        {
+            if (!action.TryGetProperty("target", out var targetElement) || targetElement.ValueKind != JsonValueKind.String)
+                throw new InvalidOperationException($"Overlay file '{overlayPath}' contains an action without a string 'target'.");
+
+            var target = targetElement.GetString();
+            if (string.IsNullOrWhiteSpace(target))
+                throw new InvalidOperationException($"Overlay file '{overlayPath}' contains an action with an empty target.");
+
+            var remove = action.TryGetProperty("remove", out var removeElement)
+                         && removeElement.ValueKind is JsonValueKind.True or JsonValueKind.False
+                         && removeElement.GetBoolean();
+
+            if (!remove)
+                throw new InvalidOperationException($"Overlay file '{overlayPath}' contains an unsupported action for target '{target}'. Only remove actions are supported.");
+
+            ApplyRemoveAction(document, target, overlayPath);
+        }
+    }
+
+    private static void ApplyRemoveAction(OpenApiDocument document, string target, string overlayPath)
+    {
+        if (!TryParsePathTarget(target, out var path, out var methodName))
+            throw new InvalidOperationException($"Overlay file '{overlayPath}' contains unsupported target '{target}'.");
+
+        if (document.Paths is null || !document.Paths.TryGetValue(path, out var pathItem))
+            return;
+
+        if (methodName.Length == 0)
+        {
+            document.Paths.Remove(path);
+            return;
+        }
+
+        if (!TryParseHttpMethod(methodName, out var method))
+            throw new InvalidOperationException($"Overlay file '{overlayPath}' contains unsupported HTTP method '{methodName}'.");
+
+        pathItem.Operations?.Remove(method);
+
+        if (pathItem.Operations is null || pathItem.Operations.Count == 0)
+            document.Paths.Remove(path);
+    }
+
+    private static bool TryParsePathTarget(string target, out string path, out string methodName)
+    {
+        const string prefix = "$.paths['";
+        path = string.Empty;
+        methodName = string.Empty;
+
+        if (!target.StartsWith(prefix, StringComparison.Ordinal) || target.Length <= prefix.Length)
+            return false;
+
+        var endOfPath = target.IndexOf("']", prefix.Length, StringComparison.Ordinal);
+        if (endOfPath < 0)
+            return false;
+
+        path = target.Substring(prefix.Length, endOfPath - prefix.Length);
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        if (endOfPath == target.Length - 2)
+            return true;
+
+        if (target[endOfPath + 2] != '.')
+            return false;
+
+        methodName = target.Substring(endOfPath + 3);
+        return !string.IsNullOrWhiteSpace(methodName);
+    }
+
+    private static bool TryParseHttpMethod(string methodName, out HttpMethod method)
+    {
+        method = methodName.ToLowerInvariant() switch
+        {
+            "get" => HttpMethod.Get,
+            "put" => HttpMethod.Put,
+            "post" => HttpMethod.Post,
+            "delete" => HttpMethod.Delete,
+            "options" => HttpMethod.Options,
+            "head" => HttpMethod.Head,
+            "trace" => HttpMethod.Trace,
+            _ => default
+        };
+
+        return !EqualityComparer<HttpMethod>.Default.Equals(method, default);
     }
 
     private static OpenApiReaderSettings CreateReaderSettings()

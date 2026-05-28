@@ -30,6 +30,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" PrivateAssets="all" />
     <PackageReference Include="Microsoft.OpenApi.YamlReader" PrivateAssets="all" />
+    <PackageReference Include="System.Text.Json" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -72,12 +73,14 @@
               InputAssemblies="@(IlRepackInput)"
               LibraryPath="@(IlRepackLibraryPath)"
               OutputFile="$(IlRepackOutputFile)"
-              TargetKind="Dll" />
+              TargetKind="Dll"
+              Condition="'@(IlRepackInput->Count())' &gt; '1'" />
 
     <Copy SourceFiles="$(IlRepackOutputFile)"
           DestinationFiles="$(TargetPath)"
-          OverwriteReadOnlyFiles="true" />
-    <Delete Files="$(IlRepackOutputFile)" />
+          OverwriteReadOnlyFiles="true"
+          Condition="Exists('$(IlRepackOutputFile)')" />
+    <Delete Files="$(IlRepackOutputFile)" Condition="Exists('$(IlRepackOutputFile)')" />
   </Target>
 
 </Project>

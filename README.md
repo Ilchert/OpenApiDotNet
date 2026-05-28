@@ -131,6 +131,8 @@ Use a package reference after packing/publishing the analyzer, or a project refe
 <ItemGroup>
   <PackageReference Include="OpenApiDotNet.SourceGenerator" Version="0.11.0" PrivateAssets="all" />
   <AdditionalFiles Include="OpenApi\petstore.json" />
+  <AdditionalFiles Include="OpenApi\remove-pets-post.overlay.json"
+                   OpenApiOverlay="true" />
 </ItemGroup>
 ```
 
@@ -140,6 +142,8 @@ Use a package reference after packing/publishing the analyzer, or a project refe
                     OutputItemType="Analyzer"
                     ReferenceOutputAssembly="false" />
   <AdditionalFiles Include="OpenApi\petstore.json" />
+  <AdditionalFiles Include="OpenApi\remove-pets-post.overlay.json"
+                   OpenApiOverlay="true" />
 </ItemGroup>
 ```
 
@@ -148,8 +152,11 @@ See [`samples/OpenApiDotNet.SourceGeneratorDemo/OpenApiDotNet.SourceGeneratorDem
 ### Supported inputs
 
 - `AdditionalFiles` entries ending in `.json`, `.yaml`, or `.yml`
-- One OpenAPI document per consuming project build
+- One primary OpenAPI document per consuming project build
+- Zero or more overlay `AdditionalFiles` marked with `OpenApiOverlay="true"`
 - Source-generator configuration through MSBuild properties
+
+Overlays are applied in `AdditionalFiles` order before code generation. The source generator currently supports overlay remove actions targeting `$.paths['...']` and `$.paths['...'].<method>`. If more than one non-overlay OpenAPI document is included, the generator reports warning `OADNSG001` and uses the first matching file.
 
 ### Supported options
 
@@ -176,8 +183,8 @@ Example:
 ### Current limitations
 
 - Source-generator mode does not create `.openapidotnet.json`
-- CLI-only features such as overlays, `update`, and `convert` are not available through the analyzer
-- If more than one supported OpenAPI file is included, the generator reports warning `OADNSG001` and uses the first matching file
+- CLI-only features such as `update` and `convert` are not available through the analyzer
+- If more than one supported non-overlay OpenAPI file is included, the generator reports warning `OADNSG001` and uses the first matching file
 - Invalid or unreadable specs report error `OADNSG002`
 
 ## Usage
