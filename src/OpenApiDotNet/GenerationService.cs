@@ -210,9 +210,4 @@ internal class GenerationService
             onError: msg => Logger.LogError("{Message}", msg),
             onWarning: msg => Logger.LogWarning("{Message}", msg));
     }
-
-    private static string? DetectFormat(string fileName) =>
-        fileName.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase) || fileName.EndsWith(".yml", StringComparison.OrdinalIgnoreCase)
-            ? "yaml"
-            : null;
 }

@@ -42,7 +42,8 @@ internal static class PathTreeBuilder
             }
 
             // Resolve parameter schema for the terminal node from operation definitions
-            if (current is { IsParameter: true, ParameterName: not null, ParameterSchema: null })
+            if (current is { IsParameter: true, ParameterName: not null, ParameterSchema: null }
+                && pathItem.Operations is not null)
             {
                 current.ParameterSchema = pathItem.Operations
                     .SelectMany(op => op.Value.Parameters ?? [])
@@ -51,9 +52,12 @@ internal static class PathTreeBuilder
             }
 
             // Attach operations to the terminal node
-            foreach (var operationEntry in pathItem.Operations)
+            if (pathItem.Operations is not null)
             {
-                current.Operations.Add((operationEntry.Key, operationEntry.Value));
+                foreach (var operationEntry in pathItem.Operations)
+                {
+                    current.Operations.Add((operationEntry.Key, operationEntry.Value));
+                }
             }
         }
 

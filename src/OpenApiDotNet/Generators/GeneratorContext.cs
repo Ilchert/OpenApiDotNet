@@ -47,8 +47,8 @@ internal record GeneratorContext(
         if (string.IsNullOrEmpty(StripNamespacePrefix))
             return name;
 
-        return name.StartsWith(StripNamespacePrefix, StringComparison.Ordinal)
-            ? name.Substring(StripNamespacePrefix.Length)
+        return name.StartsWith(StripNamespacePrefix!, StringComparison.Ordinal)
+            ? name.Substring(StripNamespacePrefix!.Length)
             : name;
     }
 

@@ -46,6 +46,7 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var additionalFiles = context.AdditionalTextsProvider
+            .Where(static file => IsSupportedSpec(file.Path) || IsGenerationConfigFile(file.Path))
             .Combine(context.AnalyzerConfigOptionsProvider)
             .Select(static (pair, _) =>
             {
@@ -166,7 +167,7 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
             if (!remove)
                 throw new InvalidOperationException($"Overlay file '{overlayPath}' contains an unsupported action for target '{target}'. Only remove actions are supported.");
 
-            ApplyRemoveAction(document, target, overlayPath);
+            ApplyRemoveAction(document, target!, overlayPath);
         }
     }
 
@@ -222,19 +223,17 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
 
     private static bool TryParseHttpMethod(string methodName, out HttpMethod method)
     {
-        method = methodName.ToLowerInvariant() switch
+        switch (methodName.ToLowerInvariant())
         {
-            "get" => HttpMethod.Get,
-            "put" => HttpMethod.Put,
-            "post" => HttpMethod.Post,
-            "delete" => HttpMethod.Delete,
-            "options" => HttpMethod.Options,
-            "head" => HttpMethod.Head,
-            "trace" => HttpMethod.Trace,
-            _ => default
-        };
-
-        return !EqualityComparer<HttpMethod>.Default.Equals(method, default);
+            case "get": method = HttpMethod.Get; return true;
+            case "put": method = HttpMethod.Put; return true;
+            case "post": method = HttpMethod.Post; return true;
+            case "delete": method = HttpMethod.Delete; return true;
+            case "options": method = HttpMethod.Options; return true;
+            case "head": method = HttpMethod.Head; return true;
+            case "trace": method = HttpMethod.Trace; return true;
+            default: method = default!; return false;
+        }
     }
 
     private static OpenApiReaderSettings CreateReaderSettings()
@@ -352,10 +351,6 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
                 configuredPrimarySpec = primarySpecs[0].File;
             }
         }
-
-        overlayFiles = overlayFiles
-            .Where(file => !s_pathComparer.Equals(GetNormalizedPath(file.Path), GetNormalizedPath(configuredPrimarySpec.Path)))
-            .ToList();
 
         var remainingPrimarySpecs = specs
             .Count(entry =>
