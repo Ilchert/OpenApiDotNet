@@ -36,16 +36,26 @@ public class SourceGeneratorTests
     }
 
     [Fact]
-    public void Generate_WithCustomOptions_UsesConfiguredNamespaceClientNameAndTypeMappings()
+    public void Generate_WithConfigurationAdditionalFile_UsesConfiguredNamespaceClientNameAndTypeMappings()
     {
-        var runResult = RunGenerator(
-            ["petstore.json"],
-            new Dictionary<string, string>
-            {
-                ["build_property.rootnamespace"] = "Contoso.Generated",
-                ["build_property.openapidotnetclientname"] = "ContosoPets",
-                ["build_property.openapidotnetusenodatime"] = "true"
-            });
+        var runResult = SourceGeneratorTestHelper.RunGenerator(
+            new OpenApiSourceGenerator(),
+            [
+                CreateConfigAdditionalText(
+                    "ConfigDrivenOptions",
+                    """
+                    {
+                      "openApiFile": "../petstore.json",
+                      "namespace": "Contoso.Generated",
+                      "clientName": "ContosoPets",
+                      "typeMappings": {
+                        "string:date": "NodaTime.LocalDate",
+                        "string:date-time": "NodaTime.Instant"
+                      }
+                    }
+                    """),
+                CreateFixtureAdditionalText("petstore.json")
+            ]);
 
         var generatorResult = Assert.Single(runResult.Results);
 
@@ -60,11 +70,94 @@ public class SourceGeneratorTests
         Assert.Contains("public interface IContosoPets : IOpenApiClient", generatedCode, StringComparison.Ordinal);
         Assert.Contains("public NodaTime.LocalDate? BirthDate { get; set; }", generatedCode, StringComparison.Ordinal);
         Assert.Contains("public NodaTime.Instant? CreatedAt { get; set; }", generatedCode, StringComparison.Ordinal);
+    }
 
-        var compilation = SourceGeneratorTestHelper.CreateGeneratedCompilation(runResult, "Contoso.Generated");
-        var diagnostics = compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning);
+    [Fact]
+    public void Generate_WithConfigurationAdditionalFile_UsesConfiguredNamespacePrefix()
+    {
+        var runResult = SourceGeneratorTestHelper.RunGenerator(
+            new OpenApiSourceGenerator(),
+            [
+                CreateConfigAdditionalText(
+                    "ConfigDrivenNamespacePrefix",
+                    """
+                    {
+                      "openApiFile": "../dotted-names.json",
+                      "namespace": "DottedNames.Client",
+                      "namespacePrefix": "Commerce"
+                    }
+                    """),
+                CreateFixtureAdditionalText("dotted-names.json")
+            ]);
 
-        Assert.Empty(diagnostics);
+        var generatorResult = Assert.Single(runResult.Results);
+
+        Assert.Empty(runResult.Diagnostics);
+        Assert.Empty(generatorResult.Diagnostics);
+
+        var generatedCode = string.Join(
+            Environment.NewLine,
+            generatorResult.GeneratedSources.Select(static source => source.SourceText.ToString()));
+
+        Assert.Contains("namespace DottedNames.Client.Models;", generatedCode, StringComparison.Ordinal);
+        Assert.Contains("public partial class Order", generatedCode, StringComparison.Ordinal);
+        Assert.Contains("namespace DottedNames.Client.Models.Identity;", generatedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("namespace DottedNames.Client.Models.Commerce;", generatedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_WithConfigurationAdditionalFile_UsesConfiguredPrimarySpecAndOverlay()
+    {
+        var runResult = SourceGeneratorTestHelper.RunGenerator(
+            new OpenApiSourceGenerator(),
+            [
+                new SourceGeneratorTestHelper.TestAdditionalText(
+                    Path.GetFullPath(Path.Combine(_fixturesPath, "broken.json")),
+                    "{ not valid json"),
+                CreateFixtureAdditionalText("remove-pets-post.overlay.json"),
+                CreateFixtureAdditionalText("petstore.json"),
+                CreateConfigAdditionalText(
+                    "ConfigDrivenSelection",
+                    """
+                    {
+                      "openApiFile": "../petstore.json",
+                      "overlayFiles": [
+                        "../remove-pets-post.overlay.json"
+                      ]
+                    }
+                    """)
+            ]);
+
+        var generatorResult = Assert.Single(runResult.Results);
+
+        Assert.Contains(runResult.Diagnostics, static diagnostic => diagnostic.Id == "OADNSG001" && diagnostic.Severity == DiagnosticSeverity.Warning);
+        Assert.Contains(generatorResult.Diagnostics, static diagnostic => diagnostic.Id == "OADNSG001" && diagnostic.Severity == DiagnosticSeverity.Warning);
+        Assert.NotEmpty(generatorResult.GeneratedSources);
+
+        var petsBuilder = generatorResult.GeneratedSources
+            .FirstOrDefault(source => source.HintName.Contains("PetsBuilder.cs"));
+
+        Assert.NotEqual(default, petsBuilder);
+
+        var petsBuilderSource = petsBuilder.SourceText.ToString();
+
+        Assert.NotNull(petsBuilderSource);
+        Assert.DoesNotContain("Post(", petsBuilderSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("createPet", petsBuilderSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_WithMultipleConfigurationFiles_ReportsError()
+    {
+        var runResult = SourceGeneratorTestHelper.RunGenerator(
+            new OpenApiSourceGenerator(),
+            [
+                CreateFixtureAdditionalText("petstore.json"),
+                CreateConfigAdditionalText("ConfigA", """{ "openApiFile": "../petstore.json" }"""),
+                CreateConfigAdditionalText("ConfigB", """{ "openApiFile": "../petstore.json" }""")
+            ]);
+
+        Assert.Contains(runResult.Diagnostics, static diagnostic => diagnostic.Id == "OADNSG003" && diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
@@ -252,15 +345,25 @@ public class SourceGeneratorTests
     }
 
     private GeneratorDriverRunResult RunGenerator(
-        IReadOnlyList<string> fixtureNames,
-        IReadOnlyDictionary<string, string>? globalOptions = null)
+        IReadOnlyList<string> fixtureNames)
     {
         var additionalTexts = fixtureNames
-            .Select(fixtureName => new SourceGeneratorTestHelper.TestAdditionalText(fixtureName, ReadFixture(fixtureName)))
+            .Select(fixtureName => CreateFixtureAdditionalText(fixtureName))
             .ToList();
 
-        return SourceGeneratorTestHelper.RunGenerator(new OpenApiSourceGenerator(), additionalTexts, globalOptions);
+        return SourceGeneratorTestHelper.RunGenerator(new OpenApiSourceGenerator(), additionalTexts);
     }
+
+    private SourceGeneratorTestHelper.TestAdditionalText CreateFixtureAdditionalText(string fixtureName, bool isOverlay = false) =>
+        new(
+            Path.GetFullPath(Path.Combine(_fixturesPath, fixtureName)),
+            ReadFixture(fixtureName),
+            isOverlay);
+
+    private SourceGeneratorTestHelper.TestAdditionalText CreateConfigAdditionalText(string directoryName, string content) =>
+        new(
+            Path.GetFullPath(Path.Combine(_fixturesPath, directoryName, GenerationConfig.FileName)),
+            content);
 
     private static string GetSourceGeneratorPackagePath()
     {

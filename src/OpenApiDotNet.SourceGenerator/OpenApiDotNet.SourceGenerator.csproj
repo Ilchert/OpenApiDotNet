@@ -34,6 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\OpenApiDotNet\GenerationConfig.cs" Link="Shared\GenerationConfig.cs" />
     <Compile Include="..\OpenApiDotNet\Generators\**\*.cs" Link="Shared\Generators\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\OpenApiDotNet\IO\IWritableFileInfo.cs" Link="Shared\IO\IWritableFileInfo.cs" />
     <Compile Include="..\OpenApiDotNet\IO\IWritableFileProvider.cs" Link="Shared\IO\IWritableFileProvider.cs" />
@@ -42,6 +43,7 @@
     <Compile Include="..\OpenApiDotNet\PathSegmentNode.cs" Link="Shared\PathSegmentNode.cs" />
     <Compile Include="..\OpenApiDotNet\PathTreeBuilder.cs" Link="Shared\PathTreeBuilder.cs" />
     <Compile Include="..\OpenApiDotNet\TypeMappingConfig.cs" Link="Shared\TypeMappingConfig.cs" />
+    <Compile Include="..\OpenApiDotNet\UnifiedPathJsonConverter.cs" Link="Shared\UnifiedPathJsonConverter.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -17,15 +17,14 @@ internal static class SourceGeneratorTestHelper
 
     public static GeneratorDriverRunResult RunGenerator(
         IIncrementalGenerator generator,
-        IReadOnlyList<TestAdditionalText> additionalTexts,
-        IReadOnlyDictionary<string, string>? globalOptions = null)
+        IReadOnlyList<TestAdditionalText> additionalTexts)
     {
         var compilation = CreateBaseCompilation();
         GeneratorDriver driver = CSharpGeneratorDriver.Create(
             generators: [generator.AsSourceGenerator()],
             additionalTexts: additionalTexts,
             parseOptions: (CSharpParseOptions)compilation.SyntaxTrees[0].Options,
-            optionsProvider: new TestAnalyzerConfigOptionsProvider(globalOptions, additionalTexts));
+            optionsProvider: new TestAnalyzerConfigOptionsProvider(additionalTexts));
 
         driver = driver.RunGenerators(compilation);
         return driver.GetRunResult();
@@ -101,15 +100,10 @@ internal static class SourceGeneratorTestHelper
     private sealed class TestAnalyzerConfigOptionsProvider : AnalyzerConfigOptionsProvider
     {
         private static readonly AnalyzerConfigOptions s_emptyOptions = new TestAnalyzerConfigOptions(null);
-        private readonly AnalyzerConfigOptions _globalOptions;
         private readonly Dictionary<string, AnalyzerConfigOptions> _perFileOptions = new();
 
-        public TestAnalyzerConfigOptionsProvider(
-            IReadOnlyDictionary<string, string>? globalOptions,
-            IReadOnlyList<TestAdditionalText>? additionalTexts = null)
+        public TestAnalyzerConfigOptionsProvider(IReadOnlyList<TestAdditionalText>? additionalTexts = null)
         {
-            _globalOptions = new TestAnalyzerConfigOptions(globalOptions);
-
             if (additionalTexts != null)
             {
                 foreach (var additionalText in additionalTexts)
@@ -126,7 +120,7 @@ internal static class SourceGeneratorTestHelper
             }
         }
 
-        public override AnalyzerConfigOptions GlobalOptions => _globalOptions;
+        public override AnalyzerConfigOptions GlobalOptions => s_emptyOptions;
 
         public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => s_emptyOptions;
 

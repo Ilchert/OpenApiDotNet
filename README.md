@@ -147,44 +147,57 @@ Use a package reference after packing/publishing the analyzer, or a project refe
 </ItemGroup>
 ```
 
+To reuse CLI-style configuration, add `.openapidotnet.json` as another `AdditionalFiles` item. The source generator reads `namespace`, `namespacePrefix`, `clientName`, `typeMappings`, `openApiFile`, and `overlayFiles` from that file. Referenced specs and overlays must still be included as `AdditionalFiles` so Roslyn tracks their changes during builds.
+
+```xml
+<ItemGroup>
+  <AdditionalFiles Include=".openapidotnet.json" />
+  <AdditionalFiles Include="OpenApi\petstore.json" />
+  <AdditionalFiles Include="OpenApi\remove-pets-post.overlay.json" />
+</ItemGroup>
+```
+
 See [`samples/OpenApiDotNet.SourceGeneratorDemo/OpenApiDotNet.SourceGeneratorDemo.csproj`](samples/OpenApiDotNet.SourceGeneratorDemo/OpenApiDotNet.SourceGeneratorDemo.csproj) for the project-reference setup used in this repository.
 
 ### Supported inputs
 
 - `AdditionalFiles` entries ending in `.json`, `.yaml`, or `.yml`
+- An optional `.openapidotnet.json` `AdditionalFiles` entry for generator configuration
 - One primary OpenAPI document per consuming project build
 - Zero or more overlay `AdditionalFiles` marked with `OpenApiOverlay="true"`
-- Source-generator configuration through MSBuild properties
+- Source-generator configuration through `.openapidotnet.json`
 
-Overlays are applied in `AdditionalFiles` order before code generation. The source generator currently supports overlay remove actions targeting `$.paths['...']` and `$.paths['...'].<method>`. If more than one non-overlay OpenAPI document is included, the generator reports warning `OADNSG001` and uses the first matching file.
+Overlays are applied in declaration order before code generation. When `.openapidotnet.json` is present, the generator uses its `openApiFile` and `overlayFiles` values to select the primary document and overlays from `AdditionalFiles`; any `OpenApiOverlay="true"` metadata still applies to other overlay files. The source generator currently supports overlay remove actions targeting `$.paths['...']` and `$.paths['...'].<method>`. If more than one non-overlay OpenAPI document is included, the generator reports warning `OADNSG001` and uses the configured file or the first matching file.
 
 ### Supported options
 
-The source generator currently reads these MSBuild properties:
+The source generator reads its configuration from `.openapidotnet.json`. If a setting is omitted, the generator falls back to its built-in defaults such as `GeneratedClient` for the namespace root, the OpenAPI title-derived client name, and the default .NET type mappings.
 
-| Property | Purpose | Notes |
-|---|---|---|
-| `RootNamespace` | Sets the generated namespace root | Falls back to `GeneratedClient` when omitted |
-| `OpenApiDotNetClientName` | Overrides the generated client interface name | Add a matching `CompilerVisibleProperty` item so the analyzer can read it |
-| `OpenApiDotNetUseNodaTime` | Switches date/time mappings to NodaTime overrides | Add a matching `CompilerVisibleProperty` item and reference `NodaTime` in the consuming project |
+Example `.openapidotnet.json`:
 
-Example:
-
-```xml
-<PropertyGroup>
-  <OpenApiDotNetClientName>PetStoreAPIClient</OpenApiDotNetClientName>
-</PropertyGroup>
-
-<ItemGroup>
-  <CompilerVisibleProperty Include="OpenApiDotNetClientName" />
-</ItemGroup>
+```json
+{
+  "openApiFile": "OpenApi/petstore.json",
+  "namespace": "MyApp.Generated",
+  "namespacePrefix": "Commerce",
+  "overlayFiles": [
+    "OpenApi/remove-pets-post.overlay.json"
+  ],
+  "clientName": "PetStoreAPIClient",
+  "typeMappings": {
+    "string:date": "NodaTime.LocalDate",
+    "string:date-time": "NodaTime.Instant"
+  }
+}
 ```
 
 ### Current limitations
 
-- Source-generator mode does not create `.openapidotnet.json`
+- Source-generator mode does not create `.openapidotnet.json`; add it manually as an `AdditionalFiles` item if you want config-file-driven generation
+- `outputDirectory` and `generatedFiles` from `.openapidotnet.json` are ignored in source-generator mode
 - CLI-only features such as `update` and `convert` are not available through the analyzer
 - If more than one supported non-overlay OpenAPI file is included, the generator reports warning `OADNSG001` and uses the first matching file
+- If more than one `.openapidotnet.json` file is included, the generator reports error `OADNSG003`
 - Invalid or unreadable specs report error `OADNSG002`
 
 ## Usage

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using Microsoft.CodeAnalysis;
@@ -6,6 +7,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.OpenApi;
 using Microsoft.OpenApi.Reader;
+using OpenApiDotNet;
 
 namespace OpenApiDotNet.SourceGenerator;
 
@@ -28,12 +30,22 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    private static readonly DiagnosticDescriptor s_multipleConfigsDescriptor = new(
+        id: "OADNSG003",
+        title: "Multiple OpenApiDotNet configuration files found",
+        messageFormat: "Multiple '{0}' files found in AdditionalFiles. Include only one configuration file per project build.",
+        category: "OpenApiDotNet.SourceGenerator",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     private static readonly OpenApiReaderSettings s_readerSettings = CreateReaderSettings();
+    private static readonly StringComparer s_pathComparer = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        ? StringComparer.OrdinalIgnoreCase
+        : StringComparer.Ordinal;
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var specs = context.AdditionalTextsProvider
-            .Where(static file => IsSupportedSpec(file.Path))
+        var additionalFiles = context.AdditionalTextsProvider
             .Combine(context.AnalyzerConfigOptionsProvider)
             .Select(static (pair, _) =>
             {
@@ -43,41 +55,22 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
             })
             .Collect();
 
-        var combined = specs.Combine(context.AnalyzerConfigOptionsProvider);
-        context.RegisterSourceOutput(combined, static (productionContext, source) => Generate(productionContext, source.Left, source.Right));
+        context.RegisterSourceOutput(additionalFiles, static (productionContext, source) => Generate(productionContext, source));
     }
 
     private static void Generate(
         SourceProductionContext context,
-        ImmutableArray<(AdditionalText File, bool IsOverlay)> specs,
-        AnalyzerConfigOptionsProvider optionsProvider)
+        ImmutableArray<(AdditionalText File, bool IsOverlay)> additionalFiles)
     {
-        if (specs.IsDefaultOrEmpty)
+        if (additionalFiles.IsDefaultOrEmpty)
             return;
-
-        var primarySpecs = specs.Where(s => !s.IsOverlay).ToList();
-        var overlaySpecs = specs.Where(s => s.IsOverlay).ToList();
-
-        if (primarySpecs.Count == 0)
-        {
-            // All files marked as overlays, treat first as primary
-            primarySpecs.Add(specs[0]);
-            overlaySpecs.RemoveAt(0);
-        }
-
-        var primarySpec = primarySpecs[0].File;
-
-        if (primarySpecs.Count > 1)
-        {
-            context.ReportDiagnostic(Diagnostic.Create(
-                s_multipleSpecsDescriptor,
-                Location.None,
-                Path.GetFileName(primarySpec.Path)));
-        }
 
         try
         {
-            GenerateCore(context, primarySpec, overlaySpecs.Select(s => s.File).ToArray(), optionsProvider);
+            if (!TryResolveGenerationInputs(context, additionalFiles, out var primarySpec, out var overlays, out var config))
+                return;
+
+            GenerateCore(context, primarySpec, overlays, config);
         }
         catch (Exception ex)
         {
@@ -92,7 +85,7 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
         SourceProductionContext context,
         AdditionalText spec,
         AdditionalText[] overlays,
-        AnalyzerConfigOptionsProvider optionsProvider)
+        GenerationConfig? config)
     {
         var document = overlays.Length > 0
             ? LoadOpenApiDocumentWithOverlays(spec, overlays)
@@ -101,10 +94,11 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
         var provider = new InMemoryGeneratedFileProvider();
         var generator = new OpenApiGenerator(
             document,
-            GetRootNamespace(optionsProvider),
+            GetRootNamespace(config),
             provider,
-            clientName: GetClientName(optionsProvider),
-            typeMappingConfig: CreateTypeMappings(optionsProvider));
+            namespacePrefix: GetNamespacePrefix(config),
+            clientName: GetClientName(config),
+            typeMappingConfig: CreateTypeMappings(config));
 
         generator.Generate();
 
@@ -250,47 +244,197 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
         return settings;
     }
 
-    private static TypeMappingConfig CreateTypeMappings(AnalyzerConfigOptionsProvider optionsProvider)
+    private static bool TryResolveGenerationInputs(
+        SourceProductionContext context,
+        ImmutableArray<(AdditionalText File, bool IsOverlay)> additionalFiles,
+        out AdditionalText primarySpec,
+        out AdditionalText[] overlays,
+        out GenerationConfig? config)
+    {
+        primarySpec = null!;
+        overlays = [];
+        config = null;
+
+        var configFiles = additionalFiles
+            .Where(static entry => IsGenerationConfigFile(entry.File.Path))
+            .Select(static entry => entry.File)
+            .ToList();
+
+        if (configFiles.Count > 1)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                s_multipleConfigsDescriptor,
+                Location.None,
+                GenerationConfig.FileName));
+            return false;
+        }
+
+        var configFile = configFiles.SingleOrDefault();
+        if (configFile is not null)
+            config = LoadGenerationConfig(configFile);
+
+        var specs = additionalFiles
+            .Where(static entry => IsSupportedSpec(entry.File.Path))
+            .ToList();
+
+        if (specs.Count == 0)
+            return false;
+
+        var specLookup = specs.ToDictionary(static entry => GetNormalizedPath(entry.File.Path), static entry => entry.File, s_pathComparer);
+        AdditionalText? configuredPrimarySpec = null;
+        var configuredOverlayFiles = new List<AdditionalText>();
+        var configuredOverlayPaths = new HashSet<string>(s_pathComparer);
+
+        if (configFile is not null && config is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(config.OpenApiFile))
+            {
+                configuredPrimarySpec = ResolveConfiguredFile(
+                    specLookup,
+                    configFile.Path,
+                    config.OpenApiFile,
+                    nameof(GenerationConfig.OpenApiFile));
+            }
+
+            foreach (var overlayPath in config.OverlayFiles)
+            {
+                var overlayFile = ResolveConfiguredFile(
+                    specLookup,
+                    configFile.Path,
+                    overlayPath,
+                    nameof(GenerationConfig.OverlayFiles));
+                var normalizedOverlayPath = GetNormalizedPath(overlayFile.Path);
+
+                if (configuredPrimarySpec is not null
+                    && s_pathComparer.Equals(normalizedOverlayPath, GetNormalizedPath(configuredPrimarySpec.Path)))
+                {
+                    throw new InvalidOperationException(
+                        $"Configuration file '{configFile.Path}' cannot use '{overlayPath}' as both '{nameof(GenerationConfig.OpenApiFile)}' and '{nameof(GenerationConfig.OverlayFiles)}'.");
+                }
+
+                configuredOverlayFiles.Add(overlayFile);
+                configuredOverlayPaths.Add(normalizedOverlayPath);
+            }
+        }
+
+        var overlayFiles = new List<AdditionalText>(configuredOverlayFiles);
+        foreach (var spec in specs)
+        {
+            var normalizedSpecPath = GetNormalizedPath(spec.File.Path);
+            if (!spec.IsOverlay || configuredOverlayPaths.Contains(normalizedSpecPath))
+                continue;
+
+            if (configuredPrimarySpec is not null
+                && s_pathComparer.Equals(normalizedSpecPath, GetNormalizedPath(configuredPrimarySpec.Path)))
+            {
+                continue;
+            }
+
+            overlayFiles.Add(spec.File);
+        }
+
+        if (configuredPrimarySpec is null)
+        {
+            var overlayPathSet = new HashSet<string>(overlayFiles.Select(static file => GetNormalizedPath(file.Path)), s_pathComparer);
+            var primarySpecs = specs
+                .Where(entry => !overlayPathSet.Contains(GetNormalizedPath(entry.File.Path)))
+                .ToList();
+
+            if (primarySpecs.Count == 0)
+            {
+                configuredPrimarySpec = specs[0].File;
+                overlayFiles = overlayFiles
+                    .Where(file => !s_pathComparer.Equals(GetNormalizedPath(file.Path), GetNormalizedPath(configuredPrimarySpec.Path)))
+                    .ToList();
+            }
+            else
+            {
+                configuredPrimarySpec = primarySpecs[0].File;
+            }
+        }
+
+        overlayFiles = overlayFiles
+            .Where(file => !s_pathComparer.Equals(GetNormalizedPath(file.Path), GetNormalizedPath(configuredPrimarySpec.Path)))
+            .ToList();
+
+        var remainingPrimarySpecs = specs
+            .Count(entry =>
+                !s_pathComparer.Equals(GetNormalizedPath(entry.File.Path), GetNormalizedPath(configuredPrimarySpec.Path))
+                && !overlayFiles.Any(file => s_pathComparer.Equals(GetNormalizedPath(file.Path), GetNormalizedPath(entry.File.Path))));
+
+        if (remainingPrimarySpecs > 0)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                s_multipleSpecsDescriptor,
+                Location.None,
+                Path.GetFileName(configuredPrimarySpec.Path)));
+        }
+
+        primarySpec = configuredPrimarySpec;
+        overlays = overlayFiles.ToArray();
+        return true;
+    }
+
+    private static GenerationConfig LoadGenerationConfig(AdditionalText configFile)
+    {
+        var sourceText = configFile.GetText();
+        if (sourceText is null)
+            throw new InvalidOperationException($"Unable to read OpenApiDotNet configuration '{configFile.Path}'.");
+
+        return JsonSerializer.Deserialize<GenerationConfig>(sourceText.ToString())
+            ?? throw new InvalidOperationException($"Unable to parse OpenApiDotNet configuration '{configFile.Path}'.");
+    }
+
+    private static AdditionalText ResolveConfiguredFile(
+        IReadOnlyDictionary<string, AdditionalText> filesByPath,
+        string configPath,
+        string configuredPath,
+        string propertyName)
+    {
+        if (string.IsNullOrWhiteSpace(configuredPath))
+            throw new InvalidOperationException($"Configuration file '{configPath}' contains an empty '{propertyName}' value.");
+
+        var resolvedPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(configPath) ?? string.Empty, configuredPath));
+        if (filesByPath.TryGetValue(resolvedPath, out var file))
+            return file;
+
+        throw new InvalidOperationException(
+            $"Configuration file '{configPath}' references '{configuredPath}', but that file was not included as an AdditionalFiles item.");
+    }
+
+    private static string GetNormalizedPath(string path) => Path.GetFullPath(path);
+
+    private static TypeMappingConfig CreateTypeMappings(GenerationConfig? config)
     {
         var typeMappings = TypeMappingConfig.GetDefaults();
-        if (!TryGetBooleanOption(optionsProvider.GlobalOptions, "build_property.openapidotnetusenodatime", out var useNodaTime) || !useNodaTime)
-            return new TypeMappingConfig(typeMappings);
-
-        foreach (var mapping in TypeMappingConfig.GetNodaTimeOverrides())
-            typeMappings[mapping.Key] = mapping.Value;
+        if (config?.TypeMappings is not null)
+        {
+            foreach (var mapping in config.TypeMappings)
+                typeMappings[mapping.Key] = mapping.Value;
+        }
 
         return new TypeMappingConfig(typeMappings);
     }
 
-    private static string GetRootNamespace(AnalyzerConfigOptionsProvider optionsProvider)
+    private static string GetRootNamespace(GenerationConfig? config)
     {
-        if (optionsProvider.GlobalOptions.TryGetValue("build_property.rootnamespace", out var rootNamespace)
-            && !string.IsNullOrWhiteSpace(rootNamespace))
-        {
-            return rootNamespace;
-        }
+        if (!string.IsNullOrWhiteSpace(config?.Namespace))
+            return config!.Namespace!;
 
         return "GeneratedClient";
     }
 
-    private static string? GetClientName(AnalyzerConfigOptionsProvider optionsProvider)
+    private static string? GetNamespacePrefix(GenerationConfig? config) =>
+        string.IsNullOrWhiteSpace(config?.NamespacePrefix)
+            ? null
+            : config!.NamespacePrefix!;
+
+    private static string? GetClientName(GenerationConfig? config)
     {
-        if (optionsProvider.GlobalOptions.TryGetValue("build_property.openapidotnetclientname", out var clientName)
-            && !string.IsNullOrWhiteSpace(clientName))
-        {
-            return clientName;
-        }
+        if (!string.IsNullOrWhiteSpace(config?.ClientName))
+            return config!.ClientName!;
 
         return null;
-    }
-
-    private static bool TryGetBooleanOption(AnalyzerConfigOptions options, string key, out bool value)
-    {
-        if (options.TryGetValue(key, out var rawValue) && bool.TryParse(rawValue, out value))
-            return true;
-
-        value = false;
-        return false;
     }
 
     private static string? DetectFormat(string path) =>
@@ -298,8 +442,12 @@ public sealed class OpenApiSourceGenerator : IIncrementalGenerator
             ? "yaml"
             : null;
 
+    private static bool IsGenerationConfigFile(string path) =>
+        string.Equals(Path.GetFileName(path), GenerationConfig.FileName, StringComparison.OrdinalIgnoreCase);
+
     private static bool IsSupportedSpec(string path) =>
-        path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+        !IsGenerationConfigFile(path)
+        && (path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
         || path.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase)
-        || path.EndsWith(".yml", StringComparison.OrdinalIgnoreCase);
+        || path.EndsWith(".yml", StringComparison.OrdinalIgnoreCase));
 }
