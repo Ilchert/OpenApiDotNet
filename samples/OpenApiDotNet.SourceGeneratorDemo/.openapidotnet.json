@@ -1,0 +1,8 @@
+{
+  "openApiFile": "../../tests/OpenApiDotNet.Tests/Fixtures/petstore.json",
+  "namespace": "OpenApiDotNet.SourceGeneratorDemo",
+  "overlayFiles": [
+    "../../tests/OpenApiDotNet.Tests/Fixtures/remove-pets-post.overlay.json"
+  ],
+  "clientName": "PetStoreAPIClient"
+}

@@ -75,8 +75,10 @@ internal class OpenApiGenerator
         if (_document.Components?.Schemas == null)
             return;
 
-        foreach (var (name, schema) in _document.Components.Schemas)
+        foreach (var schemaEntry in _document.Components.Schemas)
         {
+            var name = schemaEntry.Key;
+            var schema = schemaEntry.Value;
             if (schema.Enum?.Count > 0)
                 generators.Add(new EnumGenerator(name, schema, context));
             else
@@ -89,7 +91,7 @@ internal class OpenApiGenerator
         var relativePath = typeInfo.FullName.Replace('.', Path.DirectorySeparatorChar) + ".cs";
         var nsPrefix = _namespace.Replace('.', Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (relativePath.StartsWith(nsPrefix))
-            relativePath = relativePath[nsPrefix.Length..];
+            relativePath = relativePath.Substring(nsPrefix.Length);
 
         return relativePath;
     }

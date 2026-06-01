@@ -24,11 +24,11 @@ internal class BuilderGenerator : BaseGenerator
             ParameterFieldName = $"_{rawCamelName}";
         }
 
-        foreach (var (_, child) in node.Children)
-            Properties.Add(BuilderPropertyGenerator.Create(child, context));
+        foreach (var childEntry in node.Children)
+            Properties.Add(BuilderPropertyGenerator.Create(childEntry.Value, context));
 
-        foreach (var (method, operation) in node.Operations)
-            Operations.Add(new BuilderOperationGenerator(method, operation, context));
+        foreach (var operationEntry in node.Operations)
+            Operations.Add(new BuilderOperationGenerator(operationEntry.Method, operationEntry.Operation, context));
     }
 
     public override void Write(CodeWriter writer)

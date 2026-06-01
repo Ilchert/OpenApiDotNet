@@ -120,7 +120,7 @@ if (queryString.Count > 0)
         {
             writer.WriteLine("var response = await Client.HttpClient.DeleteAsync(url, cancellationToken);");
         }
-        else if (_httpMethod == HttpMethod.Patch)
+        else if (string.Equals(_httpMethod.Method, "PATCH", StringComparison.OrdinalIgnoreCase))
         {
             writer.WriteLine(hasBody
                 ? $"var response = await System.Net.Http.Json.HttpClientJsonExtensions.PatchAsJsonAsync(Client.HttpClient, url, {_bodyGenerator!.ParameterName}, Client.JsonOptions, cancellationToken);"

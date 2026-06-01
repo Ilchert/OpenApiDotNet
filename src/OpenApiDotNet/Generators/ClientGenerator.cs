@@ -20,11 +20,11 @@ internal class ClientGenerator : BaseGenerator
         PathTreeRoot = PathTreeBuilder.Build(document.Paths, context);
 
         // root level operations and properties are added directly to the client interface
-        foreach (var (_, child) in PathTreeRoot.Children)
-            Properties.Add(BuilderPropertyGenerator.Create(child, context));
+        foreach (var childEntry in PathTreeRoot.Children)
+            Properties.Add(BuilderPropertyGenerator.Create(childEntry.Value, context));
 
-        foreach (var (method, operation) in PathTreeRoot.Operations)
-            Operations.Add(new BuilderOperationGenerator(method, operation, context));
+        foreach (var operationEntry in PathTreeRoot.Operations)
+            Operations.Add(new BuilderOperationGenerator(operationEntry.Method, operationEntry.Operation, context));
     }
 
     public override void Write(CodeWriter writer)

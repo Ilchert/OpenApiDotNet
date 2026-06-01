@@ -19,7 +19,7 @@ internal static class NamingConventions
     public static string ToPascalCase(string input)
     {
         var words = input.Split(['-', '_', ' ', '.'], StringSplitOptions.RemoveEmptyEntries);
-        var result = string.Concat(words.Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
+        var result = string.Concat(words.Select(static w => char.ToUpperInvariant(w[0]) + w.Substring(1)));
 
         if (result.Length == 0)
             return "_unnamed";
@@ -34,7 +34,7 @@ internal static class NamingConventions
     {
         var pascal = ToPascalCase(input);
         if (string.IsNullOrEmpty(pascal)) return pascal;
-        var camel = char.ToLowerInvariant(pascal[0]) + pascal[1..];
+        var camel = char.ToLowerInvariant(pascal[0]) + pascal.Substring(1);
         return EscapeIfKeyword(camel);
     }
 

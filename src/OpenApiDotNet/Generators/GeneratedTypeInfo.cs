@@ -10,6 +10,8 @@ internal record GeneratedTypeInfo(string Namespace, string Name)
         if (lastDot < 0)
             return new GeneratedTypeInfo(string.Empty, fullyQualifiedName);
 
-        return new GeneratedTypeInfo(fullyQualifiedName[..lastDot], fullyQualifiedName[(lastDot + 1)..]);
+        return new GeneratedTypeInfo(
+            fullyQualifiedName.Substring(0, lastDot),
+            fullyQualifiedName.Substring(lastDot + 1));
     }
 }
