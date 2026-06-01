@@ -175,77 +175,39 @@ internal class GenerationService
 
     private async Task<OpenApiDocument> ApplyOverlaysAsync(IFileInfo openApiFile, IFileInfo[] overlayFiles)
     {
-        var readerSettings = new OverlayReaderSettings() { OpenApiSettings = s_openApiReaderSettings };
-
-        var overlayDocument = new OverlayDocument();
-
-        foreach (var overlayFile in overlayFiles)
-        {
-            var overlayDisplayPath = overlayFile.PhysicalPath ?? overlayFile.Name;
-            using var overlayStream = overlayFile.CreateReadStream();
-            var (overlay, diagnostic) = await OverlayDocument.LoadFromStreamAsync(overlayStream, DetectFormat(overlayFile.Name), readerSettings);
-            if (diagnostic?.Errors.Count > 0)
-            {
-                Logger.LogError("Errors found in overlay '{OverlayFile}':", overlayDisplayPath);
-                foreach (var error in diagnostic.Errors)
-                    Logger.LogError("  - {ErrorMessage}", error.Message);
-            }
-
-            if (diagnostic?.Warnings.Count > 0)
-            {
-                Logger.LogWarning("Warnings found in overlay '{OverlayFile}':", overlayDisplayPath);
-                foreach (var warning in diagnostic.Warnings)
-                    Logger.LogWarning("  - {WarningMessage}", warning.Message);
-            }
-
-            if (overlay != null)
-                overlayDocument = overlayDocument.CombineWith(overlay);
-        }
-
         using var openApiStream = openApiFile.CreateReadStream();
-        var (result, overlayDiagnostic) = await overlayDocument.ApplyToDocumentStreamAndLoadAsync(openApiStream, new Uri(openApiFile.PhysicalPath ?? "file:///document"), DetectFormat(openApiFile.Name), readerSettings);
 
-        if (overlayDiagnostic?.Errors.Count > 0)
+        var overlayStreams = overlayFiles.Select(f =>
         {
-            Logger.LogError("Errors found after applying overlays:");
-            foreach (var error in overlayDiagnostic.Errors)
-                Logger.LogError("  - {ErrorMessage}", error.Message);
-        }
+            var stream = f.CreateReadStream();
+            return (Stream: stream, Path: (string?)(f.PhysicalPath ?? f.Name));
+        }).ToList();
 
-        if (overlayDiagnostic?.Warnings.Count > 0)
+        try
         {
-            Logger.LogWarning("Warnings:");
-            foreach (var warning in overlayDiagnostic.Warnings)
-                Logger.LogWarning("  - {WarningMessage}", warning.Message);
+            return await OpenApiDocumentLoader.LoadWithOverlaysAsync(
+                openApiStream,
+                openApiFile.PhysicalPath ?? openApiFile.Name,
+                overlayStreams,
+                s_openApiReaderSettings,
+                onError: msg => Logger.LogError("{Message}", msg),
+                onWarning: msg => Logger.LogWarning("{Message}", msg));
         }
-
-        return result ?? throw new InvalidOperationException("Can not load document after applying overlays");
+        finally
+        {
+            foreach (var (stream, _) in overlayStreams)
+                stream.Dispose();
+        }
     }
 
     private async Task<OpenApiDocument> LoadOpenApiDocumentAsync(IFileInfo openApiFile)
     {
         using var stream = openApiFile.CreateReadStream();
-        var (document, diagnostic) = await OpenApiDocument.LoadAsync(stream, DetectFormat(openApiFile.Name), s_openApiReaderSettings);
-
-        if (diagnostic?.Errors.Count > 0)
-        {
-            Logger.LogError("Errors found in OpenAPI document:");
-            foreach (var error in diagnostic.Errors)
-                Logger.LogError("  - {ErrorMessage}", error.Message);
-        }
-
-        if (diagnostic?.Warnings.Count > 0)
-        {
-            Logger.LogWarning("Warnings:");
-            foreach (var warning in diagnostic.Warnings)
-                Logger.LogWarning("  - {WarningMessage}", warning.Message);
-        }
-
-        return document ?? throw new InvalidOperationException($"Can not load document from {openApiFile.PhysicalPath ?? openApiFile.Name}");
+        return await OpenApiDocumentLoader.LoadAsync(
+            stream,
+            openApiFile.PhysicalPath ?? openApiFile.Name,
+            s_openApiReaderSettings,
+            onError: msg => Logger.LogError("{Message}", msg),
+            onWarning: msg => Logger.LogWarning("{Message}", msg));
     }
-
-    private static string? DetectFormat(string fileName) =>
-        fileName.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase) || fileName.EndsWith(".yml", StringComparison.OrdinalIgnoreCase)
-            ? "yaml"
-            : null;
 }

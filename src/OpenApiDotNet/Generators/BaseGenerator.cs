@@ -32,7 +32,7 @@ internal abstract class BaseGenerator
             return;
         
         writer.WriteLine("/// <summary>");
-        foreach (var line in summary.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        foreach (var line in summary!.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
             writer.WriteLine($"/// {EscapeXmlComment(line)}");
         writer.WriteLine("/// </summary>");
     }

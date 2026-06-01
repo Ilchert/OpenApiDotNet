@@ -1,0 +1,88 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>14.0</LangVersion>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <NoWarn>$(NoWarn);RS1041;RS1036;RS2008</NoWarn>
+
+    <PackageId>OpenApiDotNet.SourceGenerator</PackageId>
+    <Version>0.11.0</Version>
+    <Description>Build-time OpenAPI client source generator for OpenApiDotNet</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/Ilchert/OpenApiDotNet</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Ilchert/OpenApiDotNet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>openapi;codegen;source-generator;analyzer;dotnet</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ILRepack.Lib.MSBuild.Task" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.OpenApi.YamlReader" PrivateAssets="all" />
+    <PackageReference Include="System.Text.Json" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\OpenApiDotNet\GenerationConfig.cs" Link="Shared\GenerationConfig.cs" />
+    <Compile Include="..\OpenApiDotNet\Generators\**\*.cs" Link="Shared\Generators\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\OpenApiDotNet\IO\IWritableFileInfo.cs" Link="Shared\IO\IWritableFileInfo.cs" />
+    <Compile Include="..\OpenApiDotNet\IO\IWritableFileProvider.cs" Link="Shared\IO\IWritableFileProvider.cs" />
+    <Compile Include="..\OpenApiDotNet\IO\WritableFileInfoExtensions.cs" Link="Shared\IO\WritableFileInfoExtensions.cs" />
+    <Compile Include="..\OpenApiDotNet\OpenApiGenerator.cs" Link="Shared\OpenApiGenerator.cs" />
+    <Compile Include="..\OpenApiDotNet\PathSegmentNode.cs" Link="Shared\PathSegmentNode.cs" />
+    <Compile Include="..\OpenApiDotNet\PathTreeBuilder.cs" Link="Shared\PathTreeBuilder.cs" />
+    <Compile Include="..\OpenApiDotNet\TypeMappingConfig.cs" Link="Shared\TypeMappingConfig.cs" />
+    <Compile Include="..\OpenApiDotNet\UnifiedPathJsonConverter.cs" Link="Shared\UnifiedPathJsonConverter.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(TargetPath)" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Link="README.md" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" Link="LICENSE" />
+  </ItemGroup>
+
+  <Target Name="RepackAnalyzerDependencies" AfterTargets="Build">
+    <ItemGroup>
+      <IlRepackInput Include="$(TargetPath)" />
+      <IlRepackInput Include="@(ReferenceCopyLocalPaths)"
+                     Condition="'%(ReferenceCopyLocalPaths.Filename)' != 'Microsoft.CodeAnalysis'
+                              and '%(ReferenceCopyLocalPaths.Filename)' != 'Microsoft.CodeAnalysis.CSharp'
+                              and '%(ReferenceCopyLocalPaths.Filename)' != 'System.Collections.Immutable'
+                              and '%(ReferenceCopyLocalPaths.Filename)' != 'System.Reflection.Metadata'" />
+      <IlRepackLibraryPath Include="$(TargetDir)" />
+      <IlRepackLibraryPath Include="@(ReferenceCopyLocalPaths->'%(RootDir)%(Directory)')" />
+    </ItemGroup>
+
+    <PropertyGroup>
+      <IlRepackOutputFile>$(IntermediateOutputPath)ilrepack\$(AssemblyName).dll</IlRepackOutputFile>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(IntermediateOutputPath)ilrepack" />
+
+    <ILRepack Parallel="true"
+              Internalize="true"
+              InputAssemblies="@(IlRepackInput)"
+              LibraryPath="@(IlRepackLibraryPath)"
+              OutputFile="$(IlRepackOutputFile)"
+              TargetKind="Dll"
+              Condition="'@(IlRepackInput->Count())' &gt; '1'" />
+
+    <Copy SourceFiles="$(IlRepackOutputFile)"
+          DestinationFiles="$(TargetPath)"
+          OverwriteReadOnlyFiles="true"
+          Condition="Exists('$(IlRepackOutputFile)')" />
+    <Delete Files="$(IlRepackOutputFile)" Condition="Exists('$(IlRepackOutputFile)')" />
+  </Target>
+
+</Project>

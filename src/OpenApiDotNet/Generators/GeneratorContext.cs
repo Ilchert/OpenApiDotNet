@@ -13,7 +13,7 @@ internal record GeneratorContext(
     public string? StripNamespacePrefix { get; } = StripNamespacePrefix switch
     {
         null => null,
-        _ when StripNamespacePrefix.EndsWith('.') => StripNamespacePrefix,
+        _ when StripNamespacePrefix.EndsWith(".", StringComparison.Ordinal) => StripNamespacePrefix,
         _ => StripNamespacePrefix + "."
     };
 
@@ -33,8 +33,8 @@ internal record GeneratorContext(
         var dotIndex = name.LastIndexOfAny(s_namespaceSeparators);
         if (dotIndex >= 0)
         {
-            var namespacePart = name[..dotIndex];
-            typeName = name[(dotIndex + 1)..];
+            var namespacePart = name.Substring(0, dotIndex);
+            typeName = name.Substring(dotIndex + 1);
             var segments = namespacePart.Split(s_namespaceSeparators, StringSplitOptions.RemoveEmptyEntries);
             namespaceSegments = namespaceSegments.Concat(segments.Select(NamingConventions.ToPascalCase));
         }
@@ -47,8 +47,8 @@ internal record GeneratorContext(
         if (string.IsNullOrEmpty(StripNamespacePrefix))
             return name;
 
-        return name.StartsWith(StripNamespacePrefix, StringComparison.Ordinal)
-            ? name[StripNamespacePrefix.Length..]
+        return name.StartsWith(StripNamespacePrefix!, StringComparison.Ordinal)
+            ? name.Substring(StripNamespacePrefix!.Length)
             : name;
     }
 
