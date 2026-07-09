@@ -674,6 +674,198 @@ public class OpenApiGeneratorTests
     }
 
     [Fact]
+    public void Generate_WithNullableResponseType_DoesNotThrowOnNullResponse()
+    {
+        var spec = """
+            {
+              "openapi": "3.1.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items/{id}": {
+                  "get": {
+                    "operationId": "getItem",
+                    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+                    "responses": {
+                      "200": {
+                        "description": "OK",
+                        "content": {
+                          "application/json": {
+                            "schema": { "type": ["string", "null"] }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Builders/Items/IdBuilder.cs"];
+
+        // Return type should be nullable string
+        Assert.Contains("System.Threading.Tasks.Task<string?>", content);
+
+        // Should directly return without null check/exception
+        Assert.Contains("return await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<string>(response.Content, Client.JsonOptions, cancellationToken);", content);
+
+        // Should NOT contain the throw statement
+        Assert.DoesNotContain("throw new System.InvalidOperationException", content);
+    }
+
+    [Fact]
+    public void Generate_WithNullableObjectResponseType_DoesNotThrowOnNullResponse()
+    {
+        var spec = """
+            {
+              "openapi": "3.1.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/pets/{id}": {
+                  "get": {
+                    "operationId": "getPet",
+                    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+                    "responses": {
+                      "200": {
+                        "description": "OK",
+                        "content": {
+                          "application/json": {
+                            "schema": {
+                              "type": ["object", "null"],
+                              "properties": {
+                                "name": { "type": "string" }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Builders/Pets/IdBuilder.cs"];
+
+        // Return type should be nullable
+        Assert.Contains("System.Threading.Tasks.Task<GetResponse?>", content);
+
+        // Should directly return without null check/exception
+        Assert.DoesNotContain("throw new System.InvalidOperationException", content);
+    }
+
+    [Fact]
+    public void Generate_WithNullableTrue_OpenApi30Syntax_ReturnsNullableType()
+    {
+        var spec = """
+            {
+              "openapi": "3.0.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items/{id}": {
+                  "get": {
+                    "operationId": "getItem",
+                    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+                    "responses": {
+                      "200": {
+                        "description": "OK",
+                        "content": {
+                          "application/json": {
+                            "schema": { "type": "string", "nullable": true }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Builders/Items/IdBuilder.cs"];
+
+        // Return type should be nullable string
+        Assert.Contains("System.Threading.Tasks.Task<string?>", content);
+
+        // Should directly return without null check/exception
+        Assert.Contains("return await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<string>(response.Content, Client.JsonOptions, cancellationToken);", content);
+
+        // Should NOT contain the throw statement
+        Assert.DoesNotContain("throw new System.InvalidOperationException", content);
+    }
+
+    [Fact]
+    public void Generate_WithNullableEnumResponseType_ReturnsNullableEnumType()
+    {
+        var spec = """
+            {
+              "openapi": "3.1.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/pets/{id}/status": {
+                  "get": {
+                    "operationId": "getPetStatus",
+                    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+                    "responses": {
+                      "200": {
+                        "description": "OK",
+                        "content": {
+                          "application/json": {
+                            "schema": {
+                              "oneOf": [
+                                { "$ref": "#/components/schemas/PetStatus" },
+                                { "type": "null" }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "PetStatus": {
+                    "type": "string",
+                    "enum": ["active", "inactive", "unknown"]
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Builders/Pets/Id/StatusBuilder.cs"];
+
+        // Return type should be nullable enum type
+        Assert.Contains("System.Threading.Tasks.Task<Test.Client.Models.PetStatus?>", content);
+
+        // Should NOT contain the throw statement for nullable responses
+        Assert.DoesNotContain("throw new System.InvalidOperationException", content);
+
+        // Enum model should be generated
+        var enumContent = _output.Files["Models/PetStatus.cs"];
+        Assert.Contains("public enum PetStatus", enumContent);
+        Assert.Contains("[System.Text.Json.Serialization.JsonStringEnumMemberName(\"active\")]", enumContent);
+        Assert.Contains("Active,", enumContent);
+        Assert.Contains("Inactive,", enumContent);
+        Assert.Contains("Unknown,", enumContent);
+    }
+
+    [Fact]
     public void Constructor_WithNullDocument_ThrowsArgumentNullException()
     {
         // Act

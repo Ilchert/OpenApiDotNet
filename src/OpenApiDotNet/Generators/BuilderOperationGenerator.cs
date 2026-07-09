@@ -152,12 +152,19 @@ var response = await Client.HttpClient.SendAsync(requestMessage, cancellationTok
 
         if (_responseGenerator.ResponseType != "void")
         {
-            writer.WriteLine($$"""
+            if (_responseGenerator.IsNullable)
+            {
+                writer.WriteLine($"return await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<{_responseGenerator.ResponseType}>(response.Content, Client.JsonOptions, cancellationToken);");
+            }
+            else
+            {
+                writer.WriteLine($$"""
 var deserializedResponse = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<{{_responseGenerator.ResponseType}}>(response.Content, Client.JsonOptions, cancellationToken);
 if (deserializedResponse is { } deserializedResponseValue)
     return deserializedResponseValue;
 throw new System.InvalidOperationException($"Response from {url} is null");
 """);
+            }
         }
     }
 }
