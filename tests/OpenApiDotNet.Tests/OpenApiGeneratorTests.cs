@@ -805,7 +805,7 @@ public class OpenApiGeneratorTests
     }
 
     [Fact]
-    public void Generate_WithEnumResponseType_ReturnsEnumType()
+    public void Generate_WithNullableEnumResponseType_ReturnsNullableEnumType()
     {
         var spec = """
             {
@@ -821,7 +821,12 @@ public class OpenApiGeneratorTests
                         "description": "OK",
                         "content": {
                           "application/json": {
-                            "schema": { "$ref": "#/components/schemas/PetStatus" }
+                            "schema": {
+                              "oneOf": [
+                                { "$ref": "#/components/schemas/PetStatus" },
+                                { "type": "null" }
+                              ]
+                            }
                           }
                         }
                       }
@@ -845,8 +850,11 @@ public class OpenApiGeneratorTests
 
         var content = _output.Files["Builders/Pets/Id/StatusBuilder.cs"];
 
-        // Return type should be the enum type
-        Assert.Contains("System.Threading.Tasks.Task<Test.Client.Models.PetStatus>", content);
+        // Return type should be nullable enum type
+        Assert.Contains("System.Threading.Tasks.Task<Test.Client.Models.PetStatus?>", content);
+
+        // Should NOT contain the throw statement for nullable responses
+        Assert.DoesNotContain("throw new System.InvalidOperationException", content);
 
         // Enum model should be generated
         var enumContent = _output.Files["Models/PetStatus.cs"];

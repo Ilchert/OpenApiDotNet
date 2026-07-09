@@ -17,14 +17,15 @@ internal class ResponseGenerator
             return;
         }
         IsNullable = schema.IsNullableSchema();
-        if (schema.IsInlineObjectSchema())
+        var resolvedSchema = schema.UnwrapNullableOneOf();
+        if (resolvedSchema.IsInlineObjectSchema())
         {
             ResponseType = $"{methodName}Response";
-            NestedClassGenerator = new ObjectGenerator(ResponseType, schema, context);
+            NestedClassGenerator = new ObjectGenerator(ResponseType, resolvedSchema, context);
         }
         else
         {
-            ResponseType = context.GetCSharpType(schema).FullName;
+            ResponseType = context.GetCSharpType(resolvedSchema).FullName;
         }
     }
 }
