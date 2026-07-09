@@ -411,6 +411,36 @@
           }
         }
       }
+    },
+    "/pets/{petId}/nickname": {
+      "get": {
+        "operationId": "getPetNickname",
+        "summary": "Tests: nullable response type (type includes null); returns nullable string without throwing on null",
+        "parameters": [
+          {
+            "name": "petId",
+            "in": "path",
+            "required": true,
+            "description": "The id of the pet",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pet's nickname, or null if not set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": ["string", "null"]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

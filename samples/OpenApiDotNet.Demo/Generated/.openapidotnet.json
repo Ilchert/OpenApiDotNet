@@ -53,6 +53,7 @@
     "Builders/Pets/IdBuilder.cs",
     "Builders/Pets/Id/PhotosBuilder.cs",
     "Builders/Pets/Id/Photos/IdBuilder.cs",
+    "Builders/Pets/Id/NicknameBuilder.cs",
     "Builders/Pets/CountBuilder.cs",
     "Builders/ReportsBuilder.cs",
     "Builders/OwnersBuilder.cs",

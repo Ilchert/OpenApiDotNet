@@ -24,6 +24,8 @@ public partial class IdBuilder : IOpenApiBuilder
 
     public virtual PetStore.Builders.Pets.Id.PhotosBuilder Photos => new(this);
 
+    public virtual PetStore.Builders.Pets.Id.NicknameBuilder Nickname => new(this);
+
     /// <summary>
     /// Tests: GET operation; single int64 path parameter; $ref response body
     /// </summary>
