@@ -45,7 +45,7 @@ public class TypeMappingConfig
         return null;
     }
 
-    private static string? SchemaTypeToString(JsonSchemaType type) => type switch
+    private static string? SchemaTypeToString(JsonSchemaType type) => (type & ~JsonSchemaType.Null) switch
     {
         JsonSchemaType.String => "string",
         JsonSchemaType.Integer => "integer",

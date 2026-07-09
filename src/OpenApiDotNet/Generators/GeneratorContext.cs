@@ -62,7 +62,8 @@ internal record GeneratorContext(
         if (resolved != null)
             return GeneratedTypeInfo.FromFullyQualified(resolved);
 
-        return schema.Type switch
+        var typeWithoutNull = schema.Type.HasValue ? schema.Type.Value & ~JsonSchemaType.Null : (JsonSchemaType?)null;
+        return typeWithoutNull switch
         {
             JsonSchemaType.Array when schema.Items != null => new GeneratedTypeInfo("System.Collections.Generic", $"List<{GetCSharpType(schema.Items).FullName}>"),
             JsonSchemaType.Array => new GeneratedTypeInfo("System.Collections.Generic", "List<object>"),

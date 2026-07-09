@@ -4,8 +4,9 @@ namespace OpenApiDotNet.Generators;
 
 internal class ResponseGenerator
 {
-    public string AsyncResponseType => ResponseType == "void" ? "System.Threading.Tasks.Task" : $"System.Threading.Tasks.Task<{ResponseType}>";
+    public string AsyncResponseType => ResponseType == "void" ? "System.Threading.Tasks.Task" : $"System.Threading.Tasks.Task<{ResponseType}{(IsNullable ? "?" : "")}>";
     public string ResponseType { get; }
+    public bool IsNullable { get; }
     public BaseGenerator? NestedClassGenerator { get; }
     public ResponseGenerator(IOpenApiResponse response, string methodName, GeneratorContext context)
     {
@@ -15,6 +16,7 @@ internal class ResponseGenerator
             ResponseType = "void";
             return;
         }
+        IsNullable = schema.IsNullableSchema();
         if (schema.IsInlineObjectSchema())
         {
             ResponseType = $"{methodName}Response";

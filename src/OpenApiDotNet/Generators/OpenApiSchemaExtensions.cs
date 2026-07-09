@@ -15,10 +15,16 @@ internal static class OpenApiSchemaExtensions
         return null;
     }
 
+    public static bool IsNullableSchema(this IOpenApiSchema? schema)
+    {
+        if (schema == null) return false;
+        return schema.Type.HasValue && schema.Type.Value.HasFlag(JsonSchemaType.Null);
+    }
+
     public static bool IsInlineObjectSchema(this IOpenApiSchema? schema)
     {
         if (schema == null) return false;
         if (schema.GetSchemaName() != null) return false;
-        return schema.Type == JsonSchemaType.Object && schema.Properties?.Count > 0;
+        return schema.Type.HasValue && schema.Type.Value.HasFlag(JsonSchemaType.Object) && schema.Properties?.Count > 0;
     }
 }

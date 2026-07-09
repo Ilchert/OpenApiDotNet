@@ -674,6 +674,94 @@ public class OpenApiGeneratorTests
     }
 
     [Fact]
+    public void Generate_WithNullableResponseType_DoesNotThrowOnNullResponse()
+    {
+        var spec = """
+            {
+              "openapi": "3.1.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/items/{id}": {
+                  "get": {
+                    "operationId": "getItem",
+                    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }],
+                    "responses": {
+                      "200": {
+                        "description": "OK",
+                        "content": {
+                          "application/json": {
+                            "schema": { "type": ["string", "null"] }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Builders/Items/IdBuilder.cs"];
+
+        // Return type should be nullable string
+        Assert.Contains("System.Threading.Tasks.Task<string?>", content);
+
+        // Should directly return without null check/exception
+        Assert.Contains("return await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<string>(response.Content, Client.JsonOptions, cancellationToken);", content);
+
+        // Should NOT contain the throw statement
+        Assert.DoesNotContain("throw new System.InvalidOperationException", content);
+    }
+
+    [Fact]
+    public void Generate_WithNullableObjectResponseType_DoesNotThrowOnNullResponse()
+    {
+        var spec = """
+            {
+              "openapi": "3.1.0",
+              "info": { "title": "Test", "version": "1.0.0" },
+              "paths": {
+                "/pets/{id}": {
+                  "get": {
+                    "operationId": "getPet",
+                    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+                    "responses": {
+                      "200": {
+                        "description": "OK",
+                        "content": {
+                          "application/json": {
+                            "schema": {
+                              "type": ["object", "null"],
+                              "properties": {
+                                "name": { "type": "string" }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        var generator = CreateGenerator(spec);
+
+        generator.Generate();
+
+        var content = _output.Files["Builders/Pets/IdBuilder.cs"];
+
+        // Return type should be nullable
+        Assert.Contains("System.Threading.Tasks.Task<GetResponse?>", content);
+
+        // Should directly return without null check/exception
+        Assert.DoesNotContain("throw new System.InvalidOperationException", content);
+    }
+
+    [Fact]
     public void Constructor_WithNullDocument_ThrowsArgumentNullException()
     {
         // Act

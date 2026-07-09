@@ -16,7 +16,7 @@ internal class ObjectGenerator : BaseGenerator
     {
         _schema = schema;
         TypeInfo = Context.GetNameAndNamespace(name, GeneratorCategory.Model);
-        if (_schema.Type is not JsonSchemaType.Object)
+        if (!_schema.Type.HasValue || !_schema.Type.Value.HasFlag(JsonSchemaType.Object))
             throw new InvalidOperationException("Schema is not of type Object.");
 
         Description = _schema.Description;
