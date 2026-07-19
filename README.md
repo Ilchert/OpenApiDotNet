@@ -1,5 +1,7 @@
 # OpenAPI .NET Client Generator
 
+[![NuGet](https://img.shields.io/nuget/v/openapi-dotnet-generator.svg)](https://www.nuget.org/packages/openapi-dotnet-generator)
+
 A modern OpenAPI/Swagger client code generator for .NET that produces high-quality, strongly-typed HTTP clients using built-in .NET types by default, with optional NodaTime support for date and time handling.
 
 ## Features
